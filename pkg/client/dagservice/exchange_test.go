@@ -3,17 +3,17 @@ package dagservice_test
 import (
 	"testing"
 
+	"github.com/fil-forge/go-libstoracha/blobindex"
+	assertcap "github.com/fil-forge/go-libstoracha/capabilities/assert"
+	captypes "github.com/fil-forge/go-libstoracha/capabilities/types"
+	stestutil "github.com/fil-forge/go-libstoracha/testutil"
+	"github.com/fil-forge/go-ucanto/did"
+	"github.com/fil-forge/go-ucanto/ucan"
+	"github.com/fil-forge/guppy/pkg/client/dagservice"
+	"github.com/fil-forge/guppy/pkg/client/locator"
+	ctestutil "github.com/fil-forge/guppy/pkg/client/testutil"
 	"github.com/ipfs/go-cid"
 	mh "github.com/multiformats/go-multihash"
-	"github.com/storacha/go-libstoracha/blobindex"
-	assertcap "github.com/storacha/go-libstoracha/capabilities/assert"
-	captypes "github.com/storacha/go-libstoracha/capabilities/types"
-	stestutil "github.com/storacha/go-libstoracha/testutil"
-	"github.com/storacha/go-ucanto/did"
-	"github.com/storacha/go-ucanto/ucan"
-	"github.com/storacha/guppy/pkg/client/dagservice"
-	"github.com/storacha/guppy/pkg/client/locator"
-	ctestutil "github.com/storacha/guppy/pkg/client/testutil"
 	"github.com/stretchr/testify/require"
 )
 

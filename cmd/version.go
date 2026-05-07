@@ -5,7 +5,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/storacha/guppy/pkg/build"
+	"github.com/fil-forge/guppy/pkg/build"
 )
 
 var versionCmd = &cobra.Command{

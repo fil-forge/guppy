@@ -17,10 +17,10 @@ COPY . .
 
 RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build \
     -ldflags="-s -w \
-      -X github.com/storacha/guppy/pkg/build.version=${VERSION} \
-      -X github.com/storacha/guppy/pkg/build.Commit=${COMMIT} \
-      -X github.com/storacha/guppy/pkg/build.Date=${DATE} \
-      -X github.com/storacha/guppy/pkg/build.BuiltBy=${BUILT_BY}" \
+      -X github.com/fil-forge/guppy/pkg/build.version=${VERSION} \
+      -X github.com/fil-forge/guppy/pkg/build.Commit=${COMMIT} \
+      -X github.com/fil-forge/guppy/pkg/build.Date=${DATE} \
+      -X github.com/fil-forge/guppy/pkg/build.BuiltBy=${BUILT_BY}" \
     -o /app .
 
 # Runtime stage — alpine ships wget, CA certs, /bin/sh, and the nobody user

@@ -19,18 +19,18 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/dustin/go-humanize"
+	"github.com/fil-forge/go-libstoracha/digestutil"
 	"github.com/ipfs/go-cid"
 	"github.com/mattn/go-isatty"
 	"github.com/muesli/termenv"
-	"github.com/storacha/go-libstoracha/digestutil"
 
-	"github.com/storacha/guppy/pkg/bus"
-	"github.com/storacha/guppy/pkg/bus/events"
-	"github.com/storacha/guppy/pkg/preparation"
-	"github.com/storacha/guppy/pkg/preparation/sqlrepo"
-	"github.com/storacha/guppy/pkg/preparation/types"
-	"github.com/storacha/guppy/pkg/preparation/types/id"
-	uploadsmodel "github.com/storacha/guppy/pkg/preparation/uploads/model"
+	"github.com/fil-forge/guppy/pkg/bus"
+	"github.com/fil-forge/guppy/pkg/bus/events"
+	"github.com/fil-forge/guppy/pkg/preparation"
+	"github.com/fil-forge/guppy/pkg/preparation/sqlrepo"
+	"github.com/fil-forge/guppy/pkg/preparation/types"
+	"github.com/fil-forge/guppy/pkg/preparation/types/id"
+	uploadsmodel "github.com/fil-forge/guppy/pkg/preparation/uploads/model"
 )
 
 var (

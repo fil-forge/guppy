@@ -3,7 +3,7 @@ package didmailto_test
 import (
 	"testing"
 
-	"github.com/storacha/guppy/pkg/didmailto"
+	"github.com/fil-forge/guppy/pkg/didmailto"
 	"github.com/stretchr/testify/require"
 )
 

@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 
-	uploadcap "github.com/storacha/go-libstoracha/capabilities/upload"
-	"github.com/storacha/go-ucanto/core/result"
-	"github.com/storacha/go-ucanto/did"
-	"github.com/storacha/guppy/pkg/client"
+	uploadcap "github.com/fil-forge/go-libstoracha/capabilities/upload"
+	"github.com/fil-forge/go-ucanto/core/result"
+	"github.com/fil-forge/go-ucanto/did"
+	"github.com/fil-forge/guppy/pkg/client"
 )
 
 // Error handling omitted for brevity.

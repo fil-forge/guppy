@@ -10,15 +10,15 @@ import (
 	"slices"
 	"sync"
 
+	"github.com/fil-forge/go-libstoracha/blobindex"
+	"github.com/fil-forge/go-libstoracha/digestutil"
+	"github.com/fil-forge/go-ucanto/did"
+	"github.com/fil-forge/guppy/pkg/client/locator"
 	"github.com/ipfs/boxo/exchange"
 	blocks "github.com/ipfs/go-block-format"
 	"github.com/ipfs/go-cid"
 	logging "github.com/ipfs/go-log/v2"
 	mh "github.com/multiformats/go-multihash"
-	"github.com/storacha/go-libstoracha/blobindex"
-	"github.com/storacha/go-libstoracha/digestutil"
-	"github.com/storacha/go-ucanto/did"
-	"github.com/storacha/guppy/pkg/client/locator"
 )
 
 var log = logging.Logger("client/dagservice")

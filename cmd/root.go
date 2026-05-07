@@ -8,21 +8,21 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/fil-forge/guppy/cmd/blob"
+	"github.com/fil-forge/guppy/cmd/unixfs"
+	"github.com/fil-forge/guppy/pkg/presets"
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"github.com/storacha/guppy/cmd/blob"
-	"github.com/storacha/guppy/cmd/unixfs"
-	"github.com/storacha/guppy/pkg/presets"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
 
-	"github.com/storacha/guppy/cmd/account"
-	"github.com/storacha/guppy/cmd/delegation"
-	"github.com/storacha/guppy/cmd/gateway"
-	"github.com/storacha/guppy/cmd/proof"
-	"github.com/storacha/guppy/cmd/space"
-	"github.com/storacha/guppy/cmd/upload"
+	"github.com/fil-forge/guppy/cmd/account"
+	"github.com/fil-forge/guppy/cmd/delegation"
+	"github.com/fil-forge/guppy/cmd/gateway"
+	"github.com/fil-forge/guppy/cmd/proof"
+	"github.com/fil-forge/guppy/cmd/space"
+	"github.com/fil-forge/guppy/cmd/upload"
 )
 
 var (
@@ -52,7 +52,7 @@ func init() {
 	rootCmd.SetOut(os.Stdout)
 	rootCmd.SetErr(os.Stderr)
 
-	// default storacha dir: ~/.storacha/guppy
+	// default storacha dir: ~/.fil-forge/guppy
 	homedir, err := os.UserHomeDir()
 	if err != nil {
 		panic(fmt.Errorf("failed to get user home directory: %w", err))
@@ -62,8 +62,8 @@ func init() {
 
 	rootCmd.PersistentFlags().String(
 		"data-dir",
-		filepath.Join(homedir, ".storacha/guppy"),
-		"Directory containing the config and data store (default: ~/.storacha/guppy)",
+		filepath.Join(homedir, ".fil-forge/guppy"),
+		"Directory containing the config and data store (default: ~/.fil-forge/guppy)",
 	)
 	cobra.CheckErr(viper.BindPFlag("repo.data_dir", rootCmd.PersistentFlags().Lookup("data-dir")))
 

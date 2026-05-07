@@ -3,15 +3,15 @@ package cmd
 import (
 	"fmt"
 
+	uploadcap "github.com/fil-forge/go-libstoracha/capabilities/upload"
+	shardcap "github.com/fil-forge/go-libstoracha/capabilities/upload/shard"
+	"github.com/fil-forge/go-ucanto/core/delegation"
 	"github.com/mitchellh/go-wordwrap"
 	"github.com/spf13/cobra"
-	uploadcap "github.com/storacha/go-libstoracha/capabilities/upload"
-	shardcap "github.com/storacha/go-libstoracha/capabilities/upload/shard"
-	"github.com/storacha/go-ucanto/core/delegation"
 
-	"github.com/storacha/guppy/internal/cmdutil"
-	"github.com/storacha/guppy/pkg/client"
-	"github.com/storacha/guppy/pkg/config"
+	"github.com/fil-forge/guppy/internal/cmdutil"
+	"github.com/fil-forge/guppy/pkg/client"
+	"github.com/fil-forge/guppy/pkg/config"
 )
 
 var shardsPerPage uint64 = 1000

@@ -6,9 +6,9 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/storacha/go-ucanto/core/delegation"
-	"github.com/storacha/go-ucanto/principal"
-	ed25519 "github.com/storacha/go-ucanto/principal/ed25519/signer"
+	"github.com/fil-forge/go-ucanto/core/delegation"
+	"github.com/fil-forge/go-ucanto/principal"
+	ed25519 "github.com/fil-forge/go-ucanto/principal/ed25519/signer"
 )
 
 var _ Store = (*FsStore)(nil)

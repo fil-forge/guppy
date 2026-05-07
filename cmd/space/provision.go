@@ -6,9 +6,9 @@ import (
 	"github.com/mitchellh/go-wordwrap"
 	"github.com/spf13/cobra"
 
-	"github.com/storacha/guppy/internal/cmdutil"
-	"github.com/storacha/guppy/pkg/config"
-	"github.com/storacha/guppy/pkg/didmailto"
+	"github.com/fil-forge/guppy/internal/cmdutil"
+	"github.com/fil-forge/guppy/pkg/config"
+	"github.com/fil-forge/guppy/pkg/didmailto"
 )
 
 var provisionCmd = &cobra.Command{

@@ -1,10 +1,10 @@
 package agentstore
 
 import (
-	ucancap "github.com/storacha/go-libstoracha/capabilities/ucan"
-	"github.com/storacha/go-ucanto/core/delegation"
-	"github.com/storacha/go-ucanto/ucan"
-	"github.com/storacha/go-ucanto/validator"
+	ucancap "github.com/fil-forge/go-libstoracha/capabilities/ucan"
+	"github.com/fil-forge/go-ucanto/core/delegation"
+	"github.com/fil-forge/go-ucanto/ucan"
+	"github.com/fil-forge/go-ucanto/validator"
 )
 
 // Query returns delegations that match the given capability queries.

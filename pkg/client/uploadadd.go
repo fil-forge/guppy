@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 
+	uploadcap "github.com/fil-forge/go-libstoracha/capabilities/upload"
+	"github.com/fil-forge/go-ucanto/core/result"
+	"github.com/fil-forge/go-ucanto/did"
 	"github.com/ipld/go-ipld-prime"
-	uploadcap "github.com/storacha/go-libstoracha/capabilities/upload"
-	"github.com/storacha/go-ucanto/core/result"
-	"github.com/storacha/go-ucanto/did"
 )
 
 // UploadAdd registers an "upload" with the service. The issuer needs proof of

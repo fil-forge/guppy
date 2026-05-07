@@ -3,13 +3,13 @@ package model
 import (
 	"fmt"
 
+	"github.com/fil-forge/go-ucanto/core/invocation"
+	"github.com/fil-forge/guppy/pkg/client"
+	"github.com/fil-forge/guppy/pkg/preparation/types"
+	"github.com/fil-forge/guppy/pkg/preparation/types/id"
 	"github.com/ipfs/go-cid"
 	"github.com/multiformats/go-multicodec"
 	"github.com/multiformats/go-multihash"
-	"github.com/storacha/go-ucanto/core/invocation"
-	"github.com/storacha/guppy/pkg/client"
-	"github.com/storacha/guppy/pkg/preparation/types"
-	"github.com/storacha/guppy/pkg/preparation/types/id"
 )
 
 // BlobState represents the state of a blob (shard or index).

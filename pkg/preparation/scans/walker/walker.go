@@ -5,8 +5,8 @@ import (
 	"io/fs"
 	"path"
 
+	"github.com/fil-forge/guppy/pkg/preparation/scans/model"
 	logging "github.com/ipfs/go-log/v2"
-	"github.com/storacha/guppy/pkg/preparation/scans/model"
 )
 
 var log = logging.Logger("preparation/scans/walker")

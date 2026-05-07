@@ -11,9 +11,9 @@ import (
 
 	logging "github.com/ipfs/go-log/v2"
 
-	"github.com/storacha/guppy/cmd"
-	"github.com/storacha/guppy/internal/cmdutil"
-	"github.com/storacha/guppy/internal/telemetry"
+	"github.com/fil-forge/guppy/cmd"
+	"github.com/fil-forge/guppy/internal/cmdutil"
+	"github.com/fil-forge/guppy/internal/telemetry"
 )
 
 var log = logging.Logger("main")

@@ -5,7 +5,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/storacha/go-ucanto/did"
+	"github.com/fil-forge/go-ucanto/did"
 )
 
 // FromEmail converts an email address to a `did:mailto:` DID.

@@ -3,11 +3,11 @@ package client
 import (
 	"net/url"
 
-	uclient "github.com/storacha/go-ucanto/client"
-	"github.com/storacha/go-ucanto/did"
-	"github.com/storacha/go-ucanto/transport/car"
-	"github.com/storacha/go-ucanto/transport/http"
-	"github.com/storacha/guppy/pkg/receipt"
+	uclient "github.com/fil-forge/go-ucanto/client"
+	"github.com/fil-forge/go-ucanto/did"
+	"github.com/fil-forge/go-ucanto/transport/car"
+	"github.com/fil-forge/go-ucanto/transport/http"
+	"github.com/fil-forge/guppy/pkg/receipt"
 )
 
 var DefaultConnection uclient.Connection

@@ -3,8 +3,8 @@ package spaces
 import (
 	"context"
 
-	"github.com/storacha/go-ucanto/did"
-	"github.com/storacha/guppy/pkg/preparation/spaces/model"
+	"github.com/fil-forge/go-ucanto/did"
+	"github.com/fil-forge/guppy/pkg/preparation/spaces/model"
 )
 
 // API defines the interface for managing spaces.

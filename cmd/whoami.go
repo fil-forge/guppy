@@ -3,8 +3,8 @@ package cmd
 import (
 	"github.com/spf13/cobra"
 
-	"github.com/storacha/guppy/internal/cmdutil"
-	"github.com/storacha/guppy/pkg/config"
+	"github.com/fil-forge/guppy/internal/cmdutil"
+	"github.com/fil-forge/guppy/pkg/config"
 )
 
 var whoamiCmd = &cobra.Command{

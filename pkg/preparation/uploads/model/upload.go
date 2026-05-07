@@ -3,10 +3,10 @@ package model
 import (
 	"time"
 
+	"github.com/fil-forge/go-ucanto/did"
+	"github.com/fil-forge/guppy/pkg/preparation/types"
+	"github.com/fil-forge/guppy/pkg/preparation/types/id"
 	"github.com/ipfs/go-cid"
-	"github.com/storacha/go-ucanto/did"
-	"github.com/storacha/guppy/pkg/preparation/types"
-	"github.com/storacha/guppy/pkg/preparation/types/id"
 )
 
 // Upload represents the process of full or partial upload of data from a source, eventually represented as an upload in storacha.

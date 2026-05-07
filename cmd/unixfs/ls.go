@@ -9,16 +9,16 @@ import (
 	"text/tabwriter"
 	"time"
 
+	"github.com/fil-forge/go-libstoracha/capabilities/consumer"
+	"github.com/fil-forge/go-ucanto/core/delegation"
+	"github.com/fil-forge/go-ucanto/did"
+	"github.com/fil-forge/guppy/internal/cmdutil"
+	"github.com/fil-forge/guppy/pkg/client/dagservice"
+	"github.com/fil-forge/guppy/pkg/client/locator"
+	"github.com/fil-forge/guppy/pkg/config"
+	"github.com/fil-forge/guppy/pkg/dagfs"
 	"github.com/ipfs/go-cid"
 	"github.com/spf13/cobra"
-	"github.com/storacha/go-libstoracha/capabilities/consumer"
-	"github.com/storacha/go-ucanto/core/delegation"
-	"github.com/storacha/go-ucanto/did"
-	"github.com/storacha/guppy/internal/cmdutil"
-	"github.com/storacha/guppy/pkg/client/dagservice"
-	"github.com/storacha/guppy/pkg/client/locator"
-	"github.com/storacha/guppy/pkg/config"
-	"github.com/storacha/guppy/pkg/dagfs"
 )
 
 var lsFlags struct {

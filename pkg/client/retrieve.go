@@ -6,19 +6,19 @@ import (
 	"io"
 	"math/rand"
 
-	contentcap "github.com/storacha/go-libstoracha/capabilities/space/content"
-	captypes "github.com/storacha/go-libstoracha/capabilities/types"
-	"github.com/storacha/go-libstoracha/failure"
-	rclient "github.com/storacha/go-ucanto/client/retrieval"
-	"github.com/storacha/go-ucanto/core/dag/blockstore"
-	"github.com/storacha/go-ucanto/core/delegation"
-	"github.com/storacha/go-ucanto/core/receipt"
-	"github.com/storacha/go-ucanto/core/result"
-	"github.com/storacha/go-ucanto/did"
+	contentcap "github.com/fil-forge/go-libstoracha/capabilities/space/content"
+	captypes "github.com/fil-forge/go-libstoracha/capabilities/types"
+	"github.com/fil-forge/go-libstoracha/failure"
+	rclient "github.com/fil-forge/go-ucanto/client/retrieval"
+	"github.com/fil-forge/go-ucanto/core/dag/blockstore"
+	"github.com/fil-forge/go-ucanto/core/delegation"
+	"github.com/fil-forge/go-ucanto/core/receipt"
+	"github.com/fil-forge/go-ucanto/core/result"
+	"github.com/fil-forge/go-ucanto/did"
 
-	"github.com/storacha/guppy/internal/ctxutil"
-	"github.com/storacha/guppy/pkg/agentstore"
-	"github.com/storacha/guppy/pkg/client/locator"
+	"github.com/fil-forge/guppy/internal/ctxutil"
+	"github.com/fil-forge/guppy/pkg/agentstore"
+	"github.com/fil-forge/guppy/pkg/client/locator"
 )
 
 func (c *Client) Retrieve(ctx context.Context, location locator.Location) (io.ReadCloser, error) {

@@ -6,18 +6,18 @@ import (
 	"fmt"
 	"slices"
 
+	"github.com/fil-forge/go-ucanto/core/delegation"
+	"github.com/fil-forge/go-ucanto/did"
+	"github.com/fil-forge/go-ucanto/principal"
+	"github.com/fil-forge/go-ucanto/principal/ed25519/signer"
+	"github.com/fil-forge/go-ucanto/ucan"
 	"github.com/mitchellh/go-wordwrap"
 	"github.com/spf13/cobra"
-	"github.com/storacha/go-ucanto/core/delegation"
-	"github.com/storacha/go-ucanto/did"
-	"github.com/storacha/go-ucanto/principal"
-	"github.com/storacha/go-ucanto/principal/ed25519/signer"
-	"github.com/storacha/go-ucanto/ucan"
 
-	"github.com/storacha/guppy/internal/cmdutil"
-	"github.com/storacha/guppy/pkg/client"
-	"github.com/storacha/guppy/pkg/config"
-	"github.com/storacha/guppy/pkg/didmailto"
+	"github.com/fil-forge/guppy/internal/cmdutil"
+	"github.com/fil-forge/guppy/pkg/client"
+	"github.com/fil-forge/guppy/pkg/config"
+	"github.com/fil-forge/guppy/pkg/didmailto"
 )
 
 // spaceAccess is the set of capabilities required by the agent to manage a

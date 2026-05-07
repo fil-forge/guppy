@@ -4,16 +4,16 @@ import (
 	"context"
 	"fmt"
 
+	contentcap "github.com/fil-forge/go-libstoracha/capabilities/space/content"
+	spaceindexcap "github.com/fil-forge/go-libstoracha/capabilities/space/index"
+	"github.com/fil-forge/go-ucanto/core/delegation"
+	"github.com/fil-forge/go-ucanto/core/ipld"
+	"github.com/fil-forge/go-ucanto/core/result"
+	"github.com/fil-forge/go-ucanto/did"
+	"github.com/fil-forge/go-ucanto/ucan"
 	"github.com/ipfs/go-cid"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	basicnode "github.com/ipld/go-ipld-prime/node/basic"
-	contentcap "github.com/storacha/go-libstoracha/capabilities/space/content"
-	spaceindexcap "github.com/storacha/go-libstoracha/capabilities/space/index"
-	"github.com/storacha/go-ucanto/core/delegation"
-	"github.com/storacha/go-ucanto/core/ipld"
-	"github.com/storacha/go-ucanto/core/result"
-	"github.com/storacha/go-ucanto/did"
-	"github.com/storacha/go-ucanto/ucan"
 )
 
 func (c *Client) SpaceIndexAdd(ctx context.Context, indexCID cid.Cid, indexSize uint64, rootCID cid.Cid, space did.DID) error {

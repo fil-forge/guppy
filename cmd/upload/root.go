@@ -12,16 +12,16 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
-	"github.com/storacha/guppy/cmd/internal/upload/ui"
-	"github.com/storacha/guppy/cmd/upload/check"
-	"github.com/storacha/guppy/cmd/upload/source"
-	"github.com/storacha/guppy/internal/cmdutil"
-	"github.com/storacha/guppy/pkg/bus"
-	"github.com/storacha/guppy/pkg/config"
-	"github.com/storacha/guppy/pkg/preparation"
-	"github.com/storacha/guppy/pkg/preparation/sqlrepo"
-	"github.com/storacha/guppy/pkg/preparation/types"
-	uploadsmodel "github.com/storacha/guppy/pkg/preparation/uploads/model"
+	"github.com/fil-forge/guppy/cmd/internal/upload/ui"
+	"github.com/fil-forge/guppy/cmd/upload/check"
+	"github.com/fil-forge/guppy/cmd/upload/source"
+	"github.com/fil-forge/guppy/internal/cmdutil"
+	"github.com/fil-forge/guppy/pkg/bus"
+	"github.com/fil-forge/guppy/pkg/config"
+	"github.com/fil-forge/guppy/pkg/preparation"
+	"github.com/fil-forge/guppy/pkg/preparation/sqlrepo"
+	"github.com/fil-forge/guppy/pkg/preparation/types"
+	uploadsmodel "github.com/fil-forge/guppy/pkg/preparation/uploads/model"
 )
 
 var log = logging.Logger("cmd/upload")

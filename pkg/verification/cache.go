@@ -5,13 +5,13 @@ import (
 	"slices"
 	"sync"
 
+	"github.com/fil-forge/go-libstoracha/blobindex"
+	"github.com/fil-forge/go-libstoracha/bytemap"
+	"github.com/fil-forge/go-libstoracha/capabilities/assert"
+	"github.com/fil-forge/go-ucanto/core/delegation"
+	"github.com/fil-forge/go-ucanto/validator"
 	"github.com/ipfs/go-cid"
 	"github.com/multiformats/go-multihash"
-	"github.com/storacha/go-libstoracha/blobindex"
-	"github.com/storacha/go-libstoracha/bytemap"
-	"github.com/storacha/go-libstoracha/capabilities/assert"
-	"github.com/storacha/go-ucanto/core/delegation"
-	"github.com/storacha/go-ucanto/validator"
 )
 
 type IndexCache struct {

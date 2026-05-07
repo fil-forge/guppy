@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/storacha/guppy/pkg/preparation/types/id"
+	"github.com/fil-forge/guppy/pkg/preparation/types/id"
 )
 
 func (r *Repo) TotalBytesToScan(ctx context.Context, uploadID id.UploadID) (uint64, error) {

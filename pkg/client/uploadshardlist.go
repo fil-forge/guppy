@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	shardcap "github.com/storacha/go-libstoracha/capabilities/upload/shard"
-	"github.com/storacha/go-ucanto/core/result"
-	"github.com/storacha/go-ucanto/did"
+	shardcap "github.com/fil-forge/go-libstoracha/capabilities/upload/shard"
+	"github.com/fil-forge/go-ucanto/core/result"
+	"github.com/fil-forge/go-ucanto/did"
 )
 
 // UploadShardList returns a paginated list of shards for an upload.

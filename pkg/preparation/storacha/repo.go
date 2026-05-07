@@ -3,9 +3,9 @@ package storacha
 import (
 	"context"
 
-	"github.com/storacha/guppy/pkg/preparation/blobs/model"
-	"github.com/storacha/guppy/pkg/preparation/types/id"
-	uploadmodel "github.com/storacha/guppy/pkg/preparation/uploads/model"
+	"github.com/fil-forge/guppy/pkg/preparation/blobs/model"
+	"github.com/fil-forge/guppy/pkg/preparation/types/id"
+	uploadmodel "github.com/fil-forge/guppy/pkg/preparation/uploads/model"
 )
 
 // Repo defines the interface for interacting with DAG scans, nodes, and links in the repository.

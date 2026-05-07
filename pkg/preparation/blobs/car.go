@@ -6,12 +6,12 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/fil-forge/guppy/pkg/preparation/dags/model"
 	cbor "github.com/ipfs/go-ipld-cbor"
 	ipldcar "github.com/ipld/go-car"
 	"github.com/ipld/go-car/util"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/multiformats/go-varint"
-	"github.com/storacha/guppy/pkg/preparation/dags/model"
 )
 
 // A CAR header with zero roots.

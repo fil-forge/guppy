@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	spaceblobcap "github.com/storacha/go-libstoracha/capabilities/space/blob"
-	"github.com/storacha/go-ucanto/core/result"
-	"github.com/storacha/go-ucanto/did"
+	spaceblobcap "github.com/fil-forge/go-libstoracha/capabilities/space/blob"
+	"github.com/fil-forge/go-ucanto/core/result"
+	"github.com/fil-forge/go-ucanto/did"
 )
 
 // BlobList returns a paginated list of blobs stored in a space.

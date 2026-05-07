@@ -5,8 +5,8 @@ import (
 	"net/url"
 	"os"
 
+	"github.com/fil-forge/go-ucanto/did"
 	logging "github.com/ipfs/go-log/v2"
-	"github.com/storacha/go-ucanto/did"
 )
 
 var log = logging.Logger("pkg/presets")

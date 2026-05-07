@@ -5,9 +5,9 @@ import (
 	"maps"
 	"slices"
 
-	"github.com/storacha/go-ucanto/did"
+	"github.com/fil-forge/go-ucanto/did"
 
-	"github.com/storacha/guppy/pkg/agentstore"
+	"github.com/fil-forge/guppy/pkg/agentstore"
 )
 
 func (c *Client) Accounts() ([]did.DID, error) {

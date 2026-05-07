@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/storacha/go-libstoracha/capabilities/access"
-	udelegation "github.com/storacha/go-ucanto/core/delegation"
-	"github.com/storacha/go-ucanto/core/result"
-	"github.com/storacha/guppy/pkg/delegation"
+	"github.com/fil-forge/go-libstoracha/capabilities/access"
+	udelegation "github.com/fil-forge/go-ucanto/core/delegation"
+	"github.com/fil-forge/go-ucanto/core/result"
+	"github.com/fil-forge/guppy/pkg/delegation"
 )
 
 // ClaimAccess fetches any stored delegations from the service. This is the

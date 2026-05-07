@@ -8,21 +8,21 @@ import (
 	"io"
 	"path/filepath"
 
+	"github.com/fil-forge/go-ucanto/did"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-unixfsnode"
 	dagpb "github.com/ipld/go-codec-dagpb"
 	"github.com/ipld/go-ipld-prime/datamodel"
 	"github.com/ipld/go-ipld-prime/linking"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
-	"github.com/storacha/go-ucanto/did"
 
-	"github.com/storacha/guppy/pkg/preparation"
-	blobsmodel "github.com/storacha/guppy/pkg/preparation/blobs/model"
-	dagsmodel "github.com/storacha/guppy/pkg/preparation/dags/model"
-	"github.com/storacha/guppy/pkg/preparation/dags/nodereader"
-	scansmodel "github.com/storacha/guppy/pkg/preparation/scans/model"
-	"github.com/storacha/guppy/pkg/preparation/types"
-	"github.com/storacha/guppy/pkg/preparation/types/id"
+	"github.com/fil-forge/guppy/pkg/preparation"
+	blobsmodel "github.com/fil-forge/guppy/pkg/preparation/blobs/model"
+	dagsmodel "github.com/fil-forge/guppy/pkg/preparation/dags/model"
+	"github.com/fil-forge/guppy/pkg/preparation/dags/nodereader"
+	scansmodel "github.com/fil-forge/guppy/pkg/preparation/scans/model"
+	"github.com/fil-forge/guppy/pkg/preparation/types"
+	"github.com/fil-forge/guppy/pkg/preparation/types/id"
 )
 
 type OpenNodeReaderFunc func() (nodereader.NodeReader, error)

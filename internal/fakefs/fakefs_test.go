@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/storacha/go-libstoracha/testutil"
-	"github.com/storacha/guppy/internal/fakefs"
+	"github.com/fil-forge/go-libstoracha/testutil"
+	"github.com/fil-forge/guppy/internal/fakefs"
 	"github.com/stretchr/testify/require"
 )
 

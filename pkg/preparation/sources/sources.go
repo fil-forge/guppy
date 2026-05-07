@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"io/fs"
 
-	"github.com/storacha/guppy/pkg/preparation/sources/model"
-	"github.com/storacha/guppy/pkg/preparation/types/id"
+	"github.com/fil-forge/guppy/pkg/preparation/sources/model"
+	"github.com/fil-forge/guppy/pkg/preparation/types/id"
 )
 
 // ErrUnrecognizedSourceKind is returned when a source kind is not recognized.

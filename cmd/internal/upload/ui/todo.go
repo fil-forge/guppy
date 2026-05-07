@@ -7,12 +7,12 @@ import (
 
 	"github.com/ipfs/go-cid"
 
-	"github.com/storacha/guppy/pkg/bus"
-	"github.com/storacha/guppy/pkg/bus/events"
-	blobsmodel "github.com/storacha/guppy/pkg/preparation/blobs/model"
-	"github.com/storacha/guppy/pkg/preparation/sqlrepo"
-	"github.com/storacha/guppy/pkg/preparation/types/id"
-	uploadsmodel "github.com/storacha/guppy/pkg/preparation/uploads/model"
+	"github.com/fil-forge/guppy/pkg/bus"
+	"github.com/fil-forge/guppy/pkg/bus/events"
+	blobsmodel "github.com/fil-forge/guppy/pkg/preparation/blobs/model"
+	"github.com/fil-forge/guppy/pkg/preparation/sqlrepo"
+	"github.com/fil-forge/guppy/pkg/preparation/types/id"
+	uploadsmodel "github.com/fil-forge/guppy/pkg/preparation/uploads/model"
 )
 
 type UploadObserver struct {

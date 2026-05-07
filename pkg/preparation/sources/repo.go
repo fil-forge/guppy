@@ -3,8 +3,8 @@ package sources
 import (
 	"context"
 
-	"github.com/storacha/guppy/pkg/preparation/sources/model"
-	"github.com/storacha/guppy/pkg/preparation/types/id"
+	"github.com/fil-forge/guppy/pkg/preparation/sources/model"
+	"github.com/fil-forge/guppy/pkg/preparation/types/id"
 )
 
 // Repo defines the interface for a repository that manages sources.
