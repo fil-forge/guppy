@@ -12,7 +12,7 @@ guppy [command] [flags]
 
 | Flag | Description | Default |
 |------|-------------|---------|
-| `--data-dir <path>` | Directory for config and data store | `~/.storacha/guppy` |
+| `--data-dir <path>` | Directory for config and data store | `~/.fil-forge/guppy` |
 | `--database-url <url>` | PostgreSQL connection URL (uses SQLite if not set) | |
 | `--config <path>` | Path to config file | |
 | `--network, -n <name>` | Network preset name (`forge`, `hot`, `warm-staging`) | |

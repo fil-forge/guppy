@@ -6,12 +6,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/fil-forge/go-libstoracha/testutil"
+	"github.com/fil-forge/go-ucanto/core/iterable"
+	"github.com/fil-forge/guppy/pkg/preparation/scans/model"
+	"github.com/fil-forge/guppy/pkg/preparation/scans/walker"
+	"github.com/fil-forge/guppy/pkg/preparation/types/id"
 	"github.com/spf13/afero"
-	"github.com/storacha/go-libstoracha/testutil"
-	"github.com/storacha/go-ucanto/core/iterable"
-	"github.com/storacha/guppy/pkg/preparation/scans/model"
-	"github.com/storacha/guppy/pkg/preparation/scans/walker"
-	"github.com/storacha/guppy/pkg/preparation/types/id"
 	"github.com/stretchr/testify/require"
 )
 

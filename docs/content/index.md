@@ -7,7 +7,7 @@ Unlike simple upload tools, Guppy is designed for large datasets that may take h
 ## Install
 
 ```bash
-go install github.com/storacha/guppy@latest
+go install github.com/fil-forge/guppy@latest
 ```
 
 Verify the installation:
@@ -26,7 +26,7 @@ guppy login you@example.com
 
 Storacha will send a confirmation email. Click the link in the email to authorize Guppy to act on your behalf.
 
-Your identity, proofs, and other state are stored in `~/.storacha/guppy/` by default. You can set a different directory with `--data-dir`.
+Your identity, proofs, and other state are stored in `~/.fil-forge/guppy/` by default. You can set a different directory with `--data-dir`.
 
 ## Step 2: Create a Space
 

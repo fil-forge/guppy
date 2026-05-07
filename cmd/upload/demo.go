@@ -9,9 +9,9 @@ import (
 	"github.com/mitchellh/go-wordwrap"
 	"github.com/spf13/cobra"
 
-	"github.com/storacha/guppy/cmd/internal/upload/demo"
-	"github.com/storacha/guppy/pkg/config"
-	"github.com/storacha/guppy/pkg/preparation"
+	"github.com/fil-forge/guppy/cmd/internal/upload/demo"
+	"github.com/fil-forge/guppy/pkg/config"
+	"github.com/fil-forge/guppy/pkg/preparation"
 )
 
 var uploadDemoFlags struct {

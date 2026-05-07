@@ -4,16 +4,16 @@ import (
 	"bytes"
 
 	"github.com/dustin/go-humanize"
+	spaceblobcap "github.com/fil-forge/go-libstoracha/capabilities/space/blob"
+	"github.com/fil-forge/go-libstoracha/digestutil"
+	"github.com/fil-forge/go-ucanto/core/delegation"
 	"github.com/ipld/go-ipld-prime/codec/dagjson"
 	"github.com/mitchellh/go-wordwrap"
 	"github.com/spf13/cobra"
-	spaceblobcap "github.com/storacha/go-libstoracha/capabilities/space/blob"
-	"github.com/storacha/go-libstoracha/digestutil"
-	"github.com/storacha/go-ucanto/core/delegation"
 
-	"github.com/storacha/guppy/internal/cmdutil"
-	"github.com/storacha/guppy/pkg/client"
-	"github.com/storacha/guppy/pkg/config"
+	"github.com/fil-forge/guppy/internal/cmdutil"
+	"github.com/fil-forge/guppy/pkg/client"
+	"github.com/fil-forge/guppy/pkg/config"
 )
 
 const pageSize = 1000

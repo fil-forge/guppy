@@ -4,8 +4,8 @@ package model
 // 	"fmt"
 // 	"time"
 
-// 	"github.com/storacha/guppy/pkg/preparation/types"
-// 	"github.com/storacha/guppy/pkg/preparation/types/id"
+// 	"github.com/fil-forge/guppy/pkg/preparation/types"
+// 	"github.com/fil-forge/guppy/pkg/preparation/types/id"
 // )
 
 // // ScanState represents the state of a scan.

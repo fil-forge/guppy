@@ -7,12 +7,12 @@ import (
 	"io/fs"
 	"time"
 
+	"github.com/fil-forge/go-ucanto/did"
+	"github.com/fil-forge/guppy/pkg/preparation/scans/checksum"
+	"github.com/fil-forge/guppy/pkg/preparation/scans/model"
+	"github.com/fil-forge/guppy/pkg/preparation/types"
+	"github.com/fil-forge/guppy/pkg/preparation/types/id"
 	logging "github.com/ipfs/go-log/v2"
-	"github.com/storacha/go-ucanto/did"
-	"github.com/storacha/guppy/pkg/preparation/scans/checksum"
-	"github.com/storacha/guppy/pkg/preparation/scans/model"
-	"github.com/storacha/guppy/pkg/preparation/types"
-	"github.com/storacha/guppy/pkg/preparation/types/id"
 )
 
 var log = logging.Logger("preparation/scans/visitor")

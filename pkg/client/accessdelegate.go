@@ -4,11 +4,11 @@ import (
 	"context"
 	"fmt"
 
-	accesscap "github.com/storacha/go-libstoracha/capabilities/access"
-	"github.com/storacha/go-ucanto/core/delegation"
-	"github.com/storacha/go-ucanto/core/result"
-	"github.com/storacha/go-ucanto/did"
-	"github.com/storacha/go-ucanto/ucan"
+	accesscap "github.com/fil-forge/go-libstoracha/capabilities/access"
+	"github.com/fil-forge/go-ucanto/core/delegation"
+	"github.com/fil-forge/go-ucanto/core/result"
+	"github.com/fil-forge/go-ucanto/did"
+	"github.com/fil-forge/go-ucanto/ucan"
 )
 
 // AccessDelegate invokes the access/delegate capability to store delegations on the service.

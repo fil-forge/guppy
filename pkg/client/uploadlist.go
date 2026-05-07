@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	uploadcap "github.com/storacha/go-libstoracha/capabilities/upload"
-	"github.com/storacha/go-ucanto/core/result"
-	"github.com/storacha/go-ucanto/did"
+	uploadcap "github.com/fil-forge/go-libstoracha/capabilities/upload"
+	"github.com/fil-forge/go-ucanto/core/result"
+	"github.com/fil-forge/go-ucanto/did"
 )
 
 // UploadList returns a paginated list of uploads in a space.

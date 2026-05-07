@@ -2,13 +2,13 @@
 
 BINARY ?= guppy
 MIGRATIONS_DIR ?= pkg/preparation/sqlrepo/migrations
-DB_PATH ?= ~/.storacha/guppy/preparation.db
+DB_PATH ?= ~/.fil-forge/guppy/preparation.db
 GOOSE := go tool goose
 
 VERSION=$(shell awk -F'"' '/"version":/ {print $$4}' version.json)
 COMMIT=$(shell git rev-parse --short HEAD)
 DATE=$(shell date -u -Iseconds)
-GOFLAGS=-ldflags="-X github.com/storacha/guppy/pkg/build.version=$(VERSION) -X github.com/storacha/guppy/pkg/build.Commit=$(COMMIT) -X github.com/storacha/guppy/pkg/build.Date=$(DATE) -X github.com/storacha/guppy/pkg/build.BuiltBy=make"
+GOFLAGS=-ldflags="-X github.com/fil-forge/guppy/pkg/build.version=$(VERSION) -X github.com/fil-forge/guppy/pkg/build.Commit=$(COMMIT) -X github.com/fil-forge/guppy/pkg/build.Date=$(DATE) -X github.com/fil-forge/guppy/pkg/build.BuiltBy=make"
 DOCKER?=$(shell which docker)
 
 build:
@@ -43,12 +43,12 @@ release:
 # Production binary - stripped symbols for smaller size
 guppy-prod:
 	@echo "Building guppy (production)..."
-	go build -ldflags="-s -w -X github.com/storacha/guppy/pkg/build.version=$(VERSION) -X github.com/storacha/guppy/pkg/build.Commit=$(COMMIT) -X github.com/storacha/guppy/pkg/build.Date=$(DATE) -X github.com/storacha/guppy/pkg/build.BuiltBy=make" -o ./guppy .
+	go build -ldflags="-s -w -X github.com/fil-forge/guppy/pkg/build.version=$(VERSION) -X github.com/fil-forge/guppy/pkg/build.Commit=$(COMMIT) -X github.com/fil-forge/guppy/pkg/build.Date=$(DATE) -X github.com/fil-forge/guppy/pkg/build.BuiltBy=make" -o ./guppy .
 
 # Debug binary - no optimizations, no inlining, full symbols
 guppy-debug:
 	@echo "Building guppy (debug)..."
-	go build -gcflags="all=-N -l" -ldflags="-X github.com/storacha/guppy/pkg/build.version=$(VERSION) -X github.com/storacha/guppy/pkg/build.Commit=$(COMMIT) -X github.com/storacha/guppy/pkg/build.Date=$(DATE) -X github.com/storacha/guppy/pkg/build.BuiltBy=make-debug" -o ./guppy .
+	go build -gcflags="all=-N -l" -ldflags="-X github.com/fil-forge/guppy/pkg/build.version=$(VERSION) -X github.com/fil-forge/guppy/pkg/build.Commit=$(COMMIT) -X github.com/fil-forge/guppy/pkg/build.Date=$(DATE) -X github.com/fil-forge/guppy/pkg/build.BuiltBy=make-debug" -o ./guppy .
 
 # Docker targets (multi-arch: amd64 + arm64)
 docker-setup:

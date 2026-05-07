@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/storacha/go-ucanto/did"
-	"github.com/storacha/guppy/pkg/preparation/types"
+	"github.com/fil-forge/go-ucanto/did"
+	"github.com/fil-forge/guppy/pkg/preparation/types"
 )
 
 // MaxShardSize is the maximum allowed size for a shard

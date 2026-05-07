@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	spacecap "github.com/storacha/go-libstoracha/capabilities/space"
-	"github.com/storacha/go-ucanto/core/result"
-	"github.com/storacha/go-ucanto/did"
+	spacecap "github.com/fil-forge/go-libstoracha/capabilities/space"
+	"github.com/fil-forge/go-ucanto/core/result"
+	"github.com/fil-forge/go-ucanto/did"
 )
 
 // SpaceInfo invokes the space/info capability to get information about a space,

@@ -1,7 +1,7 @@
 package check
 
 import (
-	"github.com/storacha/guppy/pkg/preparation/types/id"
+	"github.com/fil-forge/guppy/pkg/preparation/types/id"
 )
 
 // CheckReport contains the results of checking one or more uploads.

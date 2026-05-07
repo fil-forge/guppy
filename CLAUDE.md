@@ -35,8 +35,8 @@ make migration NAME=x  # Create migration
 
 ## Key Dependencies
 
-- `github.com/storacha/go-ucanto` - UCAN implementation
-- `github.com/storacha/go-libstoracha` - Storacha capabilities
+- `github.com/fil-forge/go-ucanto` - UCAN implementation
+- `github.com/fil-forge/go-libstoracha` - Storacha capabilities
 - `github.com/ipfs/boxo`, `go-cid`, `go-ipld-*` - IPFS/IPLD
 - `github.com/ipld/go-car` - CAR format
 - `modernc.org/sqlite` - Pure Go SQLite
@@ -45,7 +45,7 @@ make migration NAME=x  # Create migration
 
 ## Config
 
-Data dir: `~/.storacha/guppy/` | Config: `~/.config/guppy/config.toml`
+Data dir: `~/.fil-forge/guppy/` | Config: `~/.config/guppy/config.toml`
 
 Networks: `STORACHA_NETWORK` (forge, hot, warm-staging)
 

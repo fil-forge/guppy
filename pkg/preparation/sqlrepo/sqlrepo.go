@@ -9,8 +9,8 @@ import (
 	lru "github.com/hashicorp/golang-lru/v2"
 	logging "github.com/ipfs/go-log/v2"
 
+	"github.com/fil-forge/guppy/pkg/bus"
 	"github.com/jmoiron/sqlx"
-	"github.com/storacha/guppy/pkg/bus"
 )
 
 // Dialect represents the SQL dialect being used.

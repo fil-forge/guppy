@@ -4,11 +4,11 @@ import (
 	"context"
 	"fmt"
 
-	filecoincap "github.com/storacha/go-libstoracha/capabilities/filecoin"
-	"github.com/storacha/go-ucanto/core/invocation"
-	"github.com/storacha/go-ucanto/core/ipld"
-	"github.com/storacha/go-ucanto/core/result"
-	"github.com/storacha/go-ucanto/did"
+	filecoincap "github.com/fil-forge/go-libstoracha/capabilities/filecoin"
+	"github.com/fil-forge/go-ucanto/core/invocation"
+	"github.com/fil-forge/go-ucanto/core/ipld"
+	"github.com/fil-forge/go-ucanto/core/result"
+	"github.com/fil-forge/go-ucanto/did"
 )
 
 type FilecoinOfferOptions struct {

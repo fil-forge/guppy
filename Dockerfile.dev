@@ -32,10 +32,10 @@ COPY . .
 # Debug build — no optimizations, no inlining, full symbols
 RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build \
     -gcflags="all=-N -l" \
-    -ldflags="-X github.com/storacha/guppy/pkg/build.version=${VERSION} \
-      -X github.com/storacha/guppy/pkg/build.Commit=${COMMIT} \
-      -X github.com/storacha/guppy/pkg/build.Date=${DATE} \
-      -X github.com/storacha/guppy/pkg/build.BuiltBy=${BUILT_BY}" \
+    -ldflags="-X github.com/fil-forge/guppy/pkg/build.version=${VERSION} \
+      -X github.com/fil-forge/guppy/pkg/build.Commit=${COMMIT} \
+      -X github.com/fil-forge/guppy/pkg/build.Date=${DATE} \
+      -X github.com/fil-forge/guppy/pkg/build.BuiltBy=${BUILT_BY}" \
     -o /app .
 
 FROM debian:bookworm-slim AS dev
@@ -65,7 +65,7 @@ COPY --from=build /tools/dlv /usr/bin/dlv
 COPY --from=build /tools/randdir /usr/bin/randdir
 
 # Create data directories
-RUN mkdir -p /root/.storacha/guppy /root/.config/guppy
+RUN mkdir -p /root/.fil-forge/guppy /root/.config/guppy
 
 WORKDIR /root
 

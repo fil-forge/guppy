@@ -5,9 +5,9 @@ import (
 	"encoding/binary"
 	"io/fs"
 
-	"github.com/storacha/go-ucanto/did"
-	"github.com/storacha/guppy/pkg/preparation/scans/model"
-	"github.com/storacha/guppy/pkg/preparation/types/id"
+	"github.com/fil-forge/go-ucanto/did"
+	"github.com/fil-forge/guppy/pkg/preparation/scans/model"
+	"github.com/fil-forge/guppy/pkg/preparation/types/id"
 )
 
 func FileChecksum(path string, info fs.FileInfo, sourceID id.SourceID, spaceDID did.DID) []byte {

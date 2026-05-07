@@ -5,10 +5,10 @@ import (
 	"io/fs"
 	"time"
 
-	"github.com/storacha/go-ucanto/did"
-	"github.com/storacha/guppy/pkg/preparation/scans/model"
-	"github.com/storacha/guppy/pkg/preparation/types/id"
-	uploadmodel "github.com/storacha/guppy/pkg/preparation/uploads/model"
+	"github.com/fil-forge/go-ucanto/did"
+	"github.com/fil-forge/guppy/pkg/preparation/scans/model"
+	"github.com/fil-forge/guppy/pkg/preparation/types/id"
+	uploadmodel "github.com/fil-forge/guppy/pkg/preparation/uploads/model"
 )
 
 type Repo interface {

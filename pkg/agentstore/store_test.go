@@ -3,15 +3,15 @@ package agentstore
 import (
 	"testing"
 
+	spaceblobcap "github.com/fil-forge/go-libstoracha/capabilities/space/blob"
+	captypes "github.com/fil-forge/go-libstoracha/capabilities/types"
+	ucancap "github.com/fil-forge/go-libstoracha/capabilities/ucan"
+	uploadcap "github.com/fil-forge/go-libstoracha/capabilities/upload"
+	"github.com/fil-forge/go-libstoracha/testutil"
+	"github.com/fil-forge/go-ucanto/core/delegation"
+	"github.com/fil-forge/go-ucanto/principal/ed25519/signer"
+	"github.com/fil-forge/go-ucanto/ucan"
 	"github.com/ipld/go-ipld-prime/datamodel"
-	spaceblobcap "github.com/storacha/go-libstoracha/capabilities/space/blob"
-	captypes "github.com/storacha/go-libstoracha/capabilities/types"
-	ucancap "github.com/storacha/go-libstoracha/capabilities/ucan"
-	uploadcap "github.com/storacha/go-libstoracha/capabilities/upload"
-	"github.com/storacha/go-libstoracha/testutil"
-	"github.com/storacha/go-ucanto/core/delegation"
-	"github.com/storacha/go-ucanto/principal/ed25519/signer"
-	"github.com/storacha/go-ucanto/ucan"
 	"github.com/stretchr/testify/require"
 )
 

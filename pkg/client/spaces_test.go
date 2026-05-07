@@ -3,14 +3,14 @@ package client_test
 import (
 	"testing"
 
-	ucancap "github.com/storacha/go-libstoracha/capabilities/ucan"
-	"github.com/storacha/go-libstoracha/testutil"
-	"github.com/storacha/go-ucanto/core/delegation"
-	"github.com/storacha/go-ucanto/principal/ed25519/signer"
-	"github.com/storacha/go-ucanto/ucan"
+	ucancap "github.com/fil-forge/go-libstoracha/capabilities/ucan"
+	"github.com/fil-forge/go-libstoracha/testutil"
+	"github.com/fil-forge/go-ucanto/core/delegation"
+	"github.com/fil-forge/go-ucanto/principal/ed25519/signer"
+	"github.com/fil-forge/go-ucanto/ucan"
 	"github.com/stretchr/testify/require"
 
-	"github.com/storacha/guppy/pkg/client"
+	"github.com/fil-forge/guppy/pkg/client"
 )
 
 func TestSpaces(t *testing.T) {

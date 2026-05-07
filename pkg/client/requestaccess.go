@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/storacha/go-libstoracha/capabilities/access"
-	"github.com/storacha/go-ucanto/core/result"
+	"github.com/fil-forge/go-libstoracha/capabilities/access"
+	"github.com/fil-forge/go-ucanto/core/result"
 )
 
 // RequestAccess requests access to the service as an Account. This is the first

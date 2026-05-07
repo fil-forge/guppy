@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"os"
 
-	uploadcap "github.com/storacha/go-libstoracha/capabilities/upload"
-	"github.com/storacha/go-ucanto/did"
-	"github.com/storacha/go-ucanto/principal/ed25519/signer"
-	"github.com/storacha/guppy/pkg/client"
-	"github.com/storacha/guppy/pkg/delegation"
+	uploadcap "github.com/fil-forge/go-libstoracha/capabilities/upload"
+	"github.com/fil-forge/go-ucanto/did"
+	"github.com/fil-forge/go-ucanto/principal/ed25519/signer"
+	"github.com/fil-forge/guppy/pkg/client"
+	"github.com/fil-forge/guppy/pkg/delegation"
 )
 
 func main() {

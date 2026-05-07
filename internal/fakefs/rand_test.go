@@ -3,7 +3,7 @@ package fakefs_test
 import (
 	"testing"
 
-	"github.com/storacha/guppy/internal/fakefs"
+	"github.com/fil-forge/guppy/internal/fakefs"
 	"github.com/stretchr/testify/require"
 )
 

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/storacha/guppy/pkg/preparation/dags/model"
+	"github.com/fil-forge/guppy/pkg/preparation/dags/model"
 )
 
 type FilepackEncoder struct {

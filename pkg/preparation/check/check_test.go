@@ -5,16 +5,16 @@ import (
 	"testing"
 	"time"
 
+	stestutil "github.com/fil-forge/go-libstoracha/testutil"
 	"github.com/ipfs/go-cid"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
-	stestutil "github.com/storacha/go-libstoracha/testutil"
 	"github.com/stretchr/testify/require"
 
-	"github.com/storacha/guppy/pkg/preparation/internal/testdb"
-	"github.com/storacha/guppy/pkg/preparation/internal/testutil"
-	scansmodel "github.com/storacha/guppy/pkg/preparation/scans/model"
-	"github.com/storacha/guppy/pkg/preparation/sqlrepo"
-	"github.com/storacha/guppy/pkg/preparation/types/id"
+	"github.com/fil-forge/guppy/pkg/preparation/internal/testdb"
+	"github.com/fil-forge/guppy/pkg/preparation/internal/testutil"
+	scansmodel "github.com/fil-forge/guppy/pkg/preparation/scans/model"
+	"github.com/fil-forge/guppy/pkg/preparation/sqlrepo"
+	"github.com/fil-forge/guppy/pkg/preparation/types/id"
 )
 
 // TestCheckUpload tests the full CheckUpload orchestration (integration tests)

@@ -6,13 +6,13 @@ import (
 	"hash"
 	"io"
 
+	"github.com/fil-forge/guppy/pkg/preparation/blobs/model"
+	"github.com/fil-forge/guppy/pkg/preparation/types"
 	commcid "github.com/filecoin-project/go-fil-commcid"
 	"github.com/ipfs/go-cid"
 	"github.com/minio/sha256-simd"
 	"github.com/multiformats/go-multihash"
 	commp "github.com/storacha/go-fil-commp-hashhash"
-	"github.com/storacha/guppy/pkg/preparation/blobs/model"
-	"github.com/storacha/guppy/pkg/preparation/types"
 )
 
 type marshallableHash interface {

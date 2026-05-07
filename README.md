@@ -11,7 +11,7 @@ A Storacha client in golang. Guppy includes both a CLI command and an underlying
 ## Install
 
 ```sh
-go install github.com/storacha/guppy
+go install github.com/fil-forge/guppy
 ```
 
 ### Differences from [@storacha/cli](https://www.npmjs.com/package/@storacha/cli)
@@ -48,7 +48,7 @@ $ guppy login <account-email-address>
 
 This will ask Storacha to send you an email with a link to click. Clicking that link will confirm to the network that Guppy is authorized to act as you. You can log your identity into multiple accounts at once, if necessary.
 
-Your identity, authorizing proofs, and other state is kept in `~/.storacha/guppy` by default. You can set a different directory with `--data-dir`.
+Your identity, authorizing proofs, and other state is kept in `~/.fil-forge/guppy` by default. You can set a different directory with `--data-dir`.
 
 ### Spaces
 
@@ -178,11 +178,11 @@ To bring your own pre-authorized identity, instantiate the client with the optio
 
 ### API
 
-[pkg.go.dev Reference](https://pkg.go.dev/github.com/storacha/guppy)
+[pkg.go.dev Reference](https://pkg.go.dev/github.com/fil-forge/guppy)
 
 ## Contributing
 
-Feel free to join in. All welcome. Please [open an issue](https://github.com/storacha/guppy/issues)! PRs are also welcome, but please confirm with the maintainers before doing significant work; we'd hate your efforts to go to waste on work that's already being done, or that's going to run into an issue we're already thinking about.
+Feel free to join in. All welcome. Please [open an issue](https://github.com/fil-forge/guppy/issues)! PRs are also welcome, but please confirm with the maintainers before doing significant work; we'd hate your efforts to go to waste on work that's already being done, or that's going to run into an issue we're already thinking about.
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md) for technical and logistical details about how to contribute.
 

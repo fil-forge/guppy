@@ -3,7 +3,7 @@ package cmdutil_test
 import (
 	"testing"
 
-	"github.com/storacha/guppy/internal/cmdutil"
+	"github.com/fil-forge/guppy/internal/cmdutil"
 	"github.com/stretchr/testify/require"
 )
 

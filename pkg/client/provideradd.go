@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	providercap "github.com/storacha/go-libstoracha/capabilities/provider"
-	"github.com/storacha/go-ucanto/core/result"
-	"github.com/storacha/go-ucanto/did"
+	providercap "github.com/fil-forge/go-libstoracha/capabilities/provider"
+	"github.com/fil-forge/go-ucanto/core/result"
+	"github.com/fil-forge/go-ucanto/did"
 )
 
 // ProviderAdd invokes the provider/add capability to provision a space with a customer account.

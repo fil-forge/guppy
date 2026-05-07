@@ -1,6 +1,6 @@
 site_name: Guppy Docs
 site_url: https://storacha.github.io/guppy
-repo_url: https://github.com/storacha/guppy
+repo_url: https://github.com/fil-forge/guppy
 docs_dir: content
 site_dir: site
 markdown_extensions:

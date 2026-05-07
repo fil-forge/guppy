@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"net/url"
 
-	"github.com/storacha/go-ucanto/did"
-	"github.com/storacha/guppy/pkg/presets"
+	"github.com/fil-forge/go-ucanto/did"
+	"github.com/fil-forge/guppy/pkg/presets"
 )
 
 // NetworkConfig holds network-related configuration that can be specified in

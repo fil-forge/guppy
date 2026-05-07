@@ -20,7 +20,7 @@ Guppy looks for a TOML config file in these locations, reading only the first fi
 # Repository configuration — where Guppy stores its data.
 [repo]
   # Directory for the SQLite database and agent store.
-  data_dir = "~/.storacha/guppy"
+  data_dir = "~/.fil-forge/guppy"
 
   # PostgreSQL connection URL. If set, Guppy uses PostgreSQL instead of SQLite.
   # Format: postgres://user:password@host:port/dbname
@@ -107,7 +107,7 @@ These `STORACHA_*` environment variables are still supported for backward compat
 
 ## Data Directory
 
-The data directory (`~/.storacha/guppy/` by default) contains:
+The data directory (`~/.fil-forge/guppy/` by default) contains:
 
 - **SQLite database** — Tracks upload progress (scans, DAGs, shards, blobs)
 - **Agent store** — Your agent identity and UCAN delegations/proofs

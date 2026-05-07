@@ -13,8 +13,8 @@ import (
 	"github.com/pressly/goose/v3"
 	_ "modernc.org/sqlite"
 
-	appconfig "github.com/storacha/guppy/pkg/config"
-	"github.com/storacha/guppy/pkg/preparation/sqlrepo"
+	appconfig "github.com/fil-forge/guppy/pkg/config"
+	"github.com/fil-forge/guppy/pkg/preparation/sqlrepo"
 )
 
 const (

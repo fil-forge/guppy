@@ -3,10 +3,10 @@ package visitor
 import (
 	"context"
 
+	"github.com/fil-forge/go-ucanto/did"
+	"github.com/fil-forge/guppy/pkg/preparation/dags/model"
+	"github.com/fil-forge/guppy/pkg/preparation/types/id"
 	"github.com/ipfs/go-cid"
-	"github.com/storacha/go-ucanto/did"
-	"github.com/storacha/guppy/pkg/preparation/dags/model"
-	"github.com/storacha/guppy/pkg/preparation/types/id"
 )
 
 // Repo defines the interface for a repository that manages file system entries during a scan

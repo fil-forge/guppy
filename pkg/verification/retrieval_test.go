@@ -8,15 +8,15 @@ import (
 	"net/url"
 	"testing"
 
+	"github.com/fil-forge/go-libstoracha/blobindex"
+	assertcap "github.com/fil-forge/go-libstoracha/capabilities/assert"
+	captypes "github.com/fil-forge/go-libstoracha/capabilities/types"
+	"github.com/fil-forge/go-libstoracha/digestutil"
+	"github.com/fil-forge/go-libstoracha/testutil"
+	ed25519signer "github.com/fil-forge/go-ucanto/principal/ed25519/signer"
+	"github.com/fil-forge/guppy/pkg/verification"
 	"github.com/ipfs/go-cid"
 	"github.com/multiformats/go-multihash"
-	"github.com/storacha/go-libstoracha/blobindex"
-	assertcap "github.com/storacha/go-libstoracha/capabilities/assert"
-	captypes "github.com/storacha/go-libstoracha/capabilities/types"
-	"github.com/storacha/go-libstoracha/digestutil"
-	"github.com/storacha/go-libstoracha/testutil"
-	ed25519signer "github.com/storacha/go-ucanto/principal/ed25519/signer"
-	"github.com/storacha/guppy/pkg/verification"
 	"github.com/stretchr/testify/require"
 )
 

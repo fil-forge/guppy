@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/storacha/go-libstoracha/capabilities/access"
-	"github.com/storacha/go-ucanto/core/delegation"
-	"github.com/storacha/go-ucanto/core/ipld"
-	"github.com/storacha/go-ucanto/core/result"
-	"github.com/storacha/guppy/internal/ctxutil"
+	"github.com/fil-forge/go-libstoracha/capabilities/access"
+	"github.com/fil-forge/go-ucanto/core/delegation"
+	"github.com/fil-forge/go-ucanto/core/ipld"
+	"github.com/fil-forge/go-ucanto/core/result"
+	"github.com/fil-forge/guppy/internal/ctxutil"
 )
 
 // PollClaim attempts to `access/claim` and retries until it finds delegations

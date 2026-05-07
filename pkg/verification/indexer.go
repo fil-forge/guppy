@@ -6,15 +6,15 @@ import (
 	"fmt"
 
 	"github.com/cenkalti/backoff/v5"
+	"github.com/fil-forge/go-libstoracha/blobindex"
+	"github.com/fil-forge/go-libstoracha/capabilities/assert"
+	contentcap "github.com/fil-forge/go-libstoracha/capabilities/space/content"
+	"github.com/fil-forge/go-libstoracha/digestutil"
+	"github.com/fil-forge/go-ucanto/core/dag/blockstore"
+	"github.com/fil-forge/go-ucanto/core/delegation"
+	"github.com/fil-forge/go-ucanto/did"
+	"github.com/fil-forge/indexing-service/pkg/types"
 	"github.com/multiformats/go-multihash"
-	"github.com/storacha/go-libstoracha/blobindex"
-	"github.com/storacha/go-libstoracha/capabilities/assert"
-	contentcap "github.com/storacha/go-libstoracha/capabilities/space/content"
-	"github.com/storacha/go-libstoracha/digestutil"
-	"github.com/storacha/go-ucanto/core/dag/blockstore"
-	"github.com/storacha/go-ucanto/core/delegation"
-	"github.com/storacha/go-ucanto/did"
-	"github.com/storacha/indexing-service/pkg/types"
 )
 
 // IndexingServiceClient is the interface for querying the indexing service.

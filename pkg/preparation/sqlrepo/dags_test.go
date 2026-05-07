@@ -5,13 +5,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/fil-forge/go-libstoracha/testutil"
+	"github.com/fil-forge/guppy/pkg/preparation/dags/model"
+	"github.com/fil-forge/guppy/pkg/preparation/internal/testdb"
+	scanmodel "github.com/fil-forge/guppy/pkg/preparation/scans/model"
+	"github.com/fil-forge/guppy/pkg/preparation/sqlrepo"
+	"github.com/fil-forge/guppy/pkg/preparation/types/id"
 	"github.com/ipfs/go-cid"
-	"github.com/storacha/go-libstoracha/testutil"
-	"github.com/storacha/guppy/pkg/preparation/dags/model"
-	"github.com/storacha/guppy/pkg/preparation/internal/testdb"
-	scanmodel "github.com/storacha/guppy/pkg/preparation/scans/model"
-	"github.com/storacha/guppy/pkg/preparation/sqlrepo"
-	"github.com/storacha/guppy/pkg/preparation/types/id"
 	"github.com/stretchr/testify/require"
 )
 

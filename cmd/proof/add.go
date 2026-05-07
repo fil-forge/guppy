@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/fil-forge/go-ucanto/core/delegation"
 	"github.com/mitchellh/go-wordwrap"
 	"github.com/spf13/cobra"
-	"github.com/storacha/go-ucanto/core/delegation"
 
-	"github.com/storacha/guppy/internal/cmdutil"
-	"github.com/storacha/guppy/pkg/config"
+	"github.com/fil-forge/guppy/internal/cmdutil"
+	"github.com/fil-forge/guppy/pkg/config"
 )
 
 var addCmd = &cobra.Command{
