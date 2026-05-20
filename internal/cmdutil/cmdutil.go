@@ -26,6 +26,7 @@ import (
 	"github.com/fil-forge/guppy/pkg/client"
 	"github.com/fil-forge/guppy/pkg/config"
 	cdg "github.com/fil-forge/guppy/pkg/delegation"
+	"github.com/fil-forge/guppy/pkg/identity"
 	"github.com/fil-forge/guppy/pkg/presets"
 	receiptclient "github.com/fil-forge/guppy/pkg/receipt"
 	indexclient "github.com/fil-forge/indexing-service/pkg/client"
@@ -52,16 +53,26 @@ var TracedHTTPClient = &http.Client{
 // MustGetClient creates a new client suitable for the CLI, using stored data,
 // if any. The storePath should be a directory path where agent data will be stored.
 // The networkCfg contains network settings from the config file.
-func MustGetClient(storePath string, networkCfg config.NetworkConfig, options ...client.Option) *client.Client {
-	return MustGetClientForNetwork(storePath, networkCfg, "", options...)
+func MustGetClient(cfg config.Config, options ...client.Option) *client.Client {
+	return MustGetClientForNetwork(cfg, "", options...)
 }
 
 // MustGetClientForNetwork is like MustGetClient but allows specifying a network
 // configuration by name (which may be empty). The networkCfg contains network
 // settings from the config file, and flagName is the network name from CLI flag
 // (takes precedence over config).
-func MustGetClientForNetwork(storePath string, networkCfg config.NetworkConfig, flagName string, options ...client.Option) *client.Client {
-	store, err := agentstore.NewFs(storePath)
+func MustGetClientForNetwork(cfg config.Config, flagName string, options ...client.Option) *client.Client {
+	pem, err := os.ReadFile(cfg.Identity.KeyFile)
+	if err != nil {
+		log.Fatalf("reading key file: %s", err)
+	}
+	_, err = identity.DecodeEd25519SignerFromPEM(pem)
+	if err != nil {
+		log.Fatalf("parsing key file: %s", err)
+	}
+	// TODO(ash): use this signer
+
+	store, err := agentstore.NewFs(cfg.Repo.Dir)
 	if err != nil {
 		log.Fatalf("creating agent store: %s", err)
 	}
@@ -75,7 +86,7 @@ func MustGetClientForNetwork(storePath string, networkCfg config.NetworkConfig, 
 		}
 	}
 
-	network := MustGetNetworkConfig(networkCfg, flagName)
+	network := MustGetNetworkConfig(cfg.Network, flagName)
 
 	conn, err := uclient.NewConnection(
 		network.UploadID,

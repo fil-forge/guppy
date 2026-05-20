@@ -34,7 +34,7 @@ var provisionCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		c := cmdutil.MustGetClient(cfg.Repo.Dir, cfg.Network)
+		c := cmdutil.MustGetClient(cfg)
 
 		spaceDID, err := cmdutil.ResolveSpace(c, args[0])
 		if err != nil {

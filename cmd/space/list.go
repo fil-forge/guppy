@@ -32,7 +32,7 @@ var listCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		c := cmdutil.MustGetClient(cfg.Repo.Dir, cfg.Network)
+		c := cmdutil.MustGetClient(cfg)
 
 		spaces, err := c.Spaces()
 		if err != nil {

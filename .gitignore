@@ -17,3 +17,6 @@ guppy
 
 # Built documentation site
 /docs/site
+
+# Private keys
+*.pem

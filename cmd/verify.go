@@ -46,7 +46,7 @@ var verifyCmd = &cobra.Command{
 
 		network := cmdutil.MustGetNetworkConfig(cfg.Network, "")
 
-		guppy := cmdutil.MustGetClientForNetwork(cfg.Repo.Dir, cfg.Network, "")
+		guppy := cmdutil.MustGetClientForNetwork(cfg, "")
 		allProofs, err := guppy.Proofs(agentstore.CapabilityQuery{Can: contentcap.RetrieveAbility})
 		if err != nil {
 			return err

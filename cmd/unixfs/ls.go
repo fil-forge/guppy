@@ -58,7 +58,7 @@ var lsCmd = &cobra.Command{
 			return err
 		}
 
-		c := cmdutil.MustGetClient(cfg.Repo.Dir, cfg.Network)
+		c := cmdutil.MustGetClient(cfg)
 		indexer, indexerPrincipal := cmdutil.MustGetIndexClient(cfg.Network)
 
 		proofs, err := c.Proofs()

@@ -48,7 +48,7 @@ var loginCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		c := cmdutil.MustGetClient(cfg.Repo.Dir, cfg.Network)
+		c := cmdutil.MustGetClient(cfg)
 
 		authOk, err := c.RequestAccess(ctx, accountDid.String())
 		if err != nil {

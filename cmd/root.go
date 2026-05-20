@@ -20,6 +20,7 @@ import (
 	"github.com/fil-forge/guppy/cmd/account"
 	"github.com/fil-forge/guppy/cmd/delegation"
 	"github.com/fil-forge/guppy/cmd/gateway"
+	"github.com/fil-forge/guppy/cmd/identity"
 	"github.com/fil-forge/guppy/cmd/proof"
 	"github.com/fil-forge/guppy/cmd/space"
 	"github.com/fil-forge/guppy/cmd/upload"
@@ -99,6 +100,10 @@ func init() {
 	cobra.CheckErr(rootCmd.PersistentFlags().MarkHidden("replicas"))
 	cobra.CheckErr(viper.BindPFlag("upload.replicas", rootCmd.PersistentFlags().Lookup("replicas")))
 
+	rootCmd.PersistentFlags().String("key-file", "", "Path to a PEM file containing ed25519 private key")
+	cobra.CheckErr(rootCmd.MarkPersistentFlagFilename("key-file", "pem"))
+	cobra.CheckErr(viper.BindPFlag("identity.key_file", rootCmd.PersistentFlags().Lookup("key-file")))
+
 	// Add Commands
 	rootCmd.AddCommand(
 		whoamiCmd,
@@ -111,6 +116,7 @@ func init() {
 		space.Cmd,
 		proof.Cmd,
 		gateway.Cmd,
+		identity.Cmd,
 		delegation.Cmd,
 		account.Cmd,
 		blob.Cmd,

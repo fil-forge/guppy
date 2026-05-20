@@ -96,7 +96,7 @@ var Cmd = &cobra.Command{
 		// end of this function anyhow.
 		// defer repo.Close()
 
-		client := cmdutil.MustGetClient(cfg.Repo.Dir, cfg.Network)
+		client := cmdutil.MustGetClient(cfg)
 		spaceDID, err := cmdutil.ResolveSpace(client, spaceArg)
 		if err != nil {
 			return err

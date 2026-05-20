@@ -79,7 +79,7 @@ var generateCmd = &cobra.Command{
 			return err
 		}
 
-		c := cmdutil.MustGetClient(cfg.Repo.Dir, cfg.Network)
+		c := cmdutil.MustGetClient(cfg)
 		accounts, err := c.Accounts()
 		if err != nil {
 			return err

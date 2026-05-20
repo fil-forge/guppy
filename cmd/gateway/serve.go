@@ -116,7 +116,7 @@ var serveCmd = &cobra.Command{
 
 		indexHTML = []byte(strings.ReplaceAll(string(indexHTML), "{{.Version}}", build.Version))
 
-		c := cmdutil.MustGetClient(cfg.Repo.Dir, cfg.Network)
+		c := cmdutil.MustGetClient(cfg)
 
 		pub, err := crypto.UnmarshalEd25519PublicKey(c.Issuer().Verifier().Raw())
 		cobra.CheckErr(err)

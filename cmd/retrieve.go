@@ -48,7 +48,7 @@ var retrieveCmd = &cobra.Command{
 			return err
 		}
 
-		c := cmdutil.MustGetClient(cfg.Repo.Dir, cfg.Network)
+		c := cmdutil.MustGetClient(cfg)
 		space, err := cmdutil.ResolveSpace(c, args[0])
 		if err != nil {
 			return err
