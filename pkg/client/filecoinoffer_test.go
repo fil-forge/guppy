@@ -126,7 +126,7 @@ func TestFilecoinOffer(t *testing.T) {
 				),
 			)
 
-			c := helpers.Must(client.NewClient(client.WithConnection(connection)))
+			c := helpers.Must(client.New(client.WithConnection(connection)))
 
 			// Delegate * on the space to the client
 			cap := ucan.NewCapability("*", space.DID().String(), ucan.NoCaveats{})

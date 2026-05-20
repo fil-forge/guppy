@@ -97,7 +97,7 @@ func MustGetClientForNetwork(cfg config.Config, flagName string, options ...clie
 		log.Fatal(err)
 	}
 
-	c, err := client.NewClient(
+	c, err := client.New(
 		append(
 			[]client.Option{client.WithStore(store)},
 			append(

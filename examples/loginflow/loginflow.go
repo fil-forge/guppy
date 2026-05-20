@@ -23,7 +23,7 @@ func main() {
 
 	// Without `client.WithConnection`, uses default connection to the Storacha network
 	// Without `client.WithPrincipal`, the client will generate a new signer.
-	c, _ := client.NewClient()
+	c, _ := client.New()
 
 	// Kick off the login flow
 	authOk, _ := c.RequestAccess(ctx, account.String())

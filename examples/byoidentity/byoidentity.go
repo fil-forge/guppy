@@ -10,6 +10,7 @@ import (
 	"github.com/fil-forge/go-ucanto/principal/ed25519/signer"
 	"github.com/fil-forge/guppy/pkg/client"
 	"github.com/fil-forge/guppy/pkg/delegation"
+	"github.com/fil-forge/guppy/pkg/tokenstore"
 )
 
 func main() {
@@ -24,10 +25,13 @@ func main() {
 	// space to list uploads from
 	space, _ := did.Parse("did:key:z6MkwDuRThQcyWjqNsK54yKAmzfsiH6BTkASyiucThMtHt1y")
 
+	tokenStore := tokenstore.NewMemStore()
+	tokenStore.AddDelegations(proof)
+
 	// nil uses the default connection to the Storacha network
-	c, _ := client.NewClient(
-		client.WithPrincipal(signer),
-		client.WithAdditionalProofs(proof),
+	c, _ := client.New(
+		signer,
+		client.WithTokenStore(tokenStore),
 	)
 
 	listOk, _ := c.UploadList(

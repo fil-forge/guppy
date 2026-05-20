@@ -41,7 +41,7 @@ func Client(options ...Option) (*client.Client, error) {
 	}
 	connection := NewTestServerConnection(config.serverOptions...)
 	config.clientOptions = append(config.clientOptions, client.WithConnection(connection))
-	return client.NewClient(config.clientOptions...)
+	return client.New(config.clientOptions...)
 }
 
 // ComposeOptions combines multiple options into one. It's written generically
