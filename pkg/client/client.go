@@ -32,6 +32,7 @@ var (
 
 type Client struct {
 	signer         ucan.Signer
+	serviceID      did.DID
 	httpClient     *http.Client
 	ucanClient     *client.HTTPClient
 	ucanOpts       []client.HTTPOption
@@ -40,9 +41,10 @@ type Client struct {
 	retrievalOpts  []rclient.Option
 }
 
-func New(signer ucan.Signer, endpoint url.URL, options ...Option) (*Client, error) {
+func New(signer ucan.Signer, serviceID did.DID, serviceURL url.URL, options ...Option) (*Client, error) {
 	c := Client{
 		signer:         signer,
+		serviceID:      serviceID,
 		receiptsClient: DefaultReceiptsClient,
 	}
 
@@ -57,7 +59,7 @@ func New(signer ucan.Signer, endpoint url.URL, options ...Option) (*Client, erro
 		c.tokenStore = tokenstore.NewMemStore()
 	}
 
-	ucanClient, err := client.NewHTTP(&endpoint, c.ucanOpts...)
+	ucanClient, err := client.NewHTTP(&serviceURL, c.ucanOpts...)
 	if err != nil {
 		return nil, fmt.Errorf("creating UCAN client: %w", err)
 	}
@@ -95,13 +97,13 @@ func (c *Client) ProofAttestations(ctx context.Context, proofs []ucan.Delegation
 }
 
 // AddProofs adds the given delegations to the client's token store.
-func (c *Client) AddProofs(delegations ...ucan.Delegation) error {
-	return c.tokenStore.AddDelegations(delegations...)
+func (c *Client) AddProofs(ctx context.Context, delegations ...ucan.Delegation) error {
+	return c.tokenStore.AddDelegations(ctx, delegations...)
 }
 
 // Reset clears all tokens from the token store.
-func (c *Client) Reset() error {
-	return c.tokenStore.Reset()
+func (c *Client) Reset(ctx context.Context) error {
+	return c.tokenStore.Reset(ctx)
 }
 
 // Execute sends the given invocation using the provided client and decodes the
@@ -111,7 +113,7 @@ func Execute[T cbg.CBORUnmarshaler](
 	client *client.HTTPClient,
 	inv ucan.Invocation,
 	options ...execution.RequestOption,
-) (T, ucan.Receipt, error) {
+) (T, ucan.Receipt, ucan.Container, error) {
 	fields := []zap.Field{
 		zap.Stringer("issuer", inv.Issuer()),
 		zap.Stringer("subject", inv.Subject()),
@@ -135,7 +137,7 @@ func Execute[T cbg.CBORUnmarshaler](
 	resp, err := client.Execute(execution.NewRequest(ctx, inv, options...))
 	if err != nil {
 		log.Error("failed to execute invocation", zap.Error(err))
-		return zero, nil, fmt.Errorf("executing invocation: %w", err)
+		return zero, nil, nil, fmt.Errorf("executing invocation: %w", err)
 	}
 
 	rcpt := resp.Receipt()
@@ -152,9 +154,9 @@ func Execute[T cbg.CBORUnmarshaler](
 		var model edm.ErrorModel
 		if err := model.UnmarshalCBOR(bytes.NewReader(x)); err != nil {
 			log.Error("failed to unmarshal execution failure", zap.Error(err))
-			return zero, nil, fmt.Errorf("executing invocation")
+			return zero, nil, nil, fmt.Errorf("executing invocation")
 		}
-		return zero, nil, fmt.Errorf("executing invocation: %w", model)
+		return zero, nil, nil, fmt.Errorf("executing invocation: %w", model)
 	}
 	log.Debug("successful execution")
 
@@ -167,9 +169,9 @@ func Execute[T cbg.CBORUnmarshaler](
 	}
 	if err := ok.UnmarshalCBOR(bytes.NewReader(o)); err != nil {
 		log.Error("failed to unmarshal invocation response", zap.Error(err))
-		return zero, nil, fmt.Errorf("unmarshaling invocation response: %w", err)
+		return zero, nil, nil, fmt.Errorf("unmarshaling invocation response: %w", err)
 	}
-	return ok, rcpt, nil
+	return ok, rcpt, resp.Metadata(), nil
 }
 
 // RawMap is a [zapcore.ObjectMarshaler] that decodes the given bytes as a

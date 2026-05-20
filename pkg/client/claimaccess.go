@@ -3,11 +3,11 @@ package client
 import (
 	"context"
 	"fmt"
+	"slices"
 
-	"github.com/fil-forge/go-libstoracha/capabilities/access"
-	udelegation "github.com/fil-forge/go-ucanto/core/delegation"
-	"github.com/fil-forge/go-ucanto/core/result"
-	"github.com/fil-forge/guppy/pkg/delegation"
+	"github.com/fil-forge/libforge/commands/access"
+	"github.com/fil-forge/ucantone/ucan"
+	"github.com/fil-forge/ucantone/ucan/invocation"
 )
 
 // ClaimAccess fetches any stored delegations from the service. This is the
@@ -16,34 +16,28 @@ import (
 // user to confirm the access request out of band, e.g. via email. Once
 // confirmed, a delegation will be available on the service for the Agent to
 // claim.
-func (c *Client) ClaimAccess(ctx context.Context) ([]udelegation.Delegation, error) {
-	caveats := access.ClaimCaveats{}
-
-	res, _, err := invokeAndExecute[access.ClaimCaveats, access.ClaimOk](
-		ctx,
-		c,
-		access.Claim,
-		c.Issuer().DID().String(),
-		caveats,
-		access.ClaimOkType(),
+func (c *Client) ClaimAccess(ctx context.Context) ([]ucan.Delegation, error) {
+	inv, err := access.Claim.Invoke(
+		c.signer,
+		c.signer.DID(),
+		&access.ClaimArguments{},
+		invocation.WithAudience(c.serviceID),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("invoking and executing `access/claim`: %w", err)
+		return nil, fmt.Errorf("creating invocation: %w", err)
 	}
 
-	claimOk, failErr := result.Unwrap(res)
-	if failErr != nil {
-		return nil, fmt.Errorf("`access/claim` failed: %w", failErr)
+	claimOK, _, meta, err := Execute[*access.ClaimOK](ctx, c.ucanClient, inv)
+	if err != nil {
+		return nil, fmt.Errorf("executing claim invocation: %w", err)
 	}
 
-	dels := make([]udelegation.Delegation, 0, len(claimOk.Delegations.Values))
-	for _, delBytes := range claimOk.Delegations.Values {
-		del, err := delegation.ExtractProof(delBytes)
-		if err != nil {
-			return nil, fmt.Errorf("extracting delegation: %w", err)
+	var dlgs []ucan.Delegation
+	for _, d := range meta.Delegations() {
+		if slices.Contains(claimOK.Delegations, d.Link()) {
+			dlgs = append(dlgs, d)
 		}
-		dels = append(dels, del)
 	}
 
-	return dels, nil
+	return dlgs, nil
 }
