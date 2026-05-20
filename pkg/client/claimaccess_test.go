@@ -62,7 +62,7 @@ func TestClaimAccess(t *testing.T) {
 			),
 		)
 
-		c = testutil.Must(client.NewClient(client.WithConnection(connection)))(t)
+		c = testutil.Must(client.New(client.WithConnection(connection)))(t)
 
 		// Some arbitrary delegation which has been stored to be claimed.
 		del := testutil.Must(uploadcap.Get.Delegate(
@@ -98,7 +98,7 @@ func TestClaimAccess(t *testing.T) {
 			),
 		)
 
-		c := testutil.Must(client.NewClient(client.WithConnection(connection)))(t)
+		c := testutil.Must(client.New(client.WithConnection(connection)))(t)
 		claimedDels, err := c.ClaimAccess(testContext(t))
 
 		require.ErrorContains(t, err, "`access/claim` failed: Something went wrong!")
@@ -110,7 +110,7 @@ func TestClaimAccess(t *testing.T) {
 		// capability.
 		connection := ctestutil.NewTestServerConnection()
 
-		c := testutil.Must(client.NewClient(client.WithConnection(connection)))(t)
+		c := testutil.Must(client.New(client.WithConnection(connection)))(t)
 		claimedDels, err := c.ClaimAccess(testContext(t))
 
 		require.ErrorContains(t, err, "`access/claim` failed with HandlerNotFoundError error:")

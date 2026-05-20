@@ -47,7 +47,7 @@ func TestAccessDelegate(t *testing.T) {
 			),
 		)
 
-		c = testutil.Must(client.NewClient(
+		c = testutil.Must(client.New(
 			client.WithConnection(connection),
 		))(t)
 
@@ -105,7 +105,7 @@ func TestAccessDelegate(t *testing.T) {
 			),
 		)
 
-		c = testutil.Must(client.NewClient(
+		c = testutil.Must(client.New(
 			client.WithConnection(connection),
 		))(t)
 
@@ -174,7 +174,7 @@ func TestAccessDelegate(t *testing.T) {
 			),
 		)
 
-		c = testutil.Must(client.NewClient(
+		c = testutil.Must(client.New(
 			client.WithConnection(connection),
 		))(t)
 
@@ -239,7 +239,7 @@ func TestAccessDelegate(t *testing.T) {
 			),
 		)
 
-		c = testutil.Must(client.NewClient(
+		c = testutil.Must(client.New(
 			client.WithConnection(connection),
 		))(t)
 

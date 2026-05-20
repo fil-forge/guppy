@@ -70,7 +70,7 @@ func TestSpaceBlobReplicate(t *testing.T) {
 		)
 
 		// Act as the space itself for auth simplicity
-		c := uhelpers.Must(client.NewClient(client.WithConnection(connection), client.WithPrincipal(space)))
+		c := uhelpers.Must(client.New(client.WithConnection(connection), client.WithPrincipal(space)))
 
 		digest, err := multihash.Encode([]byte("test-digest"), multihash.IDENTITY)
 		require.NoError(t, err)

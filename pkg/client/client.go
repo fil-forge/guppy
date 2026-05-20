@@ -1,35 +1,28 @@
 package client
 
 import (
+	"bytes"
 	"context"
 	"fmt"
-	"strings"
+	"net/http"
+	"net/url"
+	"reflect"
 
-	captypes "github.com/fil-forge/go-libstoracha/capabilities/types"
-	uclient "github.com/fil-forge/go-ucanto/client"
 	rclient "github.com/fil-forge/go-ucanto/client/retrieval"
-	"github.com/fil-forge/go-ucanto/core/delegation"
-	"github.com/fil-forge/go-ucanto/core/invocation"
-	"github.com/fil-forge/go-ucanto/core/receipt"
-	"github.com/fil-forge/go-ucanto/core/receipt/fx"
-	"github.com/fil-forge/go-ucanto/core/result"
-	"github.com/fil-forge/go-ucanto/core/result/failure"
-	"github.com/fil-forge/go-ucanto/core/result/failure/datamodel"
-	"github.com/fil-forge/go-ucanto/did"
-	"github.com/fil-forge/go-ucanto/principal"
-	serverdatamodel "github.com/fil-forge/go-ucanto/server/datamodel"
-	"github.com/fil-forge/go-ucanto/ucan"
-	"github.com/fil-forge/go-ucanto/validator"
-	logging "github.com/ipfs/go-log/v2"
-	"github.com/ipld/go-ipld-prime/schema"
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/trace"
-
-	"github.com/fil-forge/guppy/internal/ctxutil"
-	"github.com/fil-forge/guppy/pkg/agentstore"
-	"github.com/fil-forge/guppy/pkg/client/nodevalue"
 	receiptclient "github.com/fil-forge/guppy/pkg/receipt"
+	"github.com/fil-forge/guppy/pkg/tokenstore"
+	"github.com/fil-forge/ucantone/client"
+	"github.com/fil-forge/ucantone/did"
+	edm "github.com/fil-forge/ucantone/errors/datamodel"
+	"github.com/fil-forge/ucantone/execution"
+	"github.com/fil-forge/ucantone/ipld/datamodel"
+	"github.com/fil-forge/ucantone/ucan"
+	"github.com/ipfs/go-cid"
+	logging "github.com/ipfs/go-log/v2"
+	cbg "github.com/whyrusleeping/cbor-gen"
+	"go.opentelemetry.io/otel"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 var (
@@ -38,17 +31,18 @@ var (
 )
 
 type Client struct {
-	connection       uclient.Connection
-	receiptsClient   *receiptclient.Client
-	store            agentstore.Store
-	additionalProofs []delegation.Delegation
-	retrievalOpts    []rclient.Option
+	signer         ucan.Signer
+	httpClient     *http.Client
+	ucanClient     *client.HTTPClient
+	ucanOpts       []client.HTTPOption
+	receiptsClient *receiptclient.Client
+	tokenStore     tokenstore.Store
+	retrievalOpts  []rclient.Option
 }
 
-// NewClient creates a new client.
-func NewClient(options ...Option) (*Client, error) {
+func New(signer ucan.Signer, endpoint url.URL, options ...Option) (*Client, error) {
 	c := Client{
-		connection:     DefaultConnection,
+		signer:         signer,
 		receiptsClient: DefaultReceiptsClient,
 	}
 
@@ -59,235 +53,142 @@ func NewClient(options ...Option) (*Client, error) {
 	}
 
 	// Create a default memory store if none provided
-	if c.store == nil {
-		store, err := agentstore.NewMemory()
-		if err != nil {
-			return nil, fmt.Errorf("creating default memory store: %w", err)
-		}
-		c.store = store
+	if c.tokenStore == nil {
+		c.tokenStore = tokenstore.NewMemStore()
 	}
+
+	ucanClient, err := client.NewHTTP(&endpoint, c.ucanOpts...)
+	if err != nil {
+		return nil, fmt.Errorf("creating UCAN client: %w", err)
+	}
+	c.ucanClient = ucanClient
 
 	return &c, nil
 }
 
-// DID returns the DID of the client.
+// DID returns the DID of the agent.
 func (c *Client) DID() did.DID {
-	p, err := c.store.Principal()
-	if err != nil {
-		log.Warnf("getting principal: %s", err)
-		return did.DID{}
-	}
-	if p == nil {
-		return did.DID{}
-	}
-	return p.DID()
+	return c.signer.DID()
 }
 
-// Connection returns the connection used by the client.
-func (c *Client) Connection() uclient.Connection {
-	return c.connection
+// Issuer returns the issuing signer of the agent.
+func (c *Client) Issuer() ucan.Signer {
+	return c.signer
 }
 
-// Issuer returns the issuing signer of the client.
-func (c *Client) Issuer() principal.Signer {
-	p, err := c.store.Principal()
+// ProofChain recursively builds a proof chain of delegations from the given
+// audience to the given subject for the specified command. It returns the
+// list of delegations and their corresponding links in the order required for
+// invocation. i.e. starting from the root Delegation (issued by the Subject),
+// in strict sequence where the aud of the previous Delegation matches the iss
+// of the next Delegation.
+func (c *Client) ProofChain(ctx context.Context, aud did.DID, cmd ucan.Command, sub did.DID) ([]ucan.Delegation, []cid.Cid, error) {
+	return c.tokenStore.ProofChain(ctx, aud, cmd, sub)
+}
+
+// ProofAttestations returns a list of attestations for proofs that need them.
+// i.e. if a proof is signed with a non-standard signature this function will
+// fetch an attestation for it, and fail if it cannot. The authority parameter
+// is the DID of the service we trust to be issuing attestations.
+func (c *Client) ProofAttestations(ctx context.Context, proofs []ucan.Delegation, authority did.DID) ([]ucan.Invocation, error) {
+	return c.tokenStore.ProofAttestations(ctx, proofs, authority)
+}
+
+// AddProofs adds the given delegations to the client's token store.
+func (c *Client) AddProofs(delegations ...ucan.Delegation) error {
+	return c.tokenStore.AddDelegations(delegations...)
+}
+
+// Reset clears all tokens from the token store.
+func (c *Client) Reset() error {
+	return c.tokenStore.Reset()
+}
+
+// Execute sends the given invocation using the provided client and decodes the
+// response into the specified type.
+func Execute[T cbg.CBORUnmarshaler](
+	ctx context.Context,
+	client *client.HTTPClient,
+	inv ucan.Invocation,
+	options ...execution.RequestOption,
+) (T, ucan.Receipt, error) {
+	fields := []zap.Field{
+		zap.Stringer("issuer", inv.Issuer()),
+		zap.Stringer("subject", inv.Subject()),
+		zap.Stringer("command", inv.Command()),
+		zap.Stringer("task", inv.Task().Link()),
+		zap.Object("arguments", RawMap(inv.ArgumentsBytes())),
+	}
+	if inv.Audience().Defined() {
+		fields = append(fields, zap.Stringer("audience", inv.Audience()))
+	}
+	if len(inv.MetadataBytes()) > 0 {
+		fields = append(fields, zap.Object("metadata", RawMap(inv.MetadataBytes())))
+	}
+	if len(inv.Proofs()) > 0 {
+		fields = append(fields, zap.Stringers("proofs", inv.Proofs()))
+	}
+	log := log.With(zap.Dict("invocation", fields...))
+	log.Debug("executing invocation")
+
+	var zero T
+	resp, err := client.Execute(execution.NewRequest(ctx, inv, options...))
 	if err != nil {
-		log.Warnf("getting principal: %s", err)
+		log.Error("failed to execute invocation", zap.Error(err))
+		return zero, nil, fmt.Errorf("executing invocation: %w", err)
+	}
+
+	rcpt := resp.Receipt()
+	o, x := rcpt.Out().Unpack()
+
+	log = log.With(zap.Dict(
+		"receipt",
+		zap.Stringer("ran", rcpt.Ran()),
+		zap.Dict("out", zap.Object("ok", RawMap(o)), zap.Object("err", RawMap(x))),
+	))
+
+	if rcpt.Out().IsErr() {
+		log.Error("failed execution")
+		var model edm.ErrorModel
+		if err := model.UnmarshalCBOR(bytes.NewReader(x)); err != nil {
+			log.Error("failed to unmarshal execution failure", zap.Error(err))
+			return zero, nil, fmt.Errorf("executing invocation")
+		}
+		return zero, nil, fmt.Errorf("executing invocation: %w", model)
+	}
+	log.Debug("successful execution")
+
+	// if ok is a pointer type, allocate the underlying value so
+	// UnmarshalCBOR has a non-nil pointer to write into.
+	var ok T
+	typ := reflect.TypeOf(ok)
+	if typ.Kind() == reflect.Ptr {
+		ok = reflect.New(typ.Elem()).Interface().(T)
+	}
+	if err := ok.UnmarshalCBOR(bytes.NewReader(o)); err != nil {
+		log.Error("failed to unmarshal invocation response", zap.Error(err))
+		return zero, nil, fmt.Errorf("unmarshaling invocation response: %w", err)
+	}
+	return ok, rcpt, nil
+}
+
+// RawMap is a [zapcore.ObjectMarshaler] that decodes the given bytes as a
+// CBOR-encoded IPLD map and logs its keys and values.
+type RawMap []byte
+
+func (rm RawMap) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if len(rm) == 0 {
 		return nil
 	}
-	return p
-}
-
-// Proofs returns delegations that match the given capability queries.
-// If no queries are provided, returns all non-expired delegations.
-// Delegations are filtered by:
-//   - Expiration: excludes expired delegations
-//   - NotBefore: excludes delegations that are not yet valid
-//   - Capability matching: if queries are provided, only returns delegations
-//     whose capabilities match at least one of the queries
-//
-// Additionally, this method includes relevant session proofs (ucan/attest delegations)
-// that attest to the returned authorizations.
-//
-// Returns both stored delegations (from store) and additional proofs
-// (from c.additionalProofs).
-func (c *Client) Proofs(queries ...agentstore.CapabilityQuery) ([]delegation.Delegation, error) {
-	// Get delegations from store
-	storeDelegations, err := c.store.Query(queries...)
-	if err != nil {
-		return nil, fmt.Errorf("querying delegations: %w", err)
+	var m datamodel.Map
+	if err := m.UnmarshalCBOR(bytes.NewReader(rm)); err != nil {
+		return err
 	}
-
-	// If no additional proofs, return store results directly
-	if len(c.additionalProofs) == 0 {
-		return storeDelegations, nil
-	}
-
-	// Query additional proofs using the same query logic
-	additionalResults := agentstore.Query(c.additionalProofs, queries)
-
-	// Combine results, deduplicating by CID
-	seen := make(map[string]struct{})
-	res := make([]delegation.Delegation, 0, len(storeDelegations)+len(additionalResults))
-
-	for _, del := range storeDelegations {
-		cidStr := del.Link().String()
-		if _, exists := seen[cidStr]; !exists {
-			seen[cidStr] = struct{}{}
-			res = append(res, del)
-		}
-	}
-
-	for _, del := range additionalResults {
-		cidStr := del.Link().String()
-		if _, exists := seen[cidStr]; !exists {
-			seen[cidStr] = struct{}{}
-			res = append(res, del)
-		}
-	}
-
-	return res, nil
-}
-
-// AddProofs adds the given delegations to the client's store.
-func (c *Client) AddProofs(delegations ...delegation.Delegation) error {
-	return c.store.AddDelegations(delegations...)
-}
-
-// Reset clears all delegations from the store while preserving the principal.
-func (c *Client) Reset() error {
-	return c.store.Reset()
-}
-
-func invokeAndExecute[Caveats, Out any](
-	ctx context.Context,
-	c *Client,
-	capParser validator.CapabilityParser[Caveats],
-	with ucan.Resource,
-	caveats Caveats,
-	successType schema.Type,
-	options ...delegation.Option,
-) (result.Result[Out, failure.IPLDBuilderFailure], fx.Effects, error) {
-	inv, err := invoke[Caveats, Out](c, capParser, with, caveats, options...)
-	if err != nil {
-		return nil, nil, fmt.Errorf("invoking `%s`: %w", capParser.Can(), err)
-	}
-	return execute[Caveats, Out](ctx, c, capParser, inv, successType)
-}
-
-func invoke[Caveats, Out any](
-	c *Client,
-	capParser validator.CapabilityParser[Caveats],
-	with ucan.Resource,
-	caveats Caveats,
-	options ...delegation.Option,
-) (invocation.IssuedInvocation, error) {
-	var err error
-	res, err := c.Proofs(agentstore.CapabilityQuery{
-		Can:  capParser.Can(),
-		With: with,
-	})
-	if err != nil {
-		return nil, err
-	}
-	pfs := make([]delegation.Proof, 0, len(res))
-
-	var inv invocation.IssuedInvocation
-	for _, del := range res {
-		pfs = append(pfs, delegation.FromDelegation(del))
-	}
-
-	inv, err = capParser.Invoke(c.Issuer(), c.Connection().ID(), with, caveats, append(options, delegation.WithProof(pfs...))...)
-	if err != nil {
-		return nil, err
-	}
-
-	return inv, nil
-}
-
-func execute[Caveats, Out any](
-	ctx context.Context,
-	c *Client,
-	capParser validator.CapabilityParser[Caveats],
-	inv invocation.IssuedInvocation,
-	successType schema.Type,
-) (result.Result[Out, failure.IPLDBuilderFailure], fx.Effects, error) {
-	ctx, span := tracer.Start(ctx, "UCAN "+capParser.Can(), trace.WithAttributes(
-		attribute.String("invocation.ability", capParser.Can()),
-		attribute.String("invocation.audience", inv.Audience().DID().String()),
-	))
-	defer span.End()
-
-	resp, err := uclient.Execute(ctx, []invocation.Invocation{inv}, c.Connection())
-	if err != nil {
-		return nil, nil, fmt.Errorf("sending invocation: %w", ctxutil.EnrichWithCause(err, ctx))
-	}
-
-	rcptlnk, ok := resp.Get(inv.Link())
-	if !ok {
-		return nil, nil, fmt.Errorf("receipt not found: %s", inv.Link())
-	}
-
-	// Note that this currently only treats handler execution errors nicely
-	// (errors returned from the invocation handler itself). Other standard errors
-	// (like authorization errors) go through the fallback error reporting below
-	// along with anything we can't forsee.
-	reader, err := receipt.NewReceiptReaderFromTypes[Out, serverdatamodel.HandlerExecutionErrorModel](successType, serverdatamodel.HandlerExecutionErrorType(), captypes.Converters...)
-	if err != nil {
-		return nil, nil, fmt.Errorf("generating receipt reader: %w", err)
-	}
-
-	rcpt, err := reader.Read(rcptlnk, resp.Blocks())
-	if err != nil {
-		anyRcpt, err := receipt.NewAnyReceiptReader().Read(rcptlnk, resp.Blocks())
+	for k, v := range m {
+		err := enc.AddReflected(k, v)
 		if err != nil {
-			return nil, nil, fmt.Errorf("reading receipt as any: %w", err)
+			return err
 		}
-		okNode, errorNode := result.Unwrap(anyRcpt.Out())
-
-		if okNode != nil {
-			okValue, err := nodevalue.NodeValue(okNode)
-			if err != nil {
-				return nil, nil, fmt.Errorf("reading `%s` ok output: %w", capParser.Can(), err)
-			}
-			return nil, nil, fmt.Errorf("`%s` succeeded with unexpected output: %#v", capParser.Can(), okValue)
-		}
-
-		errorValue, err := nodevalue.NodeValue(errorNode)
-		if err != nil {
-			return nil, nil, fmt.Errorf("reading `%s` error output: %w", capParser.Can(), err)
-		}
-
-		// Try to extract error message if possible
-		if errorMap, ok := errorValue.(map[string]any); ok {
-			if msg, exists := errorMap["message"]; exists {
-				// Add a newline if the message contains multiple lines, for readability
-				if msgStr, ok := msg.(string); ok {
-					if strings.Contains(msgStr, "\n") {
-						msg = "\n" + msgStr
-					}
-				}
-
-				name := "unnamed"
-				if n, exists := errorMap["name"]; exists {
-					if nStr, ok := n.(string); ok {
-						name = nStr
-					}
-				}
-
-				return nil, nil, fmt.Errorf("`%s` failed with %s error: %s", capParser.Can(), name, msg)
-			}
-		}
-		return nil, nil, fmt.Errorf("`%s` failed with unexpected error: %#v", capParser.Can(), errorValue)
 	}
-
-	return result.MapError(
-		result.MapError(
-			rcpt.Out(),
-			func(errorModel serverdatamodel.HandlerExecutionErrorModel) datamodel.FailureModel {
-				return datamodel.FailureModel(errorModel.Cause)
-			},
-		),
-		failure.FromFailureModel,
-	), rcpt.Fx(), nil
+	return nil
 }

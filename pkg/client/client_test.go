@@ -19,7 +19,7 @@ import (
 
 func TestReset(t *testing.T) {
 	store := testutil.Must(agentstore.NewMemory())(t)
-	c := testutil.Must(client.NewClient(client.WithStore(store)))(t)
+	c := testutil.Must(client.New(client.WithStore(store)))(t)
 	res, err := c.Proofs()
 	require.NoError(t, err)
 	require.Empty(t, res, "expected no proofs to be present initially")
@@ -58,7 +58,7 @@ func TestReset(t *testing.T) {
 }
 
 func TestProofs(t *testing.T) {
-	c := testutil.Must(client.NewClient())(t)
+	c := testutil.Must(client.New())(t)
 
 	// Create delegations with different capabilities
 	uploadDel := testutil.Must(uploadcap.Add.Delegate(
@@ -153,7 +153,7 @@ func TestProofs(t *testing.T) {
 	})
 
 	t.Run("session proofs", func(t *testing.T) {
-		c := testutil.Must(client.NewClient())(t)
+		c := testutil.Must(client.New())(t)
 
 		// Create another principal that will issue the original authorization
 		issuer := testutil.Must(signer.Generate())(t)
@@ -198,7 +198,7 @@ func TestProofs(t *testing.T) {
 		})
 
 		t.Run("excludes expired session proofs", func(t *testing.T) {
-			c := testutil.Must(client.NewClient())(t)
+			c := testutil.Must(client.New())(t)
 
 			// Create another principal that will issue the original authorization
 			issuer := testutil.Must(signer.Generate())(t)
@@ -232,7 +232,7 @@ func TestProofs(t *testing.T) {
 	})
 
 	t.Run("ability wildcard matching", func(t *testing.T) {
-		c := testutil.Must(client.NewClient())(t)
+		c := testutil.Must(client.New())(t)
 
 		// Create delegations with specific and wildcard capabilities (all with ucan:* resource)
 		specificCap := ucan.NewCapability("upload/add", "ucan:*", ucan.NoCaveats{})
@@ -293,7 +293,7 @@ func TestProofs(t *testing.T) {
 	})
 
 	t.Run("resource wildcard matching", func(t *testing.T) {
-		c := testutil.Must(client.NewClient())(t)
+		c := testutil.Must(client.New())(t)
 		space := testutil.Must(signer.Generate())(t)
 
 		// Create a delegation with a specific resource (space DID)
@@ -361,7 +361,7 @@ func TestWithAdditionalProofs(t *testing.T) {
 		))(t)
 
 		// Create client with store and additional proofs
-		c := testutil.Must(client.NewClient(
+		c := testutil.Must(client.New(
 			client.WithStore(store),
 			client.WithPrincipal(s),
 			client.WithAdditionalProofs(additionalDel),
@@ -396,7 +396,7 @@ func TestWithAdditionalProofs(t *testing.T) {
 		))(t)
 
 		// Create client with additional proofs
-		c := testutil.Must(client.NewClient(
+		c := testutil.Must(client.New(
 			client.WithStore(store),
 			client.WithPrincipal(s),
 			client.WithAdditionalProofs(additionalDel),
@@ -433,7 +433,7 @@ func TestWithAdditionalProofs(t *testing.T) {
 		))(t)
 
 		// Create client with both delegations as additional proofs
-		c := testutil.Must(client.NewClient(
+		c := testutil.Must(client.New(
 			client.WithPrincipal(s),
 			client.WithAdditionalProofs(uploadDel, blobDel),
 		))(t)
@@ -467,7 +467,7 @@ func TestWithAdditionalProofs(t *testing.T) {
 		))(t)
 
 		// Create client with both delegations as additional proofs
-		c := testutil.Must(client.NewClient(
+		c := testutil.Must(client.New(
 			client.WithPrincipal(s),
 			client.WithAdditionalProofs(validDel, expiredDel),
 		))(t)
@@ -499,7 +499,7 @@ func TestWithAdditionalProofs(t *testing.T) {
 		))(t)
 
 		// Create client with additional proofs
-		c := testutil.Must(client.NewClient(
+		c := testutil.Must(client.New(
 			client.WithStore(store),
 			client.WithPrincipal(s),
 			client.WithAdditionalProofs(additionalDel),

@@ -15,7 +15,7 @@ import (
 
 func TestSpaces(t *testing.T) {
 	t.Run("returns empty slice when no space proofs exist", func(t *testing.T) {
-		c := testutil.Must(client.NewClient())(t)
+		c := testutil.Must(client.New())(t)
 
 		spaces, err := c.Spaces()
 		require.NoError(t, err)
@@ -23,7 +23,7 @@ func TestSpaces(t *testing.T) {
 	})
 
 	t.Run("returns space DIDs from space/* delegations", func(t *testing.T) {
-		c := testutil.Must(client.NewClient())(t)
+		c := testutil.Must(client.New())(t)
 		space := testutil.Must(signer.Generate())(t)
 
 		spaceWildcardCap := ucan.NewCapability("space/*", space.DID().String(), ucan.NoCaveats{})
@@ -44,7 +44,7 @@ func TestSpaces(t *testing.T) {
 	})
 
 	t.Run("returns multiple unique spaces", func(t *testing.T) {
-		c := testutil.Must(client.NewClient())(t)
+		c := testutil.Must(client.New())(t)
 		space1 := testutil.Must(signer.Generate())(t)
 		space2 := testutil.Must(signer.Generate())(t)
 
@@ -69,7 +69,7 @@ func TestSpaces(t *testing.T) {
 	})
 
 	t.Run("deduplicates spaces from multiple delegations", func(t *testing.T) {
-		c := testutil.Must(client.NewClient())(t)
+		c := testutil.Must(client.New())(t)
 		space := testutil.Must(signer.Generate())(t)
 
 		// Create two different delegations for the same space
@@ -92,7 +92,7 @@ func TestSpaces(t *testing.T) {
 	})
 
 	t.Run("skips ucan/attest capabilities", func(t *testing.T) {
-		c := testutil.Must(client.NewClient())(t)
+		c := testutil.Must(client.New())(t)
 		space := testutil.Must(signer.Generate())(t)
 		issuer := testutil.Must(signer.Generate())(t)
 
@@ -121,7 +121,7 @@ func TestSpaces(t *testing.T) {
 	})
 
 	t.Run("extracts spaces from ucan:* delegations via proofs", func(t *testing.T) {
-		c := testutil.Must(client.NewClient())(t)
+		c := testutil.Must(client.New())(t)
 		space := testutil.Must(signer.Generate())(t)
 		issuer := testutil.Must(signer.Generate())(t)
 
@@ -150,7 +150,7 @@ func TestSpaces(t *testing.T) {
 	})
 
 	t.Run("excludes expired delegations", func(t *testing.T) {
-		c := testutil.Must(client.NewClient())(t)
+		c := testutil.Must(client.New())(t)
 		space := testutil.Must(signer.Generate())(t)
 
 		// Create an expired space/* delegation
@@ -172,7 +172,7 @@ func TestSpaces(t *testing.T) {
 	})
 
 	t.Run("excludes future delegations", func(t *testing.T) {
-		c := testutil.Must(client.NewClient())(t)
+		c := testutil.Must(client.New())(t)
 		space := testutil.Must(signer.Generate())(t)
 
 		// Create a delegation that's not yet valid
@@ -194,7 +194,7 @@ func TestSpaces(t *testing.T) {
 	})
 
 	t.Run("handles nested ucan:* proofs", func(t *testing.T) {
-		c := testutil.Must(client.NewClient())(t)
+		c := testutil.Must(client.New())(t)
 		space := testutil.Must(signer.Generate())(t)
 		intermediate := testutil.Must(signer.Generate())(t)
 
@@ -233,7 +233,7 @@ func TestSpaces(t *testing.T) {
 	})
 
 	t.Run("handles multiple capabilities in single delegation", func(t *testing.T) {
-		c := testutil.Must(client.NewClient())(t)
+		c := testutil.Must(client.New())(t)
 		space1 := testutil.Must(signer.Generate())(t)
 		space2 := testutil.Must(signer.Generate())(t)
 
@@ -261,7 +261,7 @@ func TestSpaces(t *testing.T) {
 
 func TestSpace(t *testing.T) {
 	t.Run("DID returns the space DID", func(t *testing.T) {
-		c := testutil.Must(client.NewClient())(t)
+		c := testutil.Must(client.New())(t)
 		space := testutil.Must(signer.Generate())(t)
 
 		spaceCap := ucan.NewCapability("space/*", space.DID().String(), ucan.NoCaveats{})
@@ -278,7 +278,7 @@ func TestSpace(t *testing.T) {
 	})
 
 	t.Run("AccessProofs returns the delegation that granted access", func(t *testing.T) {
-		c := testutil.Must(client.NewClient())(t)
+		c := testutil.Must(client.New())(t)
 		space := testutil.Must(signer.Generate())(t)
 
 		spaceCap := ucan.NewCapability("space/*", space.DID().String(), ucan.NoCaveats{})
@@ -298,7 +298,7 @@ func TestSpace(t *testing.T) {
 	})
 
 	t.Run("AccessProofs includes multiple delegations for same space", func(t *testing.T) {
-		c := testutil.Must(client.NewClient())(t)
+		c := testutil.Must(client.New())(t)
 		space := testutil.Must(signer.Generate())(t)
 		issuer1 := testutil.Must(signer.Generate())(t)
 		issuer2 := testutil.Must(signer.Generate())(t)
@@ -331,7 +331,7 @@ func TestSpace(t *testing.T) {
 	})
 
 	t.Run("AccessProofs includes chain for ucan:* delegations", func(t *testing.T) {
-		c := testutil.Must(client.NewClient())(t)
+		c := testutil.Must(client.New())(t)
 		space := testutil.Must(signer.Generate())(t)
 		issuer := testutil.Must(signer.Generate())(t)
 
@@ -366,7 +366,7 @@ func TestSpace(t *testing.T) {
 	})
 
 	t.Run("AccessProofs deduplicates same delegation appearing multiple times", func(t *testing.T) {
-		c := testutil.Must(client.NewClient())(t)
+		c := testutil.Must(client.New())(t)
 		space := testutil.Must(signer.Generate())(t)
 
 		// Create a delegation with two capabilities for the same space
@@ -394,7 +394,7 @@ func TestSpace(t *testing.T) {
 	})
 
 	t.Run("Names returns names from access proof facts", func(t *testing.T) {
-		c := testutil.Must(client.NewClient())(t)
+		c := testutil.Must(client.New())(t)
 		space := testutil.Must(signer.Generate())(t)
 
 		spaceCap := ucan.NewCapability("space/*", space.DID().String(), ucan.NoCaveats{})
@@ -418,7 +418,7 @@ func TestSpace(t *testing.T) {
 	})
 
 	t.Run("Names returns empty slice when no facts have names", func(t *testing.T) {
-		c := testutil.Must(client.NewClient())(t)
+		c := testutil.Must(client.New())(t)
 		space := testutil.Must(signer.Generate())(t)
 
 		spaceCap := ucan.NewCapability("space/*", space.DID().String(), ucan.NoCaveats{})
@@ -439,7 +439,7 @@ func TestSpace(t *testing.T) {
 	})
 
 	t.Run("Names returns names from multiple access proofs", func(t *testing.T) {
-		c := testutil.Must(client.NewClient())(t)
+		c := testutil.Must(client.New())(t)
 		space := testutil.Must(signer.Generate())(t)
 		issuer1 := testutil.Must(signer.Generate())(t)
 		issuer2 := testutil.Must(signer.Generate())(t)
@@ -476,7 +476,7 @@ func TestSpace(t *testing.T) {
 	})
 
 	t.Run("Names returns names from ucan:* delegation proofs", func(t *testing.T) {
-		c := testutil.Must(client.NewClient())(t)
+		c := testutil.Must(client.New())(t)
 		space := testutil.Must(signer.Generate())(t)
 		issuer := testutil.Must(signer.Generate())(t)
 
@@ -512,7 +512,7 @@ func TestSpace(t *testing.T) {
 	})
 
 	t.Run("Names deduplicates identical names", func(t *testing.T) {
-		c := testutil.Must(client.NewClient())(t)
+		c := testutil.Must(client.New())(t)
 		space := testutil.Must(signer.Generate())(t)
 		issuer1 := testutil.Must(signer.Generate())(t)
 		issuer2 := testutil.Must(signer.Generate())(t)
@@ -551,7 +551,7 @@ func TestSpace(t *testing.T) {
 
 func TestSpacesNamed(t *testing.T) {
 	t.Run("returns empty slice when no spaces exist", func(t *testing.T) {
-		c := testutil.Must(client.NewClient())(t)
+		c := testutil.Must(client.New())(t)
 
 		spaces, err := c.SpacesNamed("some name")
 		require.NoError(t, err)
@@ -559,7 +559,7 @@ func TestSpacesNamed(t *testing.T) {
 	})
 
 	t.Run("returns empty slice when no spaces have the given name", func(t *testing.T) {
-		c := testutil.Must(client.NewClient())(t)
+		c := testutil.Must(client.New())(t)
 		space := testutil.Must(signer.Generate())(t)
 
 		spaceCap := ucan.NewCapability("space/*", space.DID().String(), ucan.NoCaveats{})
@@ -582,7 +582,7 @@ func TestSpacesNamed(t *testing.T) {
 	})
 
 	t.Run("returns space with matching name", func(t *testing.T) {
-		c := testutil.Must(client.NewClient())(t)
+		c := testutil.Must(client.New())(t)
 		space := testutil.Must(signer.Generate())(t)
 
 		spaceCap := ucan.NewCapability("space/*", space.DID().String(), ucan.NoCaveats{})
@@ -606,7 +606,7 @@ func TestSpacesNamed(t *testing.T) {
 	})
 
 	t.Run("returns multiple spaces with same name", func(t *testing.T) {
-		c := testutil.Must(client.NewClient())(t)
+		c := testutil.Must(client.New())(t)
 		space1 := testutil.Must(signer.Generate())(t)
 		space2 := testutil.Must(signer.Generate())(t)
 
@@ -644,7 +644,7 @@ func TestSpacesNamed(t *testing.T) {
 	})
 
 	t.Run("filters to only spaces with matching name", func(t *testing.T) {
-		c := testutil.Must(client.NewClient())(t)
+		c := testutil.Must(client.New())(t)
 		space1 := testutil.Must(signer.Generate())(t)
 		space2 := testutil.Must(signer.Generate())(t)
 
@@ -680,7 +680,7 @@ func TestSpacesNamed(t *testing.T) {
 	})
 
 	t.Run("matches space with multiple names", func(t *testing.T) {
-		c := testutil.Must(client.NewClient())(t)
+		c := testutil.Must(client.New())(t)
 		space := testutil.Must(signer.Generate())(t)
 		issuer1 := testutil.Must(signer.Generate())(t)
 		issuer2 := testutil.Must(signer.Generate())(t)
@@ -729,7 +729,7 @@ func TestSpacesNamed(t *testing.T) {
 
 func TestSpaceNamed(t *testing.T) {
 	t.Run("returns SpaceNotFoundError when no spaces exist", func(t *testing.T) {
-		c := testutil.Must(client.NewClient())(t)
+		c := testutil.Must(client.New())(t)
 
 		_, err := c.SpaceNamed("some name")
 		require.Error(t, err)
@@ -740,7 +740,7 @@ func TestSpaceNamed(t *testing.T) {
 	})
 
 	t.Run("returns SpaceNotFoundError when no space has the given name", func(t *testing.T) {
-		c := testutil.Must(client.NewClient())(t)
+		c := testutil.Must(client.New())(t)
 		space := testutil.Must(signer.Generate())(t)
 
 		spaceCap := ucan.NewCapability("space/*", space.DID().String(), ucan.NoCaveats{})
@@ -766,7 +766,7 @@ func TestSpaceNamed(t *testing.T) {
 	})
 
 	t.Run("returns space with matching name", func(t *testing.T) {
-		c := testutil.Must(client.NewClient())(t)
+		c := testutil.Must(client.New())(t)
 		space := testutil.Must(signer.Generate())(t)
 
 		spaceCap := ucan.NewCapability("space/*", space.DID().String(), ucan.NoCaveats{})
@@ -789,7 +789,7 @@ func TestSpaceNamed(t *testing.T) {
 	})
 
 	t.Run("returns MultipleSpacesFoundError when multiple spaces have the same name", func(t *testing.T) {
-		c := testutil.Must(client.NewClient())(t)
+		c := testutil.Must(client.New())(t)
 		space1 := testutil.Must(signer.Generate())(t)
 		space2 := testutil.Must(signer.Generate())(t)
 

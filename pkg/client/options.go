@@ -1,24 +1,21 @@
 package client
 
 import (
-	"fmt"
+	"net/http"
 
-	uclient "github.com/fil-forge/go-ucanto/client"
 	rclient "github.com/fil-forge/go-ucanto/client/retrieval"
-	"github.com/fil-forge/go-ucanto/core/delegation"
-	"github.com/fil-forge/go-ucanto/principal"
-	"github.com/fil-forge/guppy/pkg/agentstore"
 	"github.com/fil-forge/guppy/pkg/receipt"
+	"github.com/fil-forge/guppy/pkg/tokenstore"
 )
 
 // Option is an option configuring a Client.
 type Option func(c *Client) error
 
-// WithConnection configures the connection for the client to use. If one is
-// not provided, the default connection will be used.
-func WithConnection(conn uclient.Connection) Option {
+// WithHTTPClient configures the HTTP client for the client to use. If one is
+// not provided, the default HTTP client will be used.
+func WithHTTPClient(client *http.Client) Option {
 	return func(c *Client) error {
-		c.connection = conn
+		c.httpClient = client
 		return nil
 	}
 }
@@ -31,39 +28,11 @@ func WithReceiptsClient(receiptsClient *receipt.Client) Option {
 	}
 }
 
-// WithStore configures the agent store for the client to use. If one is not
+// WithTokenStore configures the token store for the client to use. If one is not
 // provided, a new memory store will be created.
-func WithStore(store agentstore.Store) Option {
+func WithTokenStore(store tokenstore.Store) Option {
 	return func(c *Client) error {
-		c.store = store
-		return nil
-	}
-}
-
-// WithPrincipal configures the principal for the client to use. If a store
-// is already configured, the principal will be set on that store. Otherwise,
-// a new memory store will be created with this principal.
-func WithPrincipal(p principal.Signer) Option {
-	return func(c *Client) error {
-		// If no store exists yet, create a memory store
-		if c.store == nil {
-			store, err := agentstore.NewMemory()
-			if err != nil {
-				return fmt.Errorf("creating memory store: %w", err)
-			}
-			c.store = store
-		}
-		// Set the principal on the store
-		return c.store.SetPrincipal(p)
-	}
-}
-
-// WithAdditionalProofs adds proofs to the client that will be included in
-// Proofs() results but will not be saved to the client's store. This is
-// useful for proofs that are only needed for a single operation.
-func WithAdditionalProofs(proofs ...delegation.Delegation) Option {
-	return func(c *Client) error {
-		c.additionalProofs = append(c.additionalProofs, proofs...)
+		c.tokenStore = store
 		return nil
 	}
 }

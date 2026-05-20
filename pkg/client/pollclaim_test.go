@@ -75,7 +75,7 @@ func TestPollClaim(t *testing.T) {
 		),
 	)
 
-	c = testutil.Must(client.NewClient(client.WithConnection(connection)))(t)
+	c = testutil.Must(client.New(client.WithConnection(connection)))(t)
 
 	requestLink := testutil.RandomCID(t)
 

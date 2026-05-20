@@ -49,7 +49,7 @@ func TestFilecoinInfo(t *testing.T) {
 		),
 	)
 
-	c := helpers.Must(client.NewClient(client.WithConnection(connection)))
+	c := helpers.Must(client.New(client.WithConnection(connection)))
 
 	cap := ucan.NewCapability("*", space.DID().String(), ucan.NoCaveats{})
 	proof, err := delegation.Delegate(space, c.Issuer(), []ucan.Capability[ucan.NoCaveats]{cap}, delegation.WithNoExpiration())
