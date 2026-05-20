@@ -4,8 +4,10 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/fil-forge/go-libstoracha/capabilities/access"
-	"github.com/fil-forge/go-ucanto/core/result"
+	"github.com/fil-forge/libforge/commands/access"
+	"github.com/fil-forge/ucantone/did"
+	"github.com/fil-forge/ucantone/ucan/command"
+	"github.com/fil-forge/ucantone/ucan/invocation"
 )
 
 // RequestAccess requests access to the service as an Account. This is the first
@@ -14,31 +16,26 @@ import (
 // The [issuer] is the Agent which would like to act as the Account.
 //
 // The [account] is the Account the Agent would like to act as.
-func (c *Client) RequestAccess(ctx context.Context, account string) (access.AuthorizeOk, error) {
-	caveats := access.AuthorizeCaveats{
-		Iss: &account,
-		Att: []access.CapabilityRequest{
-			// Request capability to act as the account fully
-			{Can: "*"},
+func (c *Client) RequestAccess(ctx context.Context, account did.DID) (*access.RequestOK, error) {
+	inv, err := access.Request.Invoke(
+		c.signer,
+		c.signer.DID(),
+		&access.RequestArguments{
+			Issuer: account,
+			Attenuations: []access.CapabilityRequest{
+				{Command: command.Top()},
+			},
 		},
-	}
-
-	res, _, err := invokeAndExecute[access.AuthorizeCaveats, access.AuthorizeOk](
-		ctx,
-		c,
-		access.Authorize,
-		c.Issuer().DID().String(),
-		caveats,
-		access.AuthorizeOkType(),
+		invocation.WithAudience(c.serviceID),
 	)
 	if err != nil {
-		return access.AuthorizeOk{}, fmt.Errorf("invoking and executing `access/authorize`: %w", err)
+		return nil, fmt.Errorf("creating invocation: %w", err)
 	}
 
-	authorizeOk, failErr := result.Unwrap(res)
-	if failErr != nil {
-		return access.AuthorizeOk{}, fmt.Errorf("`access/authorize` failed: %w", failErr)
+	requestOK, _, _, err := Execute[*access.RequestOK](ctx, c.ucanClient, inv)
+	if err != nil {
+		return nil, fmt.Errorf("executing request invocation: %w", err)
 	}
 
-	return authorizeOk, nil
+	return requestOK, nil
 }

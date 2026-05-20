@@ -1,11 +1,10 @@
 package client
 
 import (
-	"net/http"
-
 	rclient "github.com/fil-forge/go-ucanto/client/retrieval"
 	"github.com/fil-forge/guppy/pkg/receipt"
 	"github.com/fil-forge/guppy/pkg/tokenstore"
+	"github.com/fil-forge/ucantone/client"
 )
 
 // Option is an option configuring a Client.
@@ -13,9 +12,9 @@ type Option func(c *Client) error
 
 // WithHTTPClient configures the HTTP client for the client to use. If one is
 // not provided, the default HTTP client will be used.
-func WithHTTPClient(client *http.Client) Option {
+func WithUCANClientOptions(options ...client.HTTPOption) Option {
 	return func(c *Client) error {
-		c.httpClient = client
+		c.ucanOpts = options
 		return nil
 	}
 }
