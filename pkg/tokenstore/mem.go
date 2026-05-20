@@ -29,7 +29,7 @@ func NewMemStore() *MemStore {
 	}
 }
 
-func (ms *MemStore) AddDelegations(delegations ...ucan.Delegation) error {
+func (ms *MemStore) AddDelegations(ctx context.Context, delegations ...ucan.Delegation) error {
 	ms.mu.Lock()
 	defer ms.mu.Unlock()
 	for _, dlg := range delegations {
@@ -38,7 +38,7 @@ func (ms *MemStore) AddDelegations(delegations ...ucan.Delegation) error {
 	return nil
 }
 
-func (ms *MemStore) AddInvocations(invocations ...ucan.Invocation) error {
+func (ms *MemStore) AddInvocations(ctx context.Context, invocations ...ucan.Invocation) error {
 	ms.mu.Lock()
 	defer ms.mu.Unlock()
 	for _, inv := range invocations {
@@ -47,7 +47,7 @@ func (ms *MemStore) AddInvocations(invocations ...ucan.Invocation) error {
 	return nil
 }
 
-func (ms *MemStore) AddReceipts(receipts ...ucan.Receipt) error {
+func (ms *MemStore) AddReceipts(ctx context.Context, receipts ...ucan.Receipt) error {
 	ms.mu.Lock()
 	defer ms.mu.Unlock()
 	for _, rcpt := range receipts {
@@ -64,7 +64,7 @@ func (ms *MemStore) ProofAttestations(ctx context.Context, proofs []ucan.Delegat
 	return ucanlib.ProofAttestations(ctx, ms.listInvocations, proofs, authority)
 }
 
-func (ms *MemStore) listDelegations(ctx context.Context, aud did.DID, cmd ucan.Command, sub did.DID) iter.Seq2[ucan.Delegation, error] {
+func (ms *MemStore) ListDelegations(ctx context.Context, aud did.DID, cmd ucan.Command, sub did.DID) iter.Seq2[ucan.Delegation, error] {
 	return func(yield func(ucan.Delegation, error) bool) {
 		ms.mu.RLock()
 		defer ms.mu.RUnlock()
@@ -79,7 +79,7 @@ func (ms *MemStore) listDelegations(ctx context.Context, aud did.DID, cmd ucan.C
 }
 
 func (ms *MemStore) matchDelegations(ctx context.Context, aud did.DID, cmd ucan.Command, sub did.DID) iter.Seq2[ucan.Delegation, error] {
-	return ucanlib.NewDelegationMatcher(ms.listDelegations)(ctx, aud, cmd, sub)
+	return ucanlib.NewDelegationMatcher(ms.ListDelegations)(ctx, aud, cmd, sub)
 }
 
 func (ms *MemStore) listInvocations(ctx context.Context, aud did.DID, cmd ucan.Command, sub did.DID) iter.Seq2[ucan.Invocation, error] {
@@ -96,7 +96,7 @@ func (ms *MemStore) listInvocations(ctx context.Context, aud did.DID, cmd ucan.C
 	}
 }
 
-func (ms *MemStore) Reset() error {
+func (ms *MemStore) Reset(ctx context.Context) error {
 	ms.mu.Lock()
 	defer ms.mu.Unlock()
 	ms.invs = map[cid.Cid]ucan.Invocation{}

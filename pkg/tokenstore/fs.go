@@ -3,6 +3,7 @@ package tokenstore
 import (
 	"context"
 	"fmt"
+	"iter"
 	"maps"
 	"os"
 	"path/filepath"
@@ -59,9 +60,9 @@ func (s *FsStore) load() error {
 	if err := ct.UnmarshalCBOR(f); err != nil {
 		return fmt.Errorf("unmarshaling token store data: %w", err)
 	}
-	_ = s.data.AddInvocations(ct.Invocations()...)
-	_ = s.data.AddDelegations(ct.Delegations()...)
-	_ = s.data.AddReceipts(ct.Receipts()...)
+	_ = s.data.AddInvocations(context.Background(), ct.Invocations()...)
+	_ = s.data.AddDelegations(context.Background(), ct.Delegations()...)
+	_ = s.data.AddReceipts(context.Background(), ct.Receipts()...)
 	return nil
 }
 
@@ -83,24 +84,40 @@ func (s *FsStore) save() error {
 	return nil
 }
 
-func (s *FsStore) AddDelegations(delegations ...ucan.Delegation) error {
+func (s *FsStore) AddDelegations(ctx context.Context, delegations ...ucan.Delegation) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	_ = s.data.AddDelegations(delegations...)
+	_ = s.data.AddDelegations(ctx, delegations...)
 	return s.save()
 }
 
-func (s *FsStore) AddInvocations(invocations ...ucan.Invocation) error {
+func (s *FsStore) ListDelegations(ctx context.Context, aud did.DID, cmd ucan.Command, sub did.DID) iter.Seq2[ucan.Delegation, error] {
+	return func(yield func(ucan.Delegation, error) bool) {
+		s.mu.RLock()
+		defer s.mu.RUnlock()
+		for d, err := range s.data.ListDelegations(ctx, aud, cmd, sub) {
+			if err != nil {
+				yield(nil, err)
+				return
+			}
+			if !yield(d, nil) {
+				return
+			}
+		}
+	}
+}
+
+func (s *FsStore) AddInvocations(ctx context.Context, invocations ...ucan.Invocation) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	_ = s.data.AddInvocations(invocations...)
+	_ = s.data.AddInvocations(ctx, invocations...)
 	return s.save()
 }
 
-func (s *FsStore) AddReceipts(receipts ...ucan.Receipt) error {
+func (s *FsStore) AddReceipts(ctx context.Context, receipts ...ucan.Receipt) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	_ = s.data.AddReceipts(receipts...)
+	_ = s.data.AddReceipts(ctx, receipts...)
 	return s.save()
 }
 
@@ -116,9 +133,9 @@ func (s *FsStore) ProofChain(ctx context.Context, aud did.DID, cmd ucan.Command,
 	return s.data.ProofChain(ctx, aud, cmd, sub)
 }
 
-func (s *FsStore) Reset() error {
+func (s *FsStore) Reset(ctx context.Context) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	_ = s.data.Reset()
+	_ = s.data.Reset(ctx)
 	return s.save()
 }
