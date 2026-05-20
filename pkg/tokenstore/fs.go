@@ -34,6 +34,7 @@ func NewFsStore(rootdir string) (*FsStore, error) {
 		return nil, fmt.Errorf("directory %q not writable: %w", rootdir, err)
 	}
 	filePath := filepath.Join(rootdir, fsStoreFileName)
+	store.path = filePath
 	if _, err := os.Stat(filePath); err != nil {
 		if !os.IsNotExist(err) {
 			return nil, err
