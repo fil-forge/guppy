@@ -98,14 +98,14 @@ func TestLocator(t *testing.T) {
 		require.Equal(t, blobindex.Position{
 			Offset: 10,
 			Length: 2048,
-		}, locations[0].Position)
+		}, locations[0].Range)
 		require.ElementsMatch(t, ctestutil.Urls(
 			"https://storage3.example.com/block/abc123",
 		), locations[1].Commitment.Nb().Location)
 		require.Equal(t, blobindex.Position{
 			Offset: 10,
 			Length: 2048,
-		}, locations[1].Position)
+		}, locations[1].Range)
 
 		require.Len(t, mockIndexer.Queries, 1)
 		require.Equal(t, types.Query{
@@ -176,7 +176,7 @@ func TestLocator(t *testing.T) {
 		require.Equal(t, blobindex.Position{
 			Offset: 0,
 			Length: 1024,
-		}, locations1[0].Position)
+		}, locations1[0].Range)
 		require.ElementsMatch(t, ctestutil.Urls(
 			"https://storage.example.com/shard/xyz",
 		), locations1[0].Commitment.Nb().Location)
@@ -191,7 +191,7 @@ func TestLocator(t *testing.T) {
 		require.Equal(t, blobindex.Position{
 			Offset: 1024,
 			Length: 2048,
-		}, locations2[0].Position)
+		}, locations2[0].Range)
 		require.ElementsMatch(t, ctestutil.Urls(
 			"https://storage.example.com/shard/xyz",
 		), locations2[0].Commitment.Nb().Location)
@@ -254,7 +254,7 @@ func TestLocator(t *testing.T) {
 		require.Equal(t, blobindex.Position{
 			Offset: 0,
 			Length: 1024,
-		}, locations1[0].Position)
+		}, locations1[0].Range)
 		require.ElementsMatch(t, ctestutil.Urls(
 			"https://storage.example.com/shard1",
 		), locations1[0].Commitment.Nb().Location)
@@ -439,7 +439,7 @@ func TestLocator(t *testing.T) {
 		require.Equal(t, blobindex.Position{
 			Offset: 10,
 			Length: 2048,
-		}, locations[0].Position)
+		}, locations[0].Range)
 
 		require.Len(t, mockIndexer.Queries, 1)
 		require.Equal(t, types.Query{
@@ -460,7 +460,7 @@ func TestLocator(t *testing.T) {
 		require.Equal(t, blobindex.Position{
 			Offset: 57,
 			Length: 1024,
-		}, locations[0].Position)
+		}, locations[0].Range)
 
 		require.Len(t, mockIndexer.Queries, 2)
 		require.Equal(t, types.Query{
@@ -553,17 +553,17 @@ func TestLocateMany(t *testing.T) {
 		// Verify the positions and URLs are correct
 		block1Locations := locations.Get(block1Hash)
 		require.Len(t, block1Locations, 1)
-		require.Equal(t, blobindex.Position{Offset: 0, Length: 1024}, block1Locations[0].Position)
+		require.Equal(t, blobindex.Position{Offset: 0, Length: 1024}, block1Locations[0].Range)
 		require.ElementsMatch(t, ctestutil.Urls("https://storage.example.com/shard1/abc"), block1Locations[0].Commitment.Nb().Location)
 
 		block2Locations := locations.Get(block2Hash)
 		require.Len(t, block2Locations, 1)
-		require.Equal(t, blobindex.Position{Offset: 1024, Length: 2048}, block2Locations[0].Position)
+		require.Equal(t, blobindex.Position{Offset: 1024, Length: 2048}, block2Locations[0].Range)
 		require.ElementsMatch(t, ctestutil.Urls("https://storage.example.com/shard1/abc"), block2Locations[0].Commitment.Nb().Location)
 
 		block3Locations := locations.Get(block3Hash)
 		require.Len(t, block3Locations, 1)
-		require.Equal(t, blobindex.Position{Offset: 0, Length: 512}, block3Locations[0].Position)
+		require.Equal(t, blobindex.Position{Offset: 0, Length: 512}, block3Locations[0].Range)
 		require.ElementsMatch(t, ctestutil.Urls("https://storage.example.com/shard2/def"), block3Locations[0].Commitment.Nb().Location)
 
 		// Verify only one query was made
@@ -622,7 +622,7 @@ func TestLocateMany(t *testing.T) {
 
 		block1Locations := locations.Get(block1Hash)
 		require.Len(t, block1Locations, 1)
-		require.Equal(t, blobindex.Position{Offset: 0, Length: 1024}, block1Locations[0].Position)
+		require.Equal(t, blobindex.Position{Offset: 0, Length: 1024}, block1Locations[0].Range)
 	})
 
 	t.Run("batches queries for uncached blocks only", func(t *testing.T) {

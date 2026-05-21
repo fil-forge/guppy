@@ -78,7 +78,7 @@ func TestDAGService(t *testing.T) {
 							),
 						},
 					),
-					Position: blobindex.Position{
+					Range: blobindex.Position{
 						Offset: offset,
 						Length: length,
 					},
@@ -133,7 +133,7 @@ func TestDAGService(t *testing.T) {
 
 		location1 := locator.Location{
 			Commitment: shardCommitment,
-			Position: blobindex.Position{
+			Range: blobindex.Position{
 				Offset: block1Offset,
 				Length: block1Length,
 			},
@@ -141,7 +141,7 @@ func TestDAGService(t *testing.T) {
 
 		location2 := locator.Location{
 			Commitment: shardCommitment,
-			Position: blobindex.Position{
+			Range: blobindex.Position{
 				Offset: block2Offset,
 				Length: block2Length,
 			},
@@ -258,7 +258,7 @@ func (r *mockRetriever) Retrieve(ctx context.Context, location locator.Location)
 		r.mu.Lock()
 		defer r.mu.Unlock()
 		r.requests = append(r.requests, location)
-		return io.NopCloser(bytes.NewReader(data[location.Position.Offset : location.Position.Offset+location.Position.Length])), nil
+		return io.NopCloser(bytes.NewReader(data[location.Range.Offset : location.Range.Offset+location.Range.Length])), nil
 	}
 	return nil, fmt.Errorf("no data for location %s", key)
 }

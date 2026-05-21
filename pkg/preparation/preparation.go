@@ -159,7 +159,7 @@ func NewAPI(repo Repo, client StorachaClient, options ...Option) API {
 		ShardEncoder:     blobs.NewCAREncoder(),
 	}
 
-	var blobAddOptions []clientpkg.SpaceBlobAddOption
+	var blobAddOptions []clientpkg.BlobAddOption
 	if cfg.putHTTPClient != nil {
 		blobAddOptions = append(blobAddOptions, clientpkg.WithPutClient(cfg.putHTTPClient))
 	}

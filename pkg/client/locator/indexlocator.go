@@ -8,16 +8,15 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/fil-forge/go-libstoracha/blobindex"
-	"github.com/fil-forge/go-libstoracha/capabilities/assert"
-	"github.com/fil-forge/go-libstoracha/digestutil"
-	"github.com/fil-forge/go-ucanto/core/dag/blockstore"
-	"github.com/fil-forge/go-ucanto/core/delegation"
-	"github.com/fil-forge/go-ucanto/did"
-	"github.com/fil-forge/go-ucanto/ucan"
 	"github.com/fil-forge/guppy/internal/ctxutil"
 	indexclient "github.com/fil-forge/indexing-service/pkg/client"
 	"github.com/fil-forge/indexing-service/pkg/types"
+	"github.com/fil-forge/libforge/blobindex"
+	"github.com/fil-forge/libforge/commands/assert"
+	"github.com/fil-forge/libforge/digestutil"
+	"github.com/fil-forge/ucantone/did"
+	"github.com/fil-forge/ucantone/ucan"
+	"github.com/fil-forge/ucantone/ucan/invocation"
 	"github.com/ipfs/go-cid"
 	logging "github.com/ipfs/go-log/v2"
 	mh "github.com/multiformats/go-multihash"
@@ -30,13 +29,13 @@ var log = logging.Logger("client/dagservice")
 //
 // It should create a short lived delegation that allows the indexing service
 // to retrieve indexes from the space(s).
-type AuthorizeRetrievalFunc func(spaces []did.DID) (delegation.Delegation, error)
+type AuthorizeRetrievalFunc func(spaces []did.DID) (ucan.Delegation, error)
 
 func NewIndexLocator(indexer IndexerClient, authorizeRetrieval AuthorizeRetrievalFunc) *indexLocator {
 	return &indexLocator{
 		indexer:            indexer,
 		authorizeRetrieval: authorizeRetrieval,
-		commitments:        make(map[string][]ucan.Capability[assert.LocationCaveats]),
+		commitments:        make(map[string][]Commitment),
 		inclusions:         make(map[string][]inclusion),
 	}
 }
@@ -45,13 +44,13 @@ type indexLocator struct {
 	indexer            IndexerClient
 	authorizeRetrieval AuthorizeRetrievalFunc
 	mu                 sync.RWMutex
-	commitments        map[string][]ucan.Capability[assert.LocationCaveats]
+	commitments        map[string][]Commitment
 	inclusions         map[string][]inclusion
 }
 
 type inclusion struct {
-	shard    mh.Multihash
-	position blobindex.Position
+	shard     mh.Multihash
+	byteRange blobindex.Range
 }
 
 func cacheKey(spaceDID did.DID, hash mh.Multihash) string {
@@ -146,7 +145,7 @@ func (s *indexLocator) getCached(spaces []did.DID, digest mh.Multihash) ([]Locat
 				for _, commitment := range shardCommitments {
 					locations = append(locations, Location{
 						Commitment: commitment,
-						Position:   inclusion.position,
+						Range:      inclusion.byteRange,
 					})
 				}
 			}
@@ -175,7 +174,7 @@ func (s *indexLocator) query(ctx context.Context, spaces []did.DID, digests []mh
 
 	result, err := s.indexer.QueryClaims(ctx, types.Query{
 		Hashes:      digests,
-		Delegations: []delegation.Delegation{auth},
+		Delegations: []ucan.Delegation{auth},
 		Match: types.Match{
 			Subject: spaces,
 		},
@@ -193,9 +192,9 @@ func (s *indexLocator) query(ctx context.Context, spaces []did.DID, digests []mh
 		return fmt.Errorf("querying claims for [%s]: %w", strings.Join(hashStrings, ", "), ctxutil.EnrichWithCause(err, ctx))
 	}
 
-	bs, err := blockstore.NewBlockReader(blockstore.WithBlocksIterator(result.Blocks()))
-	if err != nil {
-		return err
+	blocks := map[cid.Cid][]byte{}
+	for _, b := range result.Blocks() {
+		blocks[b.Link] = b.Data
 	}
 
 	s.mu.Lock()
@@ -204,43 +203,46 @@ func (s *indexLocator) query(ctx context.Context, spaces []did.DID, digests []mh
 	// record the space each blob belongs to
 	blobSpace := blobindex.NewMultihashMap[did.DID](-1)
 
-	for _, link := range result.Claims() {
-		d, err := delegation.NewDelegationView(link, bs)
-		if err != nil {
-			return err
+	for _, root := range result.Claims() {
+		b, ok := blocks[root]
+		if !ok {
+			log.Warnw("claim block not found in response", "root", root)
+			continue
 		}
-
-		match, err := assert.Location.Match(source{
-			capability: d.Capabilities()[0],
-			delegation: d,
-		})
+		claim, err := invocation.Decode(b)
 		if err != nil {
+			log.Warnw("failed to decode claim", "root", root, "error", err)
+			continue
+		}
+		if claim.Command() != assert.Location.Command {
+			continue
+		}
+		var args assert.LocationArguments
+		if err := args.UnmarshalCBOR(bytes.NewReader(claim.ArgumentsBytes())); err != nil {
+			log.Warnw("failed to unmarshal location commitment arguments", "root", root, "error", err)
 			continue
 		}
 
-		cap := match.Value()
-		claimDigest := cap.Nb().Content.Hash()
-
-		claimKey := cacheKey(cap.Nb().Space, claimDigest)
-		s.commitments[claimKey] = append(s.commitments[claimKey], cap)
-		blobSpace.Set(claimDigest, cap.Nb().Space)
+		claimKey := cacheKey(args.Space, args.Content)
+		s.commitments[claimKey] = append(s.commitments[claimKey], Commitment{
+			Node:     claim.Issuer(),
+			Space:    args.Space,
+			Content:  args.Content,
+			Location: args.Location,
+			Range:    args.Range,
+		})
+		blobSpace.Set(args.Content, args.Space)
 	}
 
-	for _, link := range result.Indexes() {
-		indexBlock, ok, err := bs.Get(link)
-		if err != nil {
-			return fmt.Errorf("getting index block: %w", err)
-		}
+	for _, indexLink := range result.Indexes() {
+		indexBytes, ok := blocks[indexLink]
 		if !ok {
-			return fmt.Errorf("index block not found: %s", link.String())
+			log.Warnw("index block not found in response", "index", indexLink)
+			continue
 		}
-		index, err := blobindex.Extract(bytes.NewReader(indexBlock.Bytes()))
+		index, err := blobindex.Extract(bytes.NewReader(indexBytes))
 		if err != nil {
 			return fmt.Errorf("extracting index: %w", err)
-		}
-		indexCid, err := cid.Parse(link.String())
-		if err != nil {
-			return fmt.Errorf("parsing index CID: %w", err)
 		}
 
 		for shardDigest, shardMap := range index.Shards().Iterator() {
@@ -252,39 +254,26 @@ func (s *indexLocator) query(ctx context.Context, spaces []did.DID, digests []mh
 					// if we don't know the space for this shard from our query result,
 					// and we are locating across multiple spaces then assume it is the
 					// same space as the index (it should be).
-					spaceDID = blobSpace.Get(indexCid.Hash())
+					spaceDID = blobSpace.Get(indexLink.Hash())
 					// we expect the indexer to return a location claim for the index though
 					if spaceDID == did.Undef {
 						digestStrs := make([]string, 0, len(digests))
 						for _, d := range digests {
 							digestStrs = append(digestStrs, digestutil.Format(d))
 						}
-						return fmt.Errorf("missing location claim for index %q in query results for: %s", indexCid, strings.Join(digestStrs, ", "))
+						return fmt.Errorf("missing location claim for index %q in query results for: %s", indexLink, strings.Join(digestStrs, ", "))
 					}
 				}
 			}
 			for sliceDigest, position := range shardMap.Iterator() {
 				key := cacheKey(spaceDID, sliceDigest)
 				s.inclusions[key] = append(s.inclusions[key], inclusion{
-					shard:    shardDigest,
-					position: position,
+					shard:     shardDigest,
+					byteRange: position,
 				})
 			}
 		}
 	}
 
 	return nil
-}
-
-type source struct {
-	capability ucan.Capability[any]
-	delegation delegation.Delegation
-}
-
-func (s source) Capability() ucan.Capability[any] {
-	return s.capability
-}
-
-func (s source) Delegation() delegation.Delegation {
-	return s.delegation
 }
