@@ -69,7 +69,7 @@ func TestRetrieve(t *testing.T) {
 
 		location := locator.Location{
 			Commitment: locationCommitment,
-			Position: blobindex.Position{
+			Range: blobindex.Position{
 				Offset: 0,
 				Length: uint64(len(testData)),
 			},
@@ -120,7 +120,7 @@ func TestRetrieve(t *testing.T) {
 
 		location := locator.Location{
 			Commitment: locationCommitment,
-			Position: blobindex.Position{
+			Range: blobindex.Position{
 				Offset: 0,
 				Length: uint64(len(testData)),
 			},
@@ -175,7 +175,7 @@ func TestRetrieve(t *testing.T) {
 
 		location := locator.Location{
 			Commitment: locationCommitment,
-			Position: blobindex.Position{
+			Range: blobindex.Position{
 				Offset: 0,
 				Length: uint64(len(testData)),
 			},

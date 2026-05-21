@@ -64,7 +64,7 @@ type ClientWithCustomPut struct {
 
 var _ storacha.Client = (*ClientWithCustomPut)(nil)
 
-func (c *ClientWithCustomPut) SpaceBlobAdd(ctx context.Context, content io.Reader, space did.DID, options ...client.SpaceBlobAddOption) (client.AddedBlob, error) {
+func (c *ClientWithCustomPut) SpaceBlobAdd(ctx context.Context, content io.Reader, space did.DID, options ...client.BlobAddOption) (client.AddedBlob, error) {
 	return c.Client.SpaceBlobAdd(ctx, content, space, append(options, client.WithPutClient(c.PutClient))...)
 }
 

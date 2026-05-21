@@ -44,7 +44,7 @@ var (
 // Client is an interface for working with a Storacha space. It's typically
 // implemented by [client.Client].
 type Client interface {
-	SpaceBlobAdd(ctx context.Context, content io.Reader, space did.DID, options ...client.SpaceBlobAddOption) (client.AddedBlob, error)
+	SpaceBlobAdd(ctx context.Context, content io.Reader, space did.DID, options ...client.BlobAddOption) (client.AddedBlob, error)
 	SpaceIndexAdd(ctx context.Context, indexCID cid.Cid, indexSize uint64, rootCID cid.Cid, space did.DID) error
 	FilecoinOffer(ctx context.Context, space did.DID, content ipld.Link, piece ipld.Link, opts ...client.FilecoinOfferOption) (filecoincap.OfferOk, error)
 	UploadAdd(ctx context.Context, space did.DID, root ipld.Link, shards []ipld.Link) (upload.AddOk, error)
@@ -65,7 +65,7 @@ type API struct {
 	BlobUploadParallelism int
 	Bus                   bus.Publisher
 	Replicas              uint
-	BlobAddOptions        []client.SpaceBlobAddOption
+	BlobAddOptions        []client.BlobAddOption
 }
 
 var _ uploads.AddShardsForUploadFunc = API{}.AddShardsForUpload
@@ -276,7 +276,7 @@ func (a API) addBlob(ctx context.Context, blob model.Blob, spaceDID did.DID) err
 	if blob.Location() == nil {
 		log.Infof("adding blob %s to space %s via `space/blob/add`", blob, spaceDID)
 
-		var opts []client.SpaceBlobAddOption
+		var opts []client.BlobAddOption
 		if blob.Digest() != nil && blob.Size() != 0 {
 			opts = append(opts, client.WithPrecomputedDigest(blob.Digest(), blob.Size()))
 		}
@@ -333,7 +333,7 @@ func (a API) postProcessBlob(ctx context.Context, blob model.Blob, spaceDID did.
 	return nil
 }
 
-func (a API) spaceBlobAdd(ctx context.Context, content io.Reader, spaceDID did.DID, opts ...client.SpaceBlobAddOption) (client.AddedBlob, error) {
+func (a API) spaceBlobAdd(ctx context.Context, content io.Reader, spaceDID did.DID, opts ...client.BlobAddOption) (client.AddedBlob, error) {
 	ctx, span := tracer.Start(ctx, "space-blob-add")
 	defer span.End()
 

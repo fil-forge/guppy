@@ -8,9 +8,9 @@ import (
 	"net/url"
 	"reflect"
 
-	rclient "github.com/fil-forge/go-ucanto/client/retrieval"
-	receiptclient "github.com/fil-forge/guppy/pkg/receipt"
 	"github.com/fil-forge/guppy/pkg/tokenstore"
+	"github.com/fil-forge/libforge/receipt"
+	"github.com/fil-forge/libforge/ucan/retrieval"
 	"github.com/fil-forge/ucantone/client"
 	"github.com/fil-forge/ucantone/did"
 	edm "github.com/fil-forge/ucantone/errors/datamodel"
@@ -36,16 +36,16 @@ type Client struct {
 	httpClient     *http.Client
 	ucanClient     *client.HTTPClient
 	ucanOpts       []client.HTTPOption
-	receiptsClient *receiptclient.Client
+	receiptsClient *receipt.Client
 	tokenStore     tokenstore.Store
-	retrievalOpts  []rclient.Option
+	retrievalOpts  []retrieval.ClientOption
 }
 
 func New(signer ucan.Signer, serviceID did.DID, serviceURL url.URL, options ...Option) (*Client, error) {
 	c := Client{
 		signer:         signer,
 		serviceID:      serviceID,
-		receiptsClient: DefaultReceiptsClient,
+		receiptsClient: receipt.NewClient(serviceURL.JoinPath("/receipt/")),
 	}
 
 	for _, opt := range options {
@@ -110,7 +110,7 @@ func (c *Client) Reset(ctx context.Context) error {
 // response into the specified type.
 func Execute[T cbg.CBORUnmarshaler](
 	ctx context.Context,
-	client *client.HTTPClient,
+	executor execution.Executor,
 	inv ucan.Invocation,
 	options ...execution.RequestOption,
 ) (T, ucan.Receipt, ucan.Container, error) {
@@ -134,7 +134,7 @@ func Execute[T cbg.CBORUnmarshaler](
 	log.Debug("executing invocation")
 
 	var zero T
-	resp, err := client.Execute(execution.NewRequest(ctx, inv, options...))
+	resp, err := executor.Execute(execution.NewRequest(ctx, inv, options...))
 	if err != nil {
 		log.Error("failed to execute invocation", zap.Error(err))
 		return zero, nil, nil, fmt.Errorf("executing invocation: %w", err)

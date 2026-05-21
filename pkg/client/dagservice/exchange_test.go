@@ -40,7 +40,7 @@ func TestStorachaExchange(t *testing.T) {
 				),
 
 				// "world"
-				Position: blobindex.Position{
+				Range: blobindex.Position{
 					Offset: 7,
 					Length: 5,
 				},
@@ -87,7 +87,7 @@ func TestStorachaExchange(t *testing.T) {
 				),
 
 				// "correct"/"!WRONG!"
-				Position: blobindex.Position{
+				Range: blobindex.Position{
 					Offset: 12,
 					Length: 7,
 				},
@@ -144,11 +144,11 @@ func TestStorachaExchange(t *testing.T) {
 
 			location1 := locator.Location{
 				Commitment: shardCommitment,
-				Position:   blobindex.Position{Offset: 0, Length: 5},
+				Range:      blobindex.Position{Offset: 0, Length: 5},
 			}
 			location2 := locator.Location{
 				Commitment: shardCommitment,
-				Position:   blobindex.Position{Offset: 7, Length: 5},
+				Range:      blobindex.Position{Offset: 7, Length: 5},
 			}
 
 			lctr := newStubLocator()
@@ -212,15 +212,15 @@ func TestStorachaExchange(t *testing.T) {
 
 			location1 := locator.Location{
 				Commitment: shardCommitment,
-				Position:   blobindex.Position{Offset: 0, Length: 5},
+				Range:      blobindex.Position{Offset: 0, Length: 5},
 			}
 			location2 := locator.Location{
 				Commitment: shardCommitment,
-				Position:   blobindex.Position{Offset: 5, Length: 5},
+				Range:      blobindex.Position{Offset: 5, Length: 5},
 			}
 			location3 := locator.Location{
 				Commitment: shardCommitment,
-				Position:   blobindex.Position{Offset: 10, Length: 5},
+				Range:      blobindex.Position{Offset: 10, Length: 5},
 			}
 
 			lctr := newStubLocator()
@@ -250,8 +250,8 @@ func TestStorachaExchange(t *testing.T) {
 			// Should have made only 1 request for all 3 contiguous blocks
 			require.Len(t, retriever.requests, 1)
 			// The coalesced request should span all blocks
-			require.Equal(t, uint64(0), retriever.requests[0].Position.Offset)
-			require.Equal(t, uint64(15), retriever.requests[0].Position.Length)
+			require.Equal(t, uint64(0), retriever.requests[0].Range.Offset)
+			require.Equal(t, uint64(15), retriever.requests[0].Range.Length)
 		})
 
 		t.Run("does not coalesce non-contiguous blocks when maxGap is 0", func(t *testing.T) {
@@ -286,11 +286,11 @@ func TestStorachaExchange(t *testing.T) {
 
 			location1 := locator.Location{
 				Commitment: shardCommitment,
-				Position:   blobindex.Position{Offset: 0, Length: 5},
+				Range:      blobindex.Position{Offset: 0, Length: 5},
 			}
 			location2 := locator.Location{
 				Commitment: shardCommitment,
-				Position:   blobindex.Position{Offset: 10, Length: 5},
+				Range:      blobindex.Position{Offset: 10, Length: 5},
 			}
 
 			lctr := newStubLocator()
@@ -369,11 +369,11 @@ func TestStorachaExchange(t *testing.T) {
 
 			location1 := locator.Location{
 				Commitment: shard1Commitment,
-				Position:   blobindex.Position{Offset: 0, Length: 5},
+				Range:      blobindex.Position{Offset: 0, Length: 5},
 			}
 			location2 := locator.Location{
 				Commitment: shard2Commitment,
-				Position:   blobindex.Position{Offset: 0, Length: 5},
+				Range:      blobindex.Position{Offset: 0, Length: 5},
 			}
 
 			lctr := newStubLocator()
@@ -447,7 +447,7 @@ func TestStorachaExchange(t *testing.T) {
 
 			location := locator.Location{
 				Commitment: shardCommitment,
-				Position:   blobindex.Position{Offset: 0, Length: 5},
+				Range:      blobindex.Position{Offset: 0, Length: 5},
 			}
 
 			lctr := newStubLocator()
@@ -523,11 +523,11 @@ func TestStorachaExchange(t *testing.T) {
 
 			location1 := locator.Location{
 				Commitment: shardCommitment,
-				Position:   blobindex.Position{Offset: 0, Length: 5},
+				Range:      blobindex.Position{Offset: 0, Length: 5},
 			}
 			location2 := locator.Location{
 				Commitment: shardCommitment,
-				Position:   blobindex.Position{Offset: 10, Length: 5},
+				Range:      blobindex.Position{Offset: 10, Length: 5},
 			}
 
 			lctr := newStubLocator()
@@ -556,8 +556,8 @@ func TestStorachaExchange(t *testing.T) {
 			// Should have made only 1 request due to maxGap
 			require.Len(t, retriever.requests, 1)
 			// The coalesced request should span from offset 0 to 15
-			require.Equal(t, uint64(0), retriever.requests[0].Position.Offset)
-			require.Equal(t, uint64(15), retriever.requests[0].Position.Length)
+			require.Equal(t, uint64(0), retriever.requests[0].Range.Offset)
+			require.Equal(t, uint64(15), retriever.requests[0].Range.Length)
 		})
 
 		t.Run("does not coalesce blocks beyond maxGap", func(t *testing.T) {
@@ -593,11 +593,11 @@ func TestStorachaExchange(t *testing.T) {
 
 			location1 := locator.Location{
 				Commitment: shardCommitment,
-				Position:   blobindex.Position{Offset: 0, Length: 5},
+				Range:      blobindex.Position{Offset: 0, Length: 5},
 			}
 			location2 := locator.Location{
 				Commitment: shardCommitment,
-				Position:   blobindex.Position{Offset: 10, Length: 5},
+				Range:      blobindex.Position{Offset: 10, Length: 5},
 			}
 
 			lctr := newStubLocator()
@@ -666,15 +666,15 @@ func TestStorachaExchange(t *testing.T) {
 
 			location1 := locator.Location{
 				Commitment: shardCommitment,
-				Position:   blobindex.Position{Offset: 0, Length: 5},
+				Range:      blobindex.Position{Offset: 0, Length: 5},
 			}
 			location2 := locator.Location{
 				Commitment: shardCommitment,
-				Position:   blobindex.Position{Offset: 7, Length: 5},
+				Range:      blobindex.Position{Offset: 7, Length: 5},
 			}
 			location3 := locator.Location{
 				Commitment: shardCommitment,
-				Position:   blobindex.Position{Offset: 14, Length: 5},
+				Range:      blobindex.Position{Offset: 14, Length: 5},
 			}
 
 			lctr := newStubLocator()
@@ -705,8 +705,8 @@ func TestStorachaExchange(t *testing.T) {
 			// Should have made only 1 request
 			require.Len(t, retriever.requests, 1)
 			// The coalesced request should span from offset 0 to 19
-			require.Equal(t, uint64(0), retriever.requests[0].Position.Offset)
-			require.Equal(t, uint64(19), retriever.requests[0].Position.Length)
+			require.Equal(t, uint64(0), retriever.requests[0].Range.Offset)
+			require.Equal(t, uint64(19), retriever.requests[0].Range.Length)
 		})
 	})
 }

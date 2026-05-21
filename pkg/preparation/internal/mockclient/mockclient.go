@@ -84,8 +84,8 @@ type uploadAddInvocation struct {
 
 var _ storacha.Client = (*MockClient)(nil)
 
-func (m *MockClient) SpaceBlobAdd(ctx context.Context, content io.Reader, space did.DID, options ...client.SpaceBlobAddOption) (client.AddedBlob, error) {
-	cfg := client.NewSpaceBlobAddConfig(options...)
+func (m *MockClient) SpaceBlobAdd(ctx context.Context, content io.Reader, space did.DID, options ...client.BlobAddOption) (client.AddedBlob, error) {
+	cfg := client.NewBlobAddConfig(options...)
 
 	contentBytes, err := io.ReadAll(content)
 	require.NoError(m.T, err, "reading content for SpaceBlobAdd")
