@@ -28,12 +28,12 @@ var _ Store = (*FsStore)(nil)
 
 // NewFsStore creates a new token store backed by the filesystem.
 func NewFsStore(rootdir string) (*FsStore, error) {
-	store := FsStore{data: NewMemStore()}
 	err := os.MkdirAll(rootdir, 0755)
 	if err != nil {
 		return nil, fmt.Errorf("directory %q not writable: %w", rootdir, err)
 	}
 	filePath := filepath.Join(rootdir, fsStoreFileName)
+	store := FsStore{data: NewMemStore(), path: filePath}
 	if _, err := os.Stat(filePath); err != nil {
 		if !os.IsNotExist(err) {
 			return nil, err
@@ -105,6 +105,12 @@ func (s *FsStore) ListDelegations(ctx context.Context, aud did.DID, cmd ucan.Com
 			}
 		}
 	}
+}
+
+func (s *FsStore) Delegations(ctx context.Context) ([]ucan.Delegation, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.data.Delegations(ctx)
 }
 
 func (s *FsStore) AddInvocations(ctx context.Context, invocations ...ucan.Invocation) error {
