@@ -2,25 +2,30 @@ package demo
 
 import (
 	"context"
+	"crypto/sha512"
 	"fmt"
 	"io"
 	"io/fs"
-	"net/http"
+	"net/url"
 	"path"
 	"time"
 
+	"github.com/fil-forge/libforge/commands"
+	assertcmds "github.com/fil-forge/libforge/commands/assert"
+	uploadcmds "github.com/fil-forge/libforge/commands/upload"
+	"github.com/fil-forge/libforge/digestutil"
+	"github.com/fil-forge/ucantone/did"
+	"github.com/fil-forge/ucantone/principal/ed25519"
+	"github.com/ipfs/go-cid"
+	"github.com/multiformats/go-multihash"
+
+	"github.com/fil-forge/guppy/cmd/internal/upload/ui"
+	"github.com/fil-forge/guppy/internal/fakefs"
+	"github.com/fil-forge/guppy/pkg/client"
+	"github.com/fil-forge/guppy/pkg/preparation"
 	"github.com/fil-forge/guppy/pkg/preparation/sqlrepo"
+	"github.com/fil-forge/guppy/pkg/preparation/storacha"
 )
-
-type nullTransport struct{}
-
-func (t nullTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	time.Sleep(1 * time.Second)
-	return &http.Response{
-		StatusCode: http.StatusOK,
-		Body:       http.NoBody,
-	}, nil
-}
 
 type changingFS struct {
 	fs.FS
@@ -189,10 +194,97 @@ func newChangingFS(fsys fs.FS, changeModTime, changeData bool) (fs.FS, error) {
 }
 
 func Demo(ctx context.Context, repo *sqlrepo.Repo, spaceName string, alterMetadata, alterData bool) error {
-	// TODO(forrest): this demo stands up a go-ucanto test server via the client
-	// test harness (ctestutil) using the removed client.WithPrincipal and
-	// go-ucanto server.Provide handlers. The client and test harness were upgraded
-	// to ucantone; porting needs the new test-server API — confirm intent with
-	// Alan. Disabled until then. (The changing-FS helpers above are left intact.)
-	return fmt.Errorf("upload demo is temporarily disabled during the client upgrade to ucantone (TODO(forrest))")
+	// Derive a deterministic space key from the name so re-runs use the same space.
+	seed := sha512.Sum512_256([]byte(spaceName))
+	space, err := ed25519.FromRaw(seed[:])
+	if err != nil {
+		return fmt.Errorf("creating space key: %w", err)
+	}
+	spaceDID := space.DID()
+
+	service, err := ed25519.Generate()
+	if err != nil {
+		return fmt.Errorf("creating service key: %w", err)
+	}
+
+	fsys, err := newChangingFS(fakefs.New(0), alterMetadata, alterData)
+	if err != nil {
+		return fmt.Errorf("creating changing FS: %w", err)
+	}
+
+	api := preparation.NewAPI(repo, &demoClient{service: service}, preparation.WithGetLocalFSForPathFn(func(string) (fs.FS, error) {
+		return fsys, nil
+	}))
+
+	uploads, err := api.FindOrCreateUploads(ctx, spaceDID)
+	if err != nil {
+		return fmt.Errorf("creating uploads: %w", err)
+	}
+	if len(uploads) == 0 {
+		if _, err := api.FindOrCreateSpace(ctx, spaceDID, spaceDID.String()); err != nil {
+			return fmt.Errorf("creating space: %w", err)
+		}
+		source, err := api.CreateSource(ctx, ".", ".")
+		if err != nil {
+			return fmt.Errorf("creating source: %w", err)
+		}
+		if err := repo.AddSourceToSpace(ctx, spaceDID, source.ID()); err != nil {
+			return fmt.Errorf("adding source to space: %w", err)
+		}
+		uploads, err = api.FindOrCreateUploads(ctx, spaceDID)
+		if err != nil {
+			return fmt.Errorf("creating uploads: %w", err)
+		}
+	}
+
+	return ui.RunUploadUI(ctx, repo, api, uploads, false, nil)
+}
+
+// demoClient is a fake storacha.Client that accepts blobs locally (no network),
+// so the demo can exercise the full scan -> DAG -> shard -> upload pipeline
+// without real credentials or a service.
+type demoClient struct {
+	service ed25519.Signer
+}
+
+var _ storacha.Client = (*demoClient)(nil)
+
+func (d *demoClient) BlobAdd(ctx context.Context, content io.Reader, space did.DID, options ...client.BlobAddOption) (client.AddedBlob, error) {
+	cfg := client.NewBlobAddConfig(options...)
+	data, err := io.ReadAll(content)
+	if err != nil {
+		return client.AddedBlob{}, fmt.Errorf("reading blob content: %w", err)
+	}
+	digest := cfg.PrecomputedDigest
+	if len(digest) == 0 {
+		digest, err = multihash.Sum(data, multihash.SHA2_256, -1)
+		if err != nil {
+			return client.AddedBlob{}, fmt.Errorf("hashing blob: %w", err)
+		}
+	}
+	blobURL, err := url.Parse("https://demo.example/blob/" + digestutil.Format(digest))
+	if err != nil {
+		return client.AddedBlob{}, err
+	}
+	location, err := assertcmds.Location.Invoke(
+		d.service,
+		d.service.DID(),
+		&assertcmds.LocationArguments{
+			Space:    space,
+			Content:  digest,
+			Location: []commands.CborURL{commands.CborURL(*blobURL)},
+		},
+	)
+	if err != nil {
+		return client.AddedBlob{}, fmt.Errorf("creating location commitment: %w", err)
+	}
+	return client.AddedBlob{Digest: digest, Size: uint64(len(data)), Location: location}, nil
+}
+
+func (d *demoClient) IndexAdd(ctx context.Context, indexCID cid.Cid, space did.DID) error {
+	return nil
+}
+
+func (d *demoClient) UploadAdd(ctx context.Context, space did.DID, root cid.Cid, shards []cid.Cid, index *cid.Cid) (*uploadcmds.AddOK, error) {
+	return &uploadcmds.AddOK{}, nil
 }
