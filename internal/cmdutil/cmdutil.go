@@ -11,12 +11,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/fil-forge/go-libstoracha/principalresolver"
-	"github.com/fil-forge/go-ucanto/core/delegation"
-	"github.com/fil-forge/go-ucanto/principal"
 	"github.com/fil-forge/guppy/pkg/client"
 	"github.com/fil-forge/guppy/pkg/config"
-	cdg "github.com/fil-forge/guppy/pkg/delegation"
 	"github.com/fil-forge/guppy/pkg/presets"
 	"github.com/fil-forge/guppy/pkg/tokenstore"
 	indexclient "github.com/fil-forge/indexing-service/pkg/client"
@@ -26,6 +22,7 @@ import (
 	"github.com/fil-forge/ucantone/did"
 	utd25519 "github.com/fil-forge/ucantone/principal/ed25519"
 	utucan "github.com/fil-forge/ucantone/ucan"
+	"github.com/fil-forge/ucantone/ucan/container"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
@@ -143,17 +140,21 @@ func MustGetIndexClientForNetwork(networkCfg config.NetworkConfig, flagName stri
 	return client, network.IndexerID
 }
 
-func MustGetProof(path string) delegation.Delegation {
+// AddProofsFromFile decodes a UCAN delegation container from the given path and
+// adds its delegations to the client's token store.
+func AddProofsFromFile(ctx context.Context, c *client.Client, path string) error {
 	b, err := os.ReadFile(path)
 	if err != nil {
-		log.Fatalf("reading proof file: %s", err)
+		return fmt.Errorf("reading proof file %q: %w", path, err)
 	}
-
-	proof, err := cdg.ExtractProof(b)
+	ct, err := container.Decode(b)
 	if err != nil {
-		log.Fatalf("extracting proof: %s", err)
+		return fmt.Errorf("decoding proof container %q: %w", path, err)
 	}
-	return proof
+	if err := c.AddProofs(ctx, ct.Delegations()...); err != nil {
+		return fmt.Errorf("adding proofs: %w", err)
+	}
+	return nil
 }
 
 // ParseSize parses a data size string with optional suffix (B, K, M, G).
@@ -243,12 +244,4 @@ func ResolveSpace(c *client.Client, identifier string) (did.DID, error) {
 	}
 
 	return space.DID(), nil
-}
-
-func ResolveDIDWebAndWrap(ctx context.Context, didWeb did.DID, opts ...principalresolver.Option) (principal.Verifier, error) {
-	// TODO(forrest): this resolver uses go-ucanto did/verifier types but now
-	// receives a ucantone did.DID. Its only callers (retrieve, gateway) are
-	// disabled during the client upgrade to ucantone. Port to ucantone-compatible
-	// principal resolution — confirm intent with Alan.
-	return nil, fmt.Errorf("DID web resolution is temporarily disabled during the client upgrade to ucantone (TODO(forrest))")
 }
