@@ -3,10 +3,10 @@ package model
 import (
 	"fmt"
 
-	"github.com/fil-forge/go-ucanto/core/invocation"
 	"github.com/fil-forge/guppy/pkg/client"
 	"github.com/fil-forge/guppy/pkg/preparation/types"
 	"github.com/fil-forge/guppy/pkg/preparation/types/id"
+	"github.com/fil-forge/ucantone/ucan"
 	"github.com/ipfs/go-cid"
 	"github.com/multiformats/go-multicodec"
 	"github.com/multiformats/go-multihash"
@@ -35,9 +35,9 @@ type Blob interface {
 	PieceCID() cid.Cid
 	Size() uint64
 	State() BlobState
-	Location() invocation.Invocation
-	PDPAccept() invocation.Invocation
-	SpaceBlobAdded(client.AddedBlob) error
+	Location() ucan.Invocation
+	PDPAccept() ucan.Invocation
+	BlobAdded(client.AddedBlob) error
 	Added() error
 
 	// blobType returns a string representing the type of the blob (e.g. "Shard"
@@ -63,8 +63,8 @@ type blob struct {
 	digest     multihash.Multihash
 	pieceCID   cid.Cid
 	state      BlobState
-	location   invocation.Invocation
-	pdpAccept  invocation.Invocation
+	location   ucan.Invocation
+	pdpAccept  ucan.Invocation
 }
 
 func (b *blob) ID() id.ShardID {
@@ -102,11 +102,11 @@ func (b *blob) CID() cid.Cid {
 	return cid.NewCidV1(uint64(multicodec.Car), b.digest)
 }
 
-func (b *blob) Location() invocation.Invocation {
+func (b *blob) Location() ucan.Invocation {
 	return b.location
 }
 
-func (b *blob) PDPAccept() invocation.Invocation {
+func (b *blob) PDPAccept() ucan.Invocation {
 	return b.pdpAccept
 }
 
@@ -202,12 +202,12 @@ func (s *Shard) Close(digest multihash.Multihash, pieceCID cid.Cid) error {
 	return nil
 }
 
-// SpaceBlobAdded records the result of a successful `space/blob/add`. The shard
-// must be in `BlobStateClosed`, or it should not have been `space/blob/add`ed
+// BlobAdded records the result of a successful `/blob/add`. The shard
+// must be in `BlobStateClosed`, or it should not have been `/blob/add`ed
 // to begin with. `location` must be non-nil, because it represents the fact
 // that the shard has truly been added. The `pdpAccept` may be nil. The `digest`
 // and `size` of the `addedBlob` must match the shard's digest and size.
-func (s *Shard) SpaceBlobAdded(addedBlob client.AddedBlob) error {
+func (s *Shard) BlobAdded(addedBlob client.AddedBlob) error {
 	if s.state != BlobStateClosed {
 		return fmt.Errorf("cannot add shard in state %s", s.state)
 	}
@@ -234,8 +234,8 @@ type ShardScanner func(
 	digestState *[]byte,
 	pieceCIDState *[]byte,
 	state *BlobState,
-	location *invocation.Invocation,
-	pdpAccept *invocation.Invocation,
+	location *ucan.Invocation,
+	pdpAccept *ucan.Invocation,
 ) error
 
 func ReadShardFromDatabase(scanner ShardScanner) (*Shard, error) {
@@ -275,8 +275,8 @@ type ShardWriter func(
 	digestState []byte,
 	pieceCIDState []byte,
 	state BlobState,
-	location invocation.Invocation,
-	pdpAccept invocation.Invocation,
+	location ucan.Invocation,
+	pdpAccept ucan.Invocation,
 ) error
 
 // WriteShardToDatabase writes a Shard to the database using the provided writer function.
@@ -331,12 +331,12 @@ func (i *Index) Close() error {
 	return nil
 }
 
-// SpaceBlobAdded records the result of a successful `space/blob/add`. The index
-// must be in `BlobStateClosed`, or it should not have been `space/blob/add`ed
+// BlobAdded records the result of a successful `/blob/add`. The index
+// must be in `BlobStateClosed`, or it should not have been `/blob/add`ed
 // to begin with. `location` must be non-nil, because it represents the fact
 // that the index has truly been added. The `pdpAccept` may be nil. The `digest`
 // and `size` will be recorded as well.
-func (i *Index) SpaceBlobAdded(addedBlob client.AddedBlob) error {
+func (i *Index) BlobAdded(addedBlob client.AddedBlob) error {
 	if i.state != BlobStateClosed {
 		return fmt.Errorf("cannot add index in state %s", i.state)
 	}
@@ -359,8 +359,8 @@ type IndexScanner func(
 	digest *multihash.Multihash,
 	pieceCID *cid.Cid,
 	state *BlobState,
-	location *invocation.Invocation,
-	pdpAccept *invocation.Invocation,
+	location *ucan.Invocation,
+	pdpAccept *ucan.Invocation,
 ) error
 
 func ReadIndexFromDatabase(scanner IndexScanner) (*Index, error) {
@@ -394,8 +394,8 @@ type IndexWriter func(
 	digest multihash.Multihash,
 	pieceCID cid.Cid,
 	state BlobState,
-	location invocation.Invocation,
-	pdpAccept invocation.Invocation,
+	location ucan.Invocation,
+	pdpAccept ucan.Invocation,
 ) error
 
 // WriteIndexToDatabase writes a Index to the database using the provided writer function.

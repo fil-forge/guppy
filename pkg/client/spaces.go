@@ -6,7 +6,7 @@ import (
 
 	"github.com/fil-forge/go-ucanto/core/dag/blockstore"
 	"github.com/fil-forge/go-ucanto/core/delegation"
-	"github.com/fil-forge/go-ucanto/did"
+	"github.com/fil-forge/ucantone/did"
 	"github.com/ipld/go-ipld-prime/datamodel"
 	basicnode "github.com/ipld/go-ipld-prime/node/basic"
 

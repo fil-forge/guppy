@@ -9,7 +9,7 @@ import (
 	"sync"
 
 	"github.com/fil-forge/go-libstoracha/blobindex"
-	"github.com/fil-forge/go-ucanto/did"
+	"github.com/fil-forge/ucantone/did"
 	"github.com/ipfs/go-cid"
 	logging "github.com/ipfs/go-log/v2"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"

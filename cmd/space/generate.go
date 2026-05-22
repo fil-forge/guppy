@@ -7,10 +7,10 @@ import (
 	"slices"
 
 	"github.com/fil-forge/go-ucanto/core/delegation"
-	"github.com/fil-forge/go-ucanto/did"
 	"github.com/fil-forge/go-ucanto/principal"
 	"github.com/fil-forge/go-ucanto/principal/ed25519/signer"
 	"github.com/fil-forge/go-ucanto/ucan"
+	"github.com/fil-forge/ucantone/did"
 	"github.com/mitchellh/go-wordwrap"
 	"github.com/spf13/cobra"
 

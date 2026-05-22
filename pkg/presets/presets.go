@@ -5,7 +5,7 @@ import (
 	"net/url"
 	"os"
 
-	"github.com/fil-forge/go-ucanto/did"
+	"github.com/fil-forge/ucantone/did"
 	logging "github.com/ipfs/go-log/v2"
 )
 

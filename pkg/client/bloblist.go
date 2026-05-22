@@ -4,16 +4,22 @@ import (
 	"context"
 	"fmt"
 
-	spacecmds "github.com/fil-forge/libforge/commands/space"
+	blobcmds "github.com/fil-forge/libforge/commands/blob"
 	"github.com/fil-forge/ucantone/did"
 	"github.com/fil-forge/ucantone/execution"
 	"github.com/fil-forge/ucantone/ucan/invocation"
 )
 
-// SpaceInfo invokes the /space/info capability to get information about a space,
-// including which providers are associated with it.
-func (c *Client) SpaceInfo(ctx context.Context, space did.DID) (*spacecmds.InfoOK, error) {
-	proofs, proofLinks, err := c.ProofChain(ctx, c.signer.DID(), spacecmds.Info.Command, space)
+// BlobList returns a paginated list of blobs stored in a space.
+//
+// Required delegated capability proofs: `/blob/list`
+//
+// The `space` is the resource the invocation applies to. It is typically the
+// DID of a space.
+//
+// The `args` are arguments required to perform an `/blob/list` invocation.
+func (c *Client) BlobList(ctx context.Context, space did.DID, args blobcmds.ListArguments) (*blobcmds.ListOK, error) {
+	proofs, proofLinks, err := c.ProofChain(ctx, c.signer.DID(), blobcmds.List.Command, space)
 	if err != nil {
 		return nil, fmt.Errorf("building proof chain: %w", err)
 	}
@@ -22,10 +28,10 @@ func (c *Client) SpaceInfo(ctx context.Context, space did.DID) (*spacecmds.InfoO
 		return nil, fmt.Errorf("fetching proof attestations: %w", err)
 	}
 
-	inv, err := spacecmds.Info.Invoke(
+	inv, err := blobcmds.List.Invoke(
 		c.signer,
 		space,
-		&spacecmds.InfoArguments{},
+		&args,
 		invocation.WithAudience(c.serviceID),
 		invocation.WithProofs(proofLinks...),
 	)
@@ -33,7 +39,7 @@ func (c *Client) SpaceInfo(ctx context.Context, space did.DID) (*spacecmds.InfoO
 		return nil, fmt.Errorf("creating invocation: %w", err)
 	}
 
-	infoOK, _, _, err := Execute[*spacecmds.InfoOK](
+	listOK, _, _, err := Execute[*blobcmds.ListOK](
 		ctx,
 		c.ucanClient,
 		inv,
@@ -44,5 +50,5 @@ func (c *Client) SpaceInfo(ctx context.Context, space did.DID) (*spacecmds.InfoO
 		return nil, fmt.Errorf("executing invocation: %w", err)
 	}
 
-	return infoOK, nil
+	return listOK, nil
 }

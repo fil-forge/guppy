@@ -14,7 +14,6 @@ import (
 	"github.com/fil-forge/go-libstoracha/principalresolver"
 	uclient "github.com/fil-forge/go-ucanto/client"
 	"github.com/fil-forge/go-ucanto/core/delegation"
-	"github.com/fil-forge/go-ucanto/did"
 	"github.com/fil-forge/go-ucanto/principal"
 	"github.com/fil-forge/go-ucanto/principal/ed25519/signer"
 	edverifier "github.com/fil-forge/go-ucanto/principal/ed25519/verifier"
@@ -26,10 +25,11 @@ import (
 	"github.com/fil-forge/guppy/pkg/client"
 	"github.com/fil-forge/guppy/pkg/config"
 	cdg "github.com/fil-forge/guppy/pkg/delegation"
-	"github.com/fil-forge/guppy/pkg/identity"
 	"github.com/fil-forge/guppy/pkg/presets"
-	receiptclient "github.com/fil-forge/guppy/pkg/receipt"
 	indexclient "github.com/fil-forge/indexing-service/pkg/client"
+	"github.com/fil-forge/libforge/identity"
+	receiptclient "github.com/fil-forge/libforge/receipt"
+	"github.com/fil-forge/ucantone/did"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
@@ -103,7 +103,7 @@ func MustGetClientForNetwork(cfg config.Config, flagName string, options ...clie
 			append(
 				options,
 				client.WithConnection(conn),
-				client.WithReceiptsClient(receiptclient.New(&network.ReceiptsURL, receiptclient.WithHTTPClient(TracedHTTPClient))),
+				client.WithReceiptsClient(receiptclient.NewClient(&network.ReceiptsURL, receiptclient.WithHTTPClient(TracedHTTPClient))),
 			)...,
 		)...,
 	)

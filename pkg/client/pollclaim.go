@@ -17,14 +17,14 @@ import (
 // PollClaim attempts to `/access/claim` and retries until it finds delegations
 // authorized by way of the given `requestOK`. It returns a channel which will
 // produce the result and then close.
-func (c *Client) PollClaim(ctx context.Context, requestOK access.RequestOK) <-chan result.Result[[]ucan.Delegation, error] {
+func (c *Client) PollClaim(ctx context.Context, requestOK *access.RequestOK) <-chan result.Result[[]ucan.Delegation, error] {
 	return c.PollClaimWithTick(ctx, requestOK, time.Tick(time.Second))
 }
 
 // PollClaimWithTick is the same as [PollClaim], but accepts the tick channel
 // for timing control over the polling. PollClaimWithTick will poll once for
 // each value read on `tickChan`, until the claim succeeds or an error occurs.
-func (c *Client) PollClaimWithTick(ctx context.Context, requestOK access.RequestOK, tickChan <-chan time.Time) <-chan result.Result[[]ucan.Delegation, error] {
+func (c *Client) PollClaimWithTick(ctx context.Context, requestOK *access.RequestOK, tickChan <-chan time.Time) <-chan result.Result[[]ucan.Delegation, error] {
 	resultChan := make(chan result.Result[[]ucan.Delegation, error], 1)
 
 	go func() {
@@ -40,7 +40,7 @@ func (c *Client) PollClaimWithTick(ctx context.Context, requestOK access.Request
 	return resultChan
 }
 
-func (c *Client) pollClaimWithTicker(ctx context.Context, requestOK access.RequestOK, tickChan <-chan time.Time) ([]ucan.Delegation, error) {
+func (c *Client) pollClaimWithTicker(ctx context.Context, requestOK *access.RequestOK, tickChan <-chan time.Time) ([]ucan.Delegation, error) {
 	for {
 		select {
 		case <-ctx.Done():

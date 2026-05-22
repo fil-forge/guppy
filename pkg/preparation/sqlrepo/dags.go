@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/fil-forge/go-ucanto/did"
+	"github.com/fil-forge/ucantone/did"
 	"github.com/ipfs/go-cid"
 
 	"github.com/fil-forge/guppy/pkg/bus/events"

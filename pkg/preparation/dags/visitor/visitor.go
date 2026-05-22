@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/fil-forge/go-ucanto/did"
 	"github.com/fil-forge/guppy/pkg/preparation/dags/model"
 	"github.com/fil-forge/guppy/pkg/preparation/types/id"
+	"github.com/fil-forge/ucantone/did"
 	"github.com/ipfs/go-cid"
 	logging "github.com/ipfs/go-log/v2"
 	dagpb "github.com/ipld/go-codec-dagpb"

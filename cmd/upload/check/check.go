@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/fil-forge/go-ucanto/did"
+	"github.com/fil-forge/ucantone/did"
 	"github.com/mitchellh/go-wordwrap"
 	"github.com/spf13/cobra"
 

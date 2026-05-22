@@ -7,13 +7,13 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/fil-forge/go-ucanto/did"
 	"github.com/fil-forge/guppy/pkg/bus/events"
 	dagmodel "github.com/fil-forge/guppy/pkg/preparation/dags/model"
 	"github.com/fil-forge/guppy/pkg/preparation/sqlrepo/util"
 	"github.com/fil-forge/guppy/pkg/preparation/types/id"
 	"github.com/fil-forge/guppy/pkg/preparation/uploads"
 	"github.com/fil-forge/guppy/pkg/preparation/uploads/model"
+	"github.com/fil-forge/ucantone/did"
 	"github.com/ipfs/go-cid"
 )
 

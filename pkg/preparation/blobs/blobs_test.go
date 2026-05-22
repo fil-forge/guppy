@@ -12,7 +12,6 @@ import (
 
 	"github.com/fil-forge/go-libstoracha/blobindex"
 	stestutil "github.com/fil-forge/go-libstoracha/testutil"
-	"github.com/fil-forge/go-ucanto/did"
 	"github.com/fil-forge/guppy/pkg/internal/util"
 	"github.com/fil-forge/guppy/pkg/preparation/blobs"
 	"github.com/fil-forge/guppy/pkg/preparation/blobs/model"
@@ -25,6 +24,7 @@ import (
 	repoutil "github.com/fil-forge/guppy/pkg/preparation/sqlrepo/util"
 	"github.com/fil-forge/guppy/pkg/preparation/types"
 	"github.com/fil-forge/guppy/pkg/preparation/types/id"
+	"github.com/fil-forge/ucantone/did"
 	commcid "github.com/filecoin-project/go-fil-commcid"
 	blocks "github.com/ipfs/go-block-format"
 	"github.com/ipfs/go-cid"

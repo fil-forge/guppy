@@ -16,11 +16,11 @@ import (
 	"github.com/fil-forge/go-ucanto/core/delegation"
 	"github.com/fil-forge/go-ucanto/core/ipld/block"
 	"github.com/fil-forge/go-ucanto/core/ipld/hash/sha256"
-	"github.com/fil-forge/go-ucanto/did"
 	"github.com/fil-forge/go-ucanto/validator"
 	"github.com/fil-forge/guppy/pkg/client/locator"
 	ctestutil "github.com/fil-forge/guppy/pkg/client/testutil"
 	"github.com/fil-forge/indexing-service/pkg/types"
+	"github.com/fil-forge/ucantone/did"
 	"github.com/ipfs/go-cid"
 	"github.com/ipld/go-ipld-prime"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
@@ -77,7 +77,7 @@ func TestLocator(t *testing.T) {
 
 		// This could be any kind of delegation; we just need to see that it gets
 		// sent to the indexer, whatever it is.
-		authDelegation := testutil.RandomLocationDelegation(t)
+		authDelegation := testutil.RandomLocationInvocation(t)
 
 		mockIndexer := newMockIndexerClient(func(digests []mh.Multihash) ([]delegation.Delegation, []blobindex.ShardedDagIndexView, error) {
 			assert.ElementsMatch(t, []mh.Multihash{blockHash}, digests)
@@ -158,7 +158,7 @@ func TestLocator(t *testing.T) {
 		})
 
 		requiredDelegations := []delegation.Delegation{
-			testutil.RandomLocationDelegation(t),
+			testutil.RandomLocationInvocation(t),
 		}
 
 		mockIndexer := newMockIndexerClient(func(digests []mh.Multihash) ([]delegation.Delegation, []blobindex.ShardedDagIndexView, error) {
@@ -238,7 +238,7 @@ func TestLocator(t *testing.T) {
 		})
 
 		requiredDelegations := []delegation.Delegation{
-			testutil.RandomLocationDelegation(t),
+			testutil.RandomLocationInvocation(t),
 		}
 
 		// Create a mock indexer that responds differently based on query type
@@ -328,7 +328,7 @@ func TestLocator(t *testing.T) {
 		})
 
 		requiredDelegations := []delegation.Delegation{
-			testutil.RandomLocationDelegation(t),
+			testutil.RandomLocationInvocation(t),
 		}
 
 		// Create a mock indexer that returns the appropriate claim based on the query
@@ -418,7 +418,7 @@ func TestLocator(t *testing.T) {
 		// These could be any kind of delegations; we just need to see that they get
 		// sent to the indexer, whatever they are.
 		requiredDelegations := []delegation.Delegation{
-			testutil.RandomLocationDelegation(t),
+			testutil.RandomLocationInvocation(t),
 		}
 
 		mockIndexer := newMockIndexerClient(func([]mh.Multihash) ([]delegation.Delegation, []blobindex.ShardedDagIndexView, error) {
@@ -531,7 +531,7 @@ func TestLocateMany(t *testing.T) {
 			Length: 512,
 		})
 
-		authDelegation := testutil.RandomLocationDelegation(t)
+		authDelegation := testutil.RandomLocationInvocation(t)
 
 		mockIndexer := newMockIndexerClient(func(digests []mh.Multihash) ([]delegation.Delegation, []blobindex.ShardedDagIndexView, error) {
 			assert.ElementsMatch(t, []mh.Multihash{block1Hash, block2Hash, block3Hash}, digests)
@@ -602,7 +602,7 @@ func TestLocateMany(t *testing.T) {
 			Length: 1024,
 		})
 
-		authDelegation := testutil.RandomLocationDelegation(t)
+		authDelegation := testutil.RandomLocationInvocation(t)
 
 		mockIndexer := newMockIndexerClient(func(digests []mh.Multihash) ([]delegation.Delegation, []blobindex.ShardedDagIndexView, error) {
 			assert.ElementsMatch(t, []mh.Multihash{block1Hash, block2Hash}, digests)
@@ -682,7 +682,7 @@ func TestLocateMany(t *testing.T) {
 			Length: 512,
 		})
 
-		authDelegation := testutil.RandomLocationDelegation(t)
+		authDelegation := testutil.RandomLocationInvocation(t)
 
 		mockIndexer := newMockIndexerClient(func(digests []mh.Multihash) ([]delegation.Delegation, []blobindex.ShardedDagIndexView, error) {
 			return []delegation.Delegation{claim1, claim2}, []blobindex.ShardedDagIndexView{index}, nil

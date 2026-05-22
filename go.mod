@@ -13,9 +13,9 @@ require (
 	github.com/dustin/go-humanize v1.0.1
 	github.com/fil-forge/go-libstoracha v0.0.0-20260507180245-218ac18ff773
 	github.com/fil-forge/go-ucanto v0.0.0-20260507172450-5cb5d073f8ab
-	github.com/fil-forge/indexing-service v1.13.5-0.20260520153340-5a1158510968
-	github.com/fil-forge/libforge v0.0.0-20260521174431-708e600522c4
-	github.com/fil-forge/ucantone v0.0.0-20260519193222-ad31490eaa10
+	github.com/fil-forge/indexing-service v1.13.5-0.20260522094121-1edae9728a14
+	github.com/fil-forge/libforge v0.0.0-20260522130153-a38febd34c97
+	github.com/fil-forge/ucantone v0.0.0-20260521210642-84d8c533075b
 	github.com/filecoin-project/go-data-segment v0.0.1
 	github.com/filecoin-project/go-fil-commcid v0.3.1
 	github.com/filecoin-project/go-fil-commp-hashhash v0.2.0
@@ -28,7 +28,7 @@ require (
 	github.com/ipfs/go-block-format v0.2.3
 	github.com/ipfs/go-cid v0.6.1
 	github.com/ipfs/go-datastore v0.9.1
-	github.com/ipfs/go-ipld-cbor v0.2.0
+	github.com/ipfs/go-ipld-cbor v0.2.1
 	github.com/ipfs/go-ipld-format v0.6.3
 	github.com/ipfs/go-log/v2 v2.9.1
 	github.com/ipfs/go-unixfsnode v1.10.1
@@ -79,6 +79,7 @@ require (
 	github.com/elastic/go-sysinfo v1.15.4 // indirect
 	github.com/elastic/go-windows v1.0.2 // indirect
 	github.com/fil-forge/automobile v0.0.1 // indirect
+	github.com/filecoin-project/go-state-types v0.18.0 // indirect
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.12 // indirect
 	github.com/go-faster/city v1.0.1 // indirect

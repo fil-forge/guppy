@@ -9,10 +9,10 @@ import (
 	captypes "github.com/fil-forge/go-libstoracha/capabilities/types"
 	"github.com/fil-forge/go-libstoracha/testutil"
 	"github.com/fil-forge/go-ucanto/core/delegation"
-	"github.com/fil-forge/go-ucanto/did"
 	"github.com/fil-forge/go-ucanto/principal"
 	ed25519signer "github.com/fil-forge/go-ucanto/principal/ed25519/signer"
 	"github.com/fil-forge/guppy/pkg/verification"
+	"github.com/fil-forge/ucantone/did"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/multiformats/go-multihash"
 	"github.com/stretchr/testify/require"
@@ -92,7 +92,7 @@ func TestLocationCache(t *testing.T) {
 
 		require.Len(t, locations, 1, "should have one location for the shard")
 		require.Equal(t, commitment.Link(), locations[0].Commitment.Link())
-		require.Equal(t, space.DID(), locations[0].Caveats.Space)
+		require.Equal(t, space.DID(), locations[0].Arguments.Space)
 	})
 
 	t.Run("stores multiple locations for the same shard from different providers", func(t *testing.T) {

@@ -20,7 +20,7 @@ func TestSpaceBlobAdd(t *testing.T) {
 
 		putClient := testutil.NewPutClient()
 
-		c, err := testutil.Client(testutil.WithSpaceBlobAdd())
+		c, err := testutil.Client(testutil.WithBlobAdd())
 		require.NoError(t, err)
 
 		// Delegate * on the space to the client
@@ -49,7 +49,7 @@ func TestSpaceBlobAdd(t *testing.T) {
 
 		putClient := testutil.NewPutClient()
 
-		c, err := testutil.Client(testutil.WithSpaceBlobAddPutReceipt())
+		c, err := testutil.Client(testutil.WithBlobAddPutReceipt())
 		require.NoError(t, err)
 
 		// Delegate * on the space to the client
@@ -78,7 +78,7 @@ func TestSpaceBlobAdd(t *testing.T) {
 
 		putClient := testutil.NewPutClient()
 
-		c, err := testutil.Client(testutil.WithSpaceBlobAddPDP())
+		c, err := testutil.Client(testutil.WithBlobAddPDP())
 		require.NoError(t, err)
 
 		// Delegate * on the space to the client
