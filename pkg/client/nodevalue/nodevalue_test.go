@@ -7,6 +7,7 @@ import (
 	"github.com/fil-forge/guppy/pkg/client/nodevalue"
 	"github.com/ipld/go-ipld-prime"
 	"github.com/ipld/go-ipld-prime/datamodel"
+	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/ipld/go-ipld-prime/node/bindnode"
 	"github.com/ipld/go-ipld-prime/schema"
 	"github.com/stretchr/testify/require"
@@ -56,7 +57,7 @@ func TestNodeValue(t *testing.T) {
 	})
 
 	t.Run("returns the value of a link node", func(t *testing.T) {
-		value := testutil.RandomCID(t)
+		var value datamodel.Link = cidlink.Link{Cid: testutil.RandomCID(t)}
 		node := bindnode.Wrap(&value, ts.TypeByName("Link"))
 		require.Equal(t, value, testutil.Must(nodevalue.NodeValue(node))(t))
 	})
