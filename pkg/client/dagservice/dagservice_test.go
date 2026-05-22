@@ -8,14 +8,10 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/fil-forge/libforge/blobindex"
-	assertcap "github.com/fil-forge/go-libstoracha/capabilities/assert"
-	captypes "github.com/fil-forge/go-libstoracha/capabilities/types"
-	"github.com/fil-forge/libforge/testutil"
-	"github.com/fil-forge/go-ucanto/ucan"
 	"github.com/fil-forge/guppy/pkg/client/dagservice"
 	"github.com/fil-forge/guppy/pkg/client/locator"
-	ctestutil "github.com/fil-forge/guppy/pkg/client/testutil"
+	"github.com/fil-forge/libforge/blobindex"
+	"github.com/fil-forge/libforge/testutil"
 	"github.com/fil-forge/ucantone/did"
 	dag "github.com/ipfs/boxo/ipld/merkledag"
 	blocks "github.com/ipfs/go-block-format"
@@ -66,31 +62,22 @@ func TestDAGService(t *testing.T) {
 				blockCID := cid.NewCidV1(tc.codec, hash)
 
 				location := locator.Location{
-					Commitment: ucan.NewCapability(
-						assertcap.Location.Can(),
-						space.String(),
-						assertcap.LocationCaveats{
-							Space:   space,
-							Content: captypes.FromHash(hash),
-							Location: ctestutil.Urls(
-								"https://storage1.example.com/block/abc123",
-								"https://storage2.example.com/block/abc123",
-							),
-						},
-					),
-					Range: blobindex.Position{
-						Offset: offset,
-						Length: length,
+					Commitment: locator.Commitment{
+						Space:   space,
+						Content: hash,
+					},
+					Range: blobindex.Range{
+						Start: int64(offset),
+						End:   int64(offset+length) - 1,
 					},
 				}
 
 				lctr := newStubLocator()
 				lctr.locations.Set(blockCID.Hash(), []locator.Location{location})
 
-				retriever, err := newMockRetriever(map[ucan.Capability[assertcap.LocationCaveats]][]byte{
-					location.Commitment: shardData,
+				retriever := newMockRetriever(map[string][]byte{
+					string(hash): shardData,
 				})
-				require.NoError(t, err)
 
 				ds := dagservice.NewDAGService(
 					lctr,
@@ -119,31 +106,24 @@ func TestDAGService(t *testing.T) {
 		block1CID := cidFor(block1Data)
 		block2CID := cidFor(block2Data)
 
-		shardCommitment := ucan.NewCapability(
-			assertcap.Location.Can(),
-			space.String(),
-			assertcap.LocationCaveats{
-				Space:   space,
-				Content: captypes.FromHash(shardCID.Hash()),
-				Location: ctestutil.Urls(
-					"https://storage1.example.com/shard",
-				),
-			},
-		)
+		shardCommitment := locator.Commitment{
+			Space:   space,
+			Content: shardCID.Hash(),
+		}
 
 		location1 := locator.Location{
 			Commitment: shardCommitment,
-			Range: blobindex.Position{
-				Offset: block1Offset,
-				Length: block1Length,
+			Range: blobindex.Range{
+				Start: int64(block1Offset),
+				End:   int64(block1Offset+block1Length) - 1,
 			},
 		}
 
 		location2 := locator.Location{
 			Commitment: shardCommitment,
-			Range: blobindex.Position{
-				Offset: block2Offset,
-				Length: block2Length,
+			Range: blobindex.Range{
+				Start: int64(block2Offset),
+				End:   int64(block2Offset+block2Length) - 1,
 			},
 		}
 
@@ -151,10 +131,9 @@ func TestDAGService(t *testing.T) {
 		lctr.locations.Set(block1CID.Hash(), []locator.Location{location1})
 		lctr.locations.Set(block2CID.Hash(), []locator.Location{location2})
 
-		retriever, err := newMockRetriever(map[ucan.Capability[assertcap.LocationCaveats]][]byte{
-			location1.Commitment: shardData,
+		retriever := newMockRetriever(map[string][]byte{
+			string(shardCID.Hash()): shardData,
 		})
-		require.NoError(t, err)
 
 		ds := dagservice.NewDAGService(
 			lctr,
@@ -224,16 +203,10 @@ func (m stubLocator) LocateMany(ctx context.Context, spaces []did.DID, digests [
 	return result, nil
 }
 
-func newMockRetriever(responses map[ucan.Capability[assertcap.LocationCaveats]][]byte) (*mockRetriever, error) {
-	data := make(map[string][]byte)
-	for commitment, resp := range responses {
-		key, err := commitmentKey(commitment)
-		if err != nil {
-			return nil, err
-		}
-		data[key] = resp
-	}
-	return &mockRetriever{data: data}, nil
+// newMockRetriever builds a retriever whose responses are keyed by the string
+// form of a location commitment's Content digest.
+func newMockRetriever(responses map[string][]byte) *mockRetriever {
+	return &mockRetriever{data: responses}
 }
 
 type mockRetriever struct {
@@ -244,21 +217,13 @@ type mockRetriever struct {
 
 var _ dagservice.Retriever = (*mockRetriever)(nil)
 
-func commitmentKey(commitment ucan.Capability[assertcap.LocationCaveats]) (string, error) {
-	json, err := commitment.MarshalJSON()
-	return string(json), err
-}
-
 func (r *mockRetriever) Retrieve(ctx context.Context, location locator.Location) (io.ReadCloser, error) {
-	key, err := commitmentKey(location.Commitment)
-	if err != nil {
-		return nil, err
+	data, ok := r.data[string(location.Commitment.Content)]
+	if !ok {
+		return nil, fmt.Errorf("no data for content %x", location.Commitment.Content)
 	}
-	if data, ok := r.data[key]; ok {
-		r.mu.Lock()
-		defer r.mu.Unlock()
-		r.requests = append(r.requests, location)
-		return io.NopCloser(bytes.NewReader(data[location.Range.Offset : location.Range.Offset+location.Range.Length])), nil
-	}
-	return nil, fmt.Errorf("no data for location %s", key)
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.requests = append(r.requests, location)
+	return io.NopCloser(bytes.NewReader(data[location.Range.Start : location.Range.End+1])), nil
 }
