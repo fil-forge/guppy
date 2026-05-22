@@ -51,7 +51,7 @@ var infoCmd = &cobra.Command{
 			}
 			fmt.Println(string(jsonBytes))
 		} else {
-			fmt.Printf("Space: %s\n", result.Did)
+			fmt.Printf("Space: %s\n", spaceDID)
 			if len(result.Providers) > 0 {
 				fmt.Printf("Providers:\n")
 				for _, provider := range result.Providers {

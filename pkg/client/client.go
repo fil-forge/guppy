@@ -78,6 +78,11 @@ func (c *Client) Issuer() ucan.Signer {
 	return c.signer
 }
 
+// ServiceID returns the DID of the upload service this client is connected to.
+func (c *Client) ServiceID() did.DID {
+	return c.serviceID
+}
+
 // ProofChain recursively builds a proof chain of delegations from the given
 // audience to the given subject for the specified command. It returns the
 // list of delegations and their corresponding links in the order required for

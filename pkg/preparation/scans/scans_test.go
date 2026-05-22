@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/fil-forge/go-libstoracha/testutil"
+	"github.com/fil-forge/libforge/testutil"
 	"github.com/fil-forge/guppy/pkg/preparation/internal/testdb"
 	"github.com/fil-forge/guppy/pkg/preparation/scans"
 	"github.com/fil-forge/guppy/pkg/preparation/scans/model"

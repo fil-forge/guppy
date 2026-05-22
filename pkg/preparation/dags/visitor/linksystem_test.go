@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/fil-forge/go-libstoracha/testutil"
+	"github.com/fil-forge/libforge/testutil"
 	"github.com/fil-forge/guppy/pkg/preparation/dags/model"
 	"github.com/fil-forge/guppy/pkg/preparation/dags/visitor"
 	"github.com/fil-forge/guppy/pkg/preparation/internal/testdb"

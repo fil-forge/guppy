@@ -8,10 +8,10 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/fil-forge/go-libstoracha/blobindex"
+	"github.com/fil-forge/libforge/blobindex"
 	assertcap "github.com/fil-forge/go-libstoracha/capabilities/assert"
 	captypes "github.com/fil-forge/go-libstoracha/capabilities/types"
-	"github.com/fil-forge/go-libstoracha/testutil"
+	"github.com/fil-forge/libforge/testutil"
 	"github.com/fil-forge/go-ucanto/ucan"
 	"github.com/fil-forge/guppy/pkg/client/dagservice"
 	"github.com/fil-forge/guppy/pkg/client/locator"
@@ -70,7 +70,7 @@ func TestDAGService(t *testing.T) {
 						assertcap.Location.Can(),
 						space.String(),
 						assertcap.LocationCaveats{
-							Space:   space.DID(),
+							Space:   space,
 							Content: captypes.FromHash(hash),
 							Location: ctestutil.Urls(
 								"https://storage1.example.com/block/abc123",
@@ -123,7 +123,7 @@ func TestDAGService(t *testing.T) {
 			assertcap.Location.Can(),
 			space.String(),
 			assertcap.LocationCaveats{
-				Space:   space.DID(),
+				Space:   space,
 				Content: captypes.FromHash(shardCID.Hash()),
 				Location: ctestutil.Urls(
 					"https://storage1.example.com/shard",

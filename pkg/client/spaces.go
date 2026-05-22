@@ -9,8 +9,6 @@ import (
 	"github.com/fil-forge/ucantone/did"
 	"github.com/ipld/go-ipld-prime/datamodel"
 	basicnode "github.com/ipld/go-ipld-prime/node/basic"
-
-	"github.com/fil-forge/guppy/pkg/agentstore"
 )
 
 // SpaceNotFoundError is returned when no space is found with a given name.
@@ -99,11 +97,12 @@ func (sf SpaceNameFact) ToIPLD() (map[string]datamodel.Node, error) {
 
 // Spaces returns all spaces we can act as.
 func (c *Client) Spaces() ([]Space, error) {
-	res, err := c.Proofs(agentstore.CapabilityQuery{Can: "space/*"})
-	if err != nil {
-		return nil, err
-	}
-	return spacesFromDelegations(res)
+	// TODO(forrest): the old implementation queried Proofs(Can:"space/*") with no
+	// concrete subject to enumerate every space the agent can act on. The new
+	// ProofChain API matches on a concrete subject DID, so there is no direct
+	// equivalent yet. This needs a tokenstore enumeration API — confirm intent
+	// with Alan before wiring it up. Until then, report no spaces.
+	return nil, nil
 }
 
 // SpacesNamed returns all spaces with the given name.

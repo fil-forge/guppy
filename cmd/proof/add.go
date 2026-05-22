@@ -2,14 +2,11 @@ package proof
 
 import (
 	"fmt"
-	"os"
 
-	"github.com/fil-forge/go-ucanto/core/delegation"
 	"github.com/mitchellh/go-wordwrap"
 	"github.com/spf13/cobra"
 
 	"github.com/fil-forge/guppy/internal/cmdutil"
-	"github.com/fil-forge/guppy/pkg/config"
 )
 
 var addCmd = &cobra.Command{
@@ -20,33 +17,11 @@ var addCmd = &cobra.Command{
 		80),
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		dlg, err := delegation.Parse(args[0])
-		if err != nil {
-			dlgBytes, err := os.ReadFile(args[0])
-			if err != nil {
-				return fmt.Errorf("reading delegation file: %w", err)
-			}
-			dlg, err = delegation.Extract(dlgBytes)
-			if err != nil {
-				return fmt.Errorf("extracting delegation: %w", err)
-			}
-		}
-
-		cfg, err := config.Load[config.Config]()
-		if err != nil {
-			return err
-		}
-		c := cmdutil.MustGetClient(cfg)
-
-		if dlg.Audience().DID() != c.Issuer().DID() {
-			return fmt.Errorf("delegation audience %q does not match agent DID %q", dlg.Audience().DID(), c.Issuer().DID())
-		}
-
-		err = c.AddProofs(dlg)
-		if err != nil {
-			return fmt.Errorf("adding proofs: %w", err)
-		}
-
-		return nil
+		// TODO(forrest): this command parses a go-ucanto delegation
+		// (delegation.Parse/Extract) and calls the changed client.AddProofs
+		// (now (ctx, ...ucantone-delegation)). The client was upgraded to
+		// ucantone/libforge; porting needs the ucantone delegation/container
+		// decode path — confirm intent with Alan. Disabled until then.
+		return cmdutil.NewHandledCliError(fmt.Errorf("proof add is temporarily disabled during the client upgrade to ucantone (TODO(forrest))"))
 	},
 }

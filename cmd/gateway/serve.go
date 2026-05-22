@@ -1,43 +1,16 @@
 package gateway
 
 import (
-	"context"
 	_ "embed"
-	"errors"
 	"fmt"
-	"maps"
 	"net/http"
-	"net/url"
-	"slices"
-	"strings"
-	"time"
 
-	contentcap "github.com/fil-forge/go-libstoracha/capabilities/space/content"
-	"github.com/fil-forge/go-libstoracha/principalresolver"
-	"github.com/fil-forge/go-ucanto/core/delegation"
-	"github.com/fil-forge/go-ucanto/ucan"
-	"github.com/fil-forge/go-ucanto/validator"
-	"github.com/fil-forge/guppy/cmd/gateway/banner"
 	"github.com/fil-forge/guppy/internal/cmdutil"
-	"github.com/fil-forge/guppy/pkg/agentstore"
-	"github.com/fil-forge/guppy/pkg/build"
-	"github.com/fil-forge/guppy/pkg/client/dagservice"
-	"github.com/fil-forge/guppy/pkg/client/locator"
-	"github.com/fil-forge/guppy/pkg/config"
-	"github.com/fil-forge/ucantone/did"
-	"github.com/ipfs/boxo/blockservice"
-	"github.com/ipfs/boxo/blockstore"
-	"github.com/ipfs/boxo/gateway"
-	"github.com/ipfs/boxo/gateway/assets"
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/labstack/echo/v4"
-	"github.com/labstack/echo/v4/middleware"
-	"github.com/libp2p/go-libp2p/core/crypto"
-	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/mitchellh/go-wordwrap"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	arc "github.com/storacha/go-ds-arc"
 )
 
 const (
@@ -103,244 +76,13 @@ var serveCmd = &cobra.Command{
 			"Spaces can be specified by DID or by name.",
 		80),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		ctx := cmd.Context()
-
-		cfg, err := config.Load[config.Config]()
-		if err != nil {
-			return fmt.Errorf("loading config: %w", err)
-		}
-
-		if cfg.Gateway.LogLevel != "" {
-			cobra.CheckErr(logging.SetLogLevel("cmd/gateway", cfg.Gateway.LogLevel))
-		}
-
-		indexHTML = []byte(strings.ReplaceAll(string(indexHTML), "{{.Version}}", build.Version))
-
-		c := cmdutil.MustGetClient(cfg)
-
-		pub, err := crypto.UnmarshalEd25519PublicKey(c.Issuer().Verifier().Raw())
-		cobra.CheckErr(err)
-		peerID, err := peer.IDFromPublicKey(pub)
-		cobra.CheckErr(err)
-
-		allProofs, err := c.Proofs(agentstore.CapabilityQuery{Can: contentcap.RetrieveAbility})
-		if err != nil {
-			return err
-		}
-		authdSpaces := map[did.DID]struct{}{}
-		for _, proof := range allProofs {
-			if r, ok := cmdutil.ProofResource(proof, contentcap.RetrieveAbility); ok {
-				spaceDID, err := did.Parse(r)
-				if err == nil {
-					authdSpaces[spaceDID] = struct{}{}
-				}
-			}
-		}
-		log.Debugw("found authorizations in proofs", "spaces", slices.Collect(maps.Keys(authdSpaces)))
-
-		var spaces []did.DID
-		for _, arg := range args {
-			space, err := cmdutil.ResolveSpace(c, arg)
-			if err != nil {
-				return err
-			}
-			if _, ok := authdSpaces[space]; !ok {
-				return fmt.Errorf("missing %q proof for space: %s", contentcap.RetrieveAbility, space)
-			}
-			spaces = append(spaces, space)
-		}
-		if len(spaces) == 0 {
-			log.Info("no spaces specified, serving content from all authorized spaces")
-			spaces = slices.Collect(maps.Keys(authdSpaces))
-		}
-
-		indexer, indexerPrincipal := cmdutil.MustGetIndexClient(cfg.Network)
-
-		network := cmdutil.MustGetNetworkConfig(cfg.Network, "")
-		var resolverOpts []principalresolver.Option
-		if network.InsecureDIDResolution {
-			resolverOpts = append(resolverOpts, principalresolver.InsecureResolution())
-		}
-		uploadServiceVerifier, err := cmdutil.ResolveDIDWebAndWrap(ctx, network.UploadID, resolverOpts...)
-		if err != nil {
-			return err
-		}
-
-		locator := locator.NewIndexLocator(indexer, func(spaces []did.DID) (delegation.Delegation, error) {
-			queries := make([]agentstore.CapabilityQuery, 0, len(spaces))
-			for _, space := range spaces {
-				queries = append(queries, agentstore.CapabilityQuery{
-					Can:  contentcap.RetrieveAbility,
-					With: space.String(),
-				})
-			}
-
-			var pfs []delegation.Proof
-			res, err := c.Proofs(queries...)
-			if err != nil {
-				return nil, err
-			}
-			for _, del := range res {
-				pfs = append(pfs, delegation.FromDelegation(del))
-			}
-
-			// Allow the indexing service to retrieve indexes. Enable proof pruning to avoid
-			// exceeding the max header size in authorized retrievals.
-			pruner := validator.NewProofPruner(uploadServiceVerifier, contentcap.Retrieve)
-			caps := make([]ucan.Capability[ucan.NoCaveats], 0, len(spaces))
-			for _, space := range spaces {
-				caps = append(caps, ucan.NewCapability(contentcap.RetrieveAbility, space.String(), ucan.NoCaveats{}))
-			}
-
-			opts := []delegation.Option{
-				delegation.WithProof(pfs...),
-				delegation.WithProofPruning(pruner),
-				delegation.WithExpiration(int(time.Now().Add(30 * time.Second).Unix())),
-			}
-
-			return delegation.Delegate(c.Issuer(), indexerPrincipal, caps, opts...)
-		})
-		exchange := dagservice.NewExchange(locator, c, spaces)
-
-		pubGws := map[string]*gateway.PublicGateway{}
-		if cfg.Gateway.Subdomain.Enabled {
-			log.Infow("subdomain gateway enabled", "hosts", cfg.Gateway.Subdomain.Hosts)
-			for _, host := range cfg.Gateway.Subdomain.Hosts {
-				pubGws[host] = &gateway.PublicGateway{
-					Paths:                 []string{"/ipfs"},
-					UseSubdomains:         true,
-					NoDNSLink:             true,
-					DeserializedResponses: cfg.Gateway.Trusted,
-				}
-			}
-		}
-
-		if cfg.Gateway.Trusted {
-			log.Info("trusted gateway enabled")
-		}
-
-		gwConf := gateway.Config{
-			DeserializedResponses: cfg.Gateway.Trusted,
-			Menu: []assets.MenuItem{
-				{
-					Title: "Storacha Network",
-					URL:   "https://storacha.network",
-				},
-			},
-			NoDNSLink:      true,
-			PublicGateways: pubGws,
-		}
-
-		blockStore := blockstore.NewIdStore(blockstore.NewBlockstore(arc.New(cfg.Gateway.BlockCacheCapacity)))
-		blockService := blockservice.New(blockStore, exchange)
-		backend, err := gateway.NewBlocksBackend(blockService)
-		cobra.CheckErr(err)
-
-		ipfsHandler := gateway.NewHandler(gwConf, backend)
-		ipfsHandler = gateway.NewHostnameHandler(gwConf, backend, ipfsHandler)
-		ipfsHandler = gateway.NewHeaders(nil).ApplyCors().Wrap(ipfsHandler)
-
-		e := echo.New()
-		e.HideBanner = true
-		e.HidePort = true
-
-		e.Use(requestLogger(log))
-		e.Use(middleware.Recover())
-
-		if cfg.Gateway.Subdomain.Enabled {
-			echoHandler := echo.WrapHandler(ipfsHandler)
-			subdomainHandler := func(c echo.Context) error {
-				r := c.Request()
-				host := r.Host
-				if xHost := r.Header.Get("X-Forwarded-Host"); xHost != "" {
-					host = xHost // support X-Forwarded-Host if added by a reverse proxy
-				}
-				if r.URL.Path == "/" && !strings.Contains(host, ".ipfs.") {
-					return rootHandler(c)
-				}
-				return echoHandler(c)
-			}
-			e.GET("/*", subdomainHandler)
-			e.HEAD("/*", subdomainHandler)
-		} else {
-			e.GET("/", rootHandler)
-			e.HEAD("/", rootHandler)
-			e.GET("/ipfs/*", echo.WrapHandler(ipfsHandler))
-			e.HEAD("/ipfs/*", echo.WrapHandler(ipfsHandler))
-		}
-
-		// Routing handlers - returns the gateway address for content retrieval.
-		// Requires --advertise-url to be set so the advertised address uses TLS,
-		// which Kubo requires for HTTP retrieval.
-		if cfg.Gateway.AdvertiseURL != "" {
-			advertiseURL, err := url.Parse(cfg.Gateway.AdvertiseURL)
-			if err != nil {
-				return fmt.Errorf("parsing --advertise-url: %w", err)
-			}
-			if advertiseURL.Scheme != "https" {
-				return fmt.Errorf("--advertise-url must be an HTTPS URL, got %q", cfg.Gateway.AdvertiseURL)
-			}
-			host := advertiseURL.Hostname()
-			peerPort := advertiseURL.Port()
-			if peerPort == "" {
-				peerPort = "443"
-			}
-			routingAddr := fmt.Sprintf("/dns4/%s/tcp/%s/tls/http", host, peerPort)
-			routingPeerJSON := fmt.Sprintf(`{
-				"Schema": "peer",
-				"Protocols": ["transport-ipfs-gateway-http"],
-				"ID": %q,
-				"Addrs": [%q]
-			}`, peer.ToCid(peerID), routingAddr)
-
-			e.GET("/routing/v1/providers/*", func(c echo.Context) error {
-				return c.JSONBlob(http.StatusOK, []byte(
-					fmt.Sprintf(`{"Providers": [%s]}`, routingPeerJSON),
-				))
-			})
-			e.GET("/routing/v1/peers/*", func(c echo.Context) error {
-				return c.JSONBlob(http.StatusOK, []byte(
-					fmt.Sprintf(`{"Peers": [%s]}`, routingPeerJSON),
-				))
-			})
-		} else {
-			routingHandler := func(c echo.Context) error {
-				log.Warn("routing request received but --advertise-url is not set; Kubo requires a TLS address")
-				return c.NoContent(http.StatusNotFound)
-			}
-			e.GET("/routing/v1/providers/*", routingHandler)
-			e.GET("/routing/v1/peers/*", routingHandler)
-		}
-
-		// shut down the server gracefully on context cancellation
-		go func() {
-			<-cmd.Context().Done()
-			cmd.Println("\nShutting down server...")
-			ctx, cancel := context.WithTimeout(cmd.Context(), time.Second*5)
-			defer cancel()
-			if err := e.Shutdown(ctx); err != nil {
-				cmd.PrintErrf("shutting down server: %s", err.Error())
-			}
-		}()
-
-		// print banner after short delay to ensure it only appears if no errors
-		// occurred during startup
-		timer := time.NewTimer(time.Second)
-		defer timer.Stop()
-		go func() {
-			<-timer.C
-			var hosts []string
-			if cfg.Gateway.Subdomain.Enabled {
-				hosts = cfg.Gateway.Subdomain.Hosts
-			}
-			cmd.Println(banner.Banner(build.Version, cfg.Gateway.Port, c.DID(), spaces, hosts))
-		}()
-
-		addr := fmt.Sprintf(":%d", cfg.Gateway.Port)
-		if err := e.Start(addr); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			return fmt.Errorf("closing server: %w", err)
-		}
-		return nil
+		// TODO(forrest): the gateway builds authorized-retrieval delegations with
+		// go-ucanto (delegation.Delegate/FromDelegation, validator.NewProofPruner),
+		// the removed client.Proofs query, and cmdutil.ResolveDIDWebAndWrap (also
+		// disabled). The client was upgraded to ucantone/libforge with a different
+		// delegation/proof model. Porting needs decisions on the new APIs — confirm
+		// intent with Alan. Disabled until then.
+		return cmdutil.NewHandledCliError(fmt.Errorf("gateway serve is temporarily disabled during the client upgrade to ucantone (TODO(forrest))"))
 	},
 }
 

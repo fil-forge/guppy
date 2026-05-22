@@ -22,6 +22,6 @@ var resetCmd = &cobra.Command{
 			return err
 		}
 		c := cmdutil.MustGetClient(cfg)
-		return c.Reset()
+		return c.Reset(cmd.Context())
 	},
 }

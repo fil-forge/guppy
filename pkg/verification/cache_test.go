@@ -7,13 +7,12 @@ import (
 	"github.com/fil-forge/go-libstoracha/blobindex"
 	assertcap "github.com/fil-forge/go-libstoracha/capabilities/assert"
 	captypes "github.com/fil-forge/go-libstoracha/capabilities/types"
-	"github.com/fil-forge/go-libstoracha/testutil"
+	"github.com/fil-forge/libforge/testutil"
 	"github.com/fil-forge/go-ucanto/core/delegation"
 	"github.com/fil-forge/go-ucanto/principal"
 	ed25519signer "github.com/fil-forge/go-ucanto/principal/ed25519/signer"
 	"github.com/fil-forge/guppy/pkg/verification"
 	"github.com/fil-forge/ucantone/did"
-	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/multiformats/go-multihash"
 	"github.com/stretchr/testify/require"
 )
@@ -31,7 +30,7 @@ func TestIndexCache(t *testing.T) {
 	t.Run("returns the index that contains a given slice", func(t *testing.T) {
 		cache := verification.NewIndexCache()
 
-		rootCID := testutil.RandomCID(t).(cidlink.Link).Cid
+		rootCID := testutil.RandomCID(t)
 		index, sliceDigest := randomIndex(t)
 
 		cache.Add(rootCID, index)
@@ -45,10 +44,10 @@ func TestIndexCache(t *testing.T) {
 	t.Run("handles multiple indexes with different slices", func(t *testing.T) {
 		cache := verification.NewIndexCache()
 
-		root1 := testutil.RandomCID(t).(cidlink.Link).Cid
+		root1 := testutil.RandomCID(t)
 		index1, slice1 := randomIndex(t)
 
-		root2 := testutil.RandomCID(t).(cidlink.Link).Cid
+		root2 := testutil.RandomCID(t)
 		index2, slice2 := randomIndex(t)
 
 		cache.Add(root1, index1)

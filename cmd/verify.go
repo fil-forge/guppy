@@ -4,24 +4,16 @@ import (
 	"fmt"
 	"slices"
 	"strings"
-	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/dustin/go-humanize"
 	"github.com/fil-forge/go-libstoracha/bytemap"
-	contentcap "github.com/fil-forge/go-libstoracha/capabilities/space/content"
 	"github.com/fil-forge/go-libstoracha/digestutil"
-	"github.com/fil-forge/go-ucanto/core/delegation"
-	"github.com/fil-forge/go-ucanto/ucan"
 	"github.com/fil-forge/guppy/internal/cmdutil"
-	"github.com/fil-forge/guppy/pkg/agentstore"
-	"github.com/fil-forge/guppy/pkg/config"
 	"github.com/fil-forge/guppy/pkg/verification"
-	indexing_service "github.com/fil-forge/indexing-service/pkg/client"
 	"github.com/fil-forge/ucantone/did"
 	"github.com/ipfs/go-cid"
-	logging "github.com/ipfs/go-log/v2"
 	"github.com/multiformats/go-multihash"
 	"github.com/spf13/cobra"
 )
@@ -32,115 +24,12 @@ var verifyCmd = &cobra.Command{
 	Long:  `Verify the integrity and correctness of a Directed Acyclic Graph (DAG).`,
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		logging.SetLogLevel("cmd", "INFO")
-
-		cfg, err := config.Load[config.Config]()
-		if err != nil {
-			return fmt.Errorf("loading config: %w", err)
-		}
-
-		root, err := cid.Parse(args[0])
-		if err != nil {
-			return fmt.Errorf("parsing root CID: %w", err)
-		}
-
-		network := cmdutil.MustGetNetworkConfig(cfg.Network, "")
-
-		guppy := cmdutil.MustGetClientForNetwork(cfg, "")
-		allProofs, err := guppy.Proofs(agentstore.CapabilityQuery{Can: contentcap.RetrieveAbility})
-		if err != nil {
-			return err
-		}
-
-		authdSpaces := map[did.DID]struct{}{}
-		for _, proof := range allProofs {
-			if r, ok := cmdutil.ProofResource(proof, contentcap.RetrieveAbility); ok {
-				spaceDID, err := did.Parse(r)
-				if err == nil {
-					authdSpaces[spaceDID] = struct{}{}
-				}
-			}
-		}
-
-		indexerClient, err := indexing_service.New(network.IndexerID, network.IndexerURL)
-		cobra.CheckErr(err)
-
-		var authorizeIndexer verification.AuthorizeIndexerRetrievalFunc
-		if network.AuthorizedRetrievals {
-			authorizeIndexer = func() (delegation.Delegation, error) {
-				queries := make([]agentstore.CapabilityQuery, 0, len(authdSpaces))
-				for space := range authdSpaces {
-					queries = append(queries, agentstore.CapabilityQuery{
-						Can:  contentcap.RetrieveAbility,
-						With: space.String(),
-					})
-				}
-
-				var pfs []delegation.Proof
-				dlgs, err := guppy.Proofs(queries...)
-				if err != nil {
-					return nil, err
-				}
-				for _, del := range dlgs {
-					pfs = append(pfs, delegation.FromDelegation(del))
-				}
-
-				caps := make([]ucan.Capability[ucan.NoCaveats], 0, len(authdSpaces))
-				for space := range authdSpaces {
-					caps = append(caps, ucan.NewCapability(contentcap.RetrieveAbility, space.String(), ucan.NoCaveats{}))
-				}
-
-				opts := []delegation.Option{
-					delegation.WithProof(pfs...),
-					delegation.WithExpiration(int(time.Now().Add(30 * time.Second).Unix())),
-				}
-
-				return delegation.Delegate(guppy.Issuer(), network.IndexerID, caps, opts...)
-			}
-		}
-
-		indexer := verification.NewIndexer(indexerClient, authorizeIndexer)
-
-		var getProofs verification.ContentRetrieveProofGetterFunc
-		if network.AuthorizedRetrievals {
-			getProofs = func(space did.DID) ([]delegation.Proof, error) {
-				var pfs []delegation.Proof
-				dlgs, err := guppy.Proofs(agentstore.CapabilityQuery{
-					Can:  contentcap.RetrieveAbility,
-					With: space.String(),
-				})
-				if err != nil {
-					return nil, err
-				}
-				for _, del := range dlgs {
-					pfs = append(pfs, delegation.FromDelegation(del))
-				}
-				return pfs, nil
-			}
-		}
-
-		blocks := bytemap.NewByteMap[multihash.Multihash, struct{}](1)
-		blocks.Set(root.Hash(), struct{}{})
-
-		p := tea.NewProgram(newVerifyModel(root))
-
-		var verifyErr error
-		go func() {
-			for msg, err := range verification.VerifyDAGRetrieval(cmd.Context(), guppy.Issuer(), getProofs, indexer, root) {
-				if err != nil {
-					verifyErr = err
-					break
-				}
-				p.Send(msg)
-			}
-			p.Quit()
-		}()
-
-		_, err = p.Run()
-		if err != nil {
-			return err
-		}
-		return verifyErr
+		// TODO(forrest): this command builds authorized-retrieval delegations with
+		// go-ucanto (delegation.Delegate/FromDelegation) and the removed client.Proofs
+		// query, and feeds them to the (already-ported, ucantone) verification package.
+		// Porting needs decisions on the new delegation/proof model — confirm intent
+		// with Alan. Disabled until then. (The verifyModel TUI below is untouched.)
+		return cmdutil.NewHandledCliError(fmt.Errorf("verify is temporarily disabled during the client upgrade to ucantone (TODO(forrest))"))
 	},
 }
 

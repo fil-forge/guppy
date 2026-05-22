@@ -4,7 +4,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/fil-forge/go-libstoracha/testutil"
+	"github.com/fil-forge/libforge/testutil"
 	"github.com/fil-forge/guppy/pkg/preparation/internal/testdb"
 	"github.com/fil-forge/guppy/pkg/preparation/sqlrepo"
 	"github.com/stretchr/testify/require"

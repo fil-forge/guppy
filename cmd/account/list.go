@@ -33,7 +33,7 @@ var listCmd = &cobra.Command{
 		}
 		c := cmdutil.MustGetClient(cfg)
 
-		accounts, err := c.Accounts()
+		accounts, err := c.Accounts(cmd.Context())
 		if err != nil {
 			return err
 		}

@@ -12,7 +12,7 @@ import (
 	assertcap "github.com/fil-forge/go-libstoracha/capabilities/assert"
 	captypes "github.com/fil-forge/go-libstoracha/capabilities/types"
 	"github.com/fil-forge/go-libstoracha/digestutil"
-	"github.com/fil-forge/go-libstoracha/testutil"
+	"github.com/fil-forge/libforge/testutil"
 	ed25519signer "github.com/fil-forge/go-ucanto/principal/ed25519/signer"
 	"github.com/fil-forge/guppy/pkg/verification"
 	"github.com/ipfs/go-cid"

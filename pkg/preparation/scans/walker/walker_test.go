@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/fil-forge/go-libstoracha/testutil"
+	"github.com/fil-forge/libforge/testutil"
 	"github.com/fil-forge/go-ucanto/core/iterable"
 	"github.com/fil-forge/guppy/pkg/preparation/scans/model"
 	"github.com/fil-forge/guppy/pkg/preparation/scans/walker"

@@ -1,23 +1,12 @@
 package space
 
 import (
-	"context"
-	"encoding/base64"
 	"fmt"
-	"slices"
 
-	"github.com/fil-forge/go-ucanto/core/delegation"
-	"github.com/fil-forge/go-ucanto/principal"
-	"github.com/fil-forge/go-ucanto/principal/ed25519/signer"
-	"github.com/fil-forge/go-ucanto/ucan"
-	"github.com/fil-forge/ucantone/did"
 	"github.com/mitchellh/go-wordwrap"
 	"github.com/spf13/cobra"
 
 	"github.com/fil-forge/guppy/internal/cmdutil"
-	"github.com/fil-forge/guppy/pkg/client"
-	"github.com/fil-forge/guppy/pkg/config"
-	"github.com/fil-forge/guppy/pkg/didmailto"
 )
 
 // spaceAccess is the set of capabilities required by the agent to manage a
@@ -57,173 +46,12 @@ var generateCmd = &cobra.Command{
 			"local store.",
 		80),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		space, err := signer.Generate()
-		if err != nil {
-			cmd.SilenceUsage = false
-			return fmt.Errorf("generating signer for space: %w", err)
-		}
-
-		// Output space key if requested
-		if generateFlags.outputKey {
-			// Export the private key as base64
-			keyBytes := space.Raw()
-			keyBase64 := base64.StdEncoding.EncodeToString(keyBytes)
-			cmd.PrintErrln("\nWARNING: This is your space private key. Keep it secret and secure!")
-			cmd.PrintErrln("Space Key (base64):")
-			fmt.Println(keyBase64)
-			cmd.PrintErrln()
-		}
-
-		cfg, err := config.Load[config.Config]()
-		if err != nil {
-			return err
-		}
-
-		c := cmdutil.MustGetClient(cfg)
-		accounts, err := c.Accounts()
-		if err != nil {
-			return err
-		}
-
-		var provisionAccount did.DID
-		var grantAccount did.DID
-
-		// Get provision account
-		if generateFlags.provisionTo != "" {
-			provisionAccount, err = didmailto.FromInput(generateFlags.provisionTo)
-			if err != nil {
-				cmd.SilenceUsage = false
-				return fmt.Errorf("parsing `--provision-to` account %q: %w", generateFlags.provisionTo, err)
-			}
-			if !slices.Contains(accounts, provisionAccount) {
-				cmd.PrintErrf("Account %s is not logged in yet. Use `guppy login %s` to log in.\n",
-					generateFlags.provisionTo, generateFlags.provisionTo)
-				return cmdutil.NewHandledCliError(fmt.Errorf("account %s is not logged in", provisionAccount))
-			}
-		} else {
-			switch {
-			case len(accounts) == 0:
-				cmd.PrintErrf("No accounts are logged in yet. Use `guppy login <account>` to log in.\n")
-				return cmdutil.NewHandledCliError(fmt.Errorf("account %s is not logged in", provisionAccount))
-			case len(accounts) == 1:
-				provisionAccount = accounts[0]
-			default:
-				var acctsString string
-				for _, acct := range accounts {
-					acctsString += fmt.Sprintf("- %s\n", acct)
-				}
-				cmd.PrintErrf("Multiple accounts are logged in.\n%s\nSpecify an account with `--provision-to`.\n",
-					acctsString)
-				return cmdutil.NewHandledCliError(fmt.Errorf("multiple accounts are logged in"))
-			}
-		}
-
-		// Get grant account
-		if generateFlags.grantTo != "" {
-			grantAccount, err = didmailto.FromInput(generateFlags.grantTo)
-			if err != nil {
-				cmd.SilenceUsage = false
-				return fmt.Errorf("parsing `--grant-to` account %q: %w", generateFlags.grantTo, err)
-			}
-			if !slices.Contains(accounts, grantAccount) {
-				cmd.PrintErrf("Account %s is not logged in yet. Use `guppy login %s` to log in.\n", generateFlags.grantTo,
-					generateFlags.grantTo)
-				return cmdutil.NewHandledCliError(fmt.Errorf("account %s is not logged in", grantAccount))
-			}
-		} else {
-			switch {
-			case len(accounts) == 0:
-				cmd.PrintErr("No accounts are logged in yet. Use `guppy login <account>` to log in.\n")
-				return cmdutil.NewHandledCliError(fmt.Errorf("account %s is not logged in", grantAccount))
-			case len(accounts) == 1:
-				grantAccount = accounts[0]
-			default:
-				var acctsString string
-				for _, acct := range accounts {
-					acctsString += fmt.Sprintf("- %s\n", acct)
-				}
-				cmd.PrintErrf("Multiple accounts are logged in.\n%s\nSpecify an account with `--grant-to`.\n", acctsString)
-				return cmdutil.NewHandledCliError(fmt.Errorf("multiple accounts are logged in"))
-			}
-		}
-
-		if provisionAccount == did.Undef {
-			return fmt.Errorf("no account found to provision space to")
-		}
-		if grantAccount == did.Undef {
-			return fmt.Errorf("no account found to grant space access to")
-		}
-
-		cmd.PrintErrf("Provisioning %s to %s...\n\n", space.DID(), provisionAccount)
-		_, err = c.ProviderAdd(cmd.Context(), provisionAccount, c.Connection().ID().DID(), space.DID())
-		if err != nil {
-			return fmt.Errorf("provisioning space: %w", err)
-		}
-
-		cmd.PrintErrf("Granting access on %s to %s...\n\n", space.DID(), grantAccount)
-
-		// Build the capabilities to grant
-		capabilities := make([]ucan.Capability[ucan.NoCaveats], 0, len(spaceAccess))
-		for _, c := range spaceAccess {
-			capabilities = append(capabilities, ucan.NewCapability(
-				c,
-				space.DID().String(),
-				ucan.NoCaveats{},
-			))
-		}
-
-		_, err = grant(cmd.Context(), c, space, grantAccount, capabilities, generateFlags.name)
-		if err != nil {
-			return fmt.Errorf("granting capabilities: %w", err)
-		}
-
-		cmd.PrintErr("Generated space: ")
-		// all other output is printed to stderr, only the space did prints to stdout, allowing:
-		// export SPACE=$(guppy space generate)
-		cmd.Print(space.DID().String())
-		cmd.PrintErr("\n\n")
-
-		return nil
+		// TODO(forrest): space generation provisions and grants access by building
+		// delegations with go-ucanto (signer.Generate, delegation.Delegate), and
+		// relies on client APIs that changed/were removed in the ucantone upgrade
+		// (c.Connection, ProviderAdd/AccessDelegate did types, AddProofs signature).
+		// Porting needs decisions on the new delegation/grant flow — confirm intent
+		// with Alan. Disabled until then.
+		return cmdutil.NewHandledCliError(fmt.Errorf("space generate is temporarily disabled during the client upgrade to ucantone (TODO(forrest))"))
 	},
-}
-
-func grant(ctx context.Context, c *client.Client, spaceSigner principal.Signer, account did.DID, capabilities []ucan.Capability[ucan.NoCaveats], name string) (delegation.Delegation, error) {
-	// Create the delegation from space to account
-	opts := []delegation.Option{
-		delegation.WithNoExpiration(),
-	}
-	if name != "" {
-		opts = append(opts, delegation.WithFacts([]ucan.FactBuilder{
-			client.NewSpaceNameFact(name),
-		}))
-	}
-	delToStore, err := delegation.Delegate(
-		spaceSigner,
-		account,
-		capabilities,
-		opts...,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("creating delegation: %w", err)
-	}
-
-	delToKeep, err := delegation.Delegate(
-		spaceSigner,
-		c.Issuer().DID(),
-		capabilities,
-		delegation.WithNoExpiration(),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("creating delegation: %w", err)
-	}
-
-	c.AddProofs(delToStore, delToKeep)
-
-	// Store the delegation via access/delegate
-	_, err = c.AccessDelegate(ctx, spaceSigner.DID(), delToStore)
-	if err != nil {
-		return nil, fmt.Errorf("storing delegation: %w", err)
-	}
-
-	return delToStore, nil
 }
