@@ -143,8 +143,9 @@ func (dd dbDID) Value() (driver.Value, error) {
 	if dd.did == nil || !dd.did.Defined() {
 		return nil, nil // Return nil for undefined DID
 	}
-	// ucantone's did.DID has no byte form; store the DID as its string form.
-	return dd.did.String(), nil
+	// ucantone's did.DID has no byte form; store the DID's string form as bytes
+	// (the DID columns are BLOB, which rejects a TEXT value under strict typing).
+	return []byte(dd.did.String()), nil
 }
 
 func (dd dbDID) Scan(value any) error {
