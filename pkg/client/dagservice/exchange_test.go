@@ -6,7 +6,7 @@ import (
 	"github.com/fil-forge/go-libstoracha/blobindex"
 	assertcap "github.com/fil-forge/go-libstoracha/capabilities/assert"
 	captypes "github.com/fil-forge/go-libstoracha/capabilities/types"
-	stestutil "github.com/fil-forge/go-libstoracha/testutil"
+	stestutil "github.com/fil-forge/libforge/testutil"
 	"github.com/fil-forge/go-ucanto/ucan"
 	"github.com/fil-forge/guppy/pkg/client/dagservice"
 	"github.com/fil-forge/guppy/pkg/client/locator"

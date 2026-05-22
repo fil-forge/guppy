@@ -19,7 +19,6 @@ import (
 	"github.com/fil-forge/go-ucanto/ucan"
 	"github.com/fil-forge/guppy/pkg/client"
 	"github.com/fil-forge/guppy/pkg/client/testutil"
-	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/stretchr/testify/require"
 )
 
@@ -62,7 +61,7 @@ func TestSpaceIndexAdd(t *testing.T) {
 
 	indexLink := helpers.RandomCID()
 	rootLink := helpers.RandomCID()
-	err = c.SpaceIndexAdd(t.Context(), indexLink.(cidlink.Link).Cid, 123, rootLink.(cidlink.Link).Cid, space.DID())
+	err = c.SpaceIndexAdd(t.Context(), indexLink, 123, rootLink, space.DID())
 	require.NoError(t, err)
 
 	require.Len(t, invokedCapabilities, 1, "expected exactly one capability to be invoked")
@@ -95,7 +94,7 @@ func TestSpaceIndexAdd(t *testing.T) {
 	authCapability := authDelegation.Capabilities()[0]
 	require.Equal(t, space.DID().String(), authCapability.With())
 	retrievalCaveats := helpers.Must(contentcap.RetrieveCaveatsReader.Read(authCapability.Nb()))
-	require.Equal(t, indexLink.(cidlink.Link).Cid.Hash(), retrievalCaveats.Blob.Digest, "expected retrieval auth to be for the correct blob")
+	require.Equal(t, indexLink.Hash(), retrievalCaveats.Blob.Digest, "expected retrieval auth to be for the correct blob")
 	require.Equal(t, uint64(0), retrievalCaveats.Range.Start, "expected retrieval auth to have correct range start")
 	require.Equal(t, uint64(122), retrievalCaveats.Range.End, "expected retrieval auth to have correct range end")
 }

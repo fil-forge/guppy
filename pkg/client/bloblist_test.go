@@ -7,7 +7,7 @@ import (
 
 	spaceblobcap "github.com/fil-forge/go-libstoracha/capabilities/space/blob"
 	"github.com/fil-forge/go-libstoracha/capabilities/types"
-	"github.com/fil-forge/go-libstoracha/testutil"
+	"github.com/fil-forge/libforge/testutil"
 	"github.com/fil-forge/go-ucanto/core/delegation"
 	"github.com/fil-forge/go-ucanto/core/invocation"
 	"github.com/fil-forge/go-ucanto/core/receipt/fx"

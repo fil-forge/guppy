@@ -341,7 +341,7 @@ func TestAddIndexesForUpload(t *testing.T) {
 		}
 
 		upload, source := testutil.CreateUpload(t, repo, spaceDID, spacesmodel.WithShardSize(1<<7))
-		rootCID := stestutil.RandomCID(t).(cidlink.Link).Cid
+		rootCID := stestutil.RandomCID(t)
 		upload.SetRootCID(rootCID)
 		err = repo.UpdateUpload(t.Context(), upload)
 		require.NoError(t, err)
@@ -515,7 +515,7 @@ func TestAddStorachaUploadForUpload(t *testing.T) {
 		err = repo.UpdateShard(t.Context(), shard2)
 		require.NoError(t, err)
 
-		upload.SetRootCID(rootLink.(cidlink.Link).Cid)
+		upload.SetRootCID(rootLink)
 		err = repo.UpdateUpload(t.Context(), upload)
 		require.NoError(t, err)
 

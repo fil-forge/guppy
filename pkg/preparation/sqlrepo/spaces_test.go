@@ -3,7 +3,7 @@ package sqlrepo_test
 import (
 	"testing"
 
-	"github.com/fil-forge/go-libstoracha/testutil"
+	"github.com/fil-forge/libforge/testutil"
 	"github.com/stretchr/testify/require"
 
 	"github.com/fil-forge/guppy/pkg/preparation/internal/testdb"

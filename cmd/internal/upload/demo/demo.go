@@ -2,8 +2,6 @@ package demo
 
 import (
 	"context"
-	"crypto/ed25519"
-	"crypto/sha512"
 	"fmt"
 	"io"
 	"io/fs"
@@ -11,27 +9,7 @@ import (
 	"path"
 	"time"
 
-	filecoincap "github.com/fil-forge/go-libstoracha/capabilities/filecoin"
-	spaceblobcap "github.com/fil-forge/go-libstoracha/capabilities/space/blob"
-	spaceindexcap "github.com/fil-forge/go-libstoracha/capabilities/space/index"
-	"github.com/fil-forge/go-libstoracha/capabilities/types"
-	uploadcap "github.com/fil-forge/go-libstoracha/capabilities/upload"
-	"github.com/fil-forge/go-ucanto/core/invocation"
-	"github.com/fil-forge/go-ucanto/core/receipt/fx"
-	"github.com/fil-forge/go-ucanto/core/result"
-	"github.com/fil-forge/go-ucanto/core/result/failure"
-	"github.com/fil-forge/go-ucanto/principal/ed25519/signer"
-	"github.com/fil-forge/go-ucanto/server"
-	"github.com/fil-forge/go-ucanto/ucan"
-	"github.com/fil-forge/guppy/cmd/internal/upload/ui"
-	"github.com/fil-forge/guppy/internal/fakefs"
-	"github.com/fil-forge/guppy/pkg/client"
-	ctestutil "github.com/fil-forge/guppy/pkg/client/testutil"
-	"github.com/fil-forge/guppy/pkg/preparation"
 	"github.com/fil-forge/guppy/pkg/preparation/sqlrepo"
-	"github.com/ipfs/go-cid"
-	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
-	"github.com/multiformats/go-multihash"
 )
 
 type nullTransport struct{}
@@ -211,150 +189,10 @@ func newChangingFS(fsys fs.FS, changeModTime, changeData bool) (fs.FS, error) {
 }
 
 func Demo(ctx context.Context, repo *sqlrepo.Repo, spaceName string, alterMetadata, alterData bool) error {
-	hash := sha512.Sum512_256([]byte(spaceName))
-	space, err := signer.FromRaw(ed25519.NewKeyFromSeed(hash[:]))
-	if err != nil {
-		return fmt.Errorf("command failed to create space key: %w", err)
-	}
-	spaceDID := space.DID()
-
-	baseClient, err := ctestutil.Client(
-		ctestutil.WithClientOptions(
-			// Act as space to avoid auth issues
-			client.WithPrincipal(space),
-		),
-		ctestutil.WithBlobAdd(),
-
-		ctestutil.WithServerOptions(
-			server.WithServiceMethod(
-				spaceindexcap.Add.Can(),
-				server.Provide(
-					spaceindexcap.Add,
-					func(
-						ctx context.Context,
-						cap ucan.Capability[spaceindexcap.AddCaveats],
-						inv invocation.Invocation,
-						context server.InvocationContext,
-					) (result.Result[spaceindexcap.AddOk, failure.IPLDBuilderFailure], fx.Effects, error) {
-						return result.Ok[spaceindexcap.AddOk, failure.IPLDBuilderFailure](spaceindexcap.AddOk{}), nil, nil
-					},
-				),
-			),
-
-			server.WithServiceMethod(
-				spaceblobcap.Replicate.Can(),
-				server.Provide(
-					spaceblobcap.Replicate,
-					func(
-						ctx context.Context,
-						cap ucan.Capability[spaceblobcap.ReplicateCaveats],
-						inv invocation.Invocation,
-						context server.InvocationContext,
-					) (result.Result[spaceblobcap.ReplicateOk, failure.IPLDBuilderFailure], fx.Effects, error) {
-						sitePromises := make([]types.Promise, cap.Nb().Replicas)
-						for i := range sitePromises {
-							siteDigest, err := multihash.Encode(fmt.Appendf(nil, "test-replicated-site-%d", i), multihash.IDENTITY)
-							if err != nil {
-								return nil, nil, fmt.Errorf("encoding site digest: %w", err)
-							}
-							sitePromises[i] = types.Promise{
-								UcanAwait: types.Await{
-									Selector: ".out.ok.site",
-									Link:     cidlink.Link{Cid: cid.NewCidV1(cid.Raw, siteDigest)},
-								},
-							}
-						}
-						return result.Ok[spaceblobcap.ReplicateOk, failure.IPLDBuilderFailure](
-							spaceblobcap.ReplicateOk{
-								Site: sitePromises,
-							},
-						), nil, nil
-					},
-				),
-			),
-
-			server.WithServiceMethod(
-				filecoincap.Offer.Can(),
-				server.Provide(
-					filecoincap.Offer,
-					func(
-						ctx context.Context,
-						cap ucan.Capability[filecoincap.OfferCaveats],
-						inv invocation.Invocation,
-						context server.InvocationContext,
-					) (result.Result[filecoincap.OfferOk, failure.IPLDBuilderFailure], fx.Effects, error) {
-						return result.Ok[filecoincap.OfferOk, failure.IPLDBuilderFailure](
-							filecoincap.OfferOk{
-								Piece: cap.Nb().Piece,
-							},
-						), nil, nil
-					},
-				),
-			),
-
-			server.WithServiceMethod(
-				uploadcap.Add.Can(),
-				server.Provide(
-					uploadcap.Add,
-					func(
-						ctx context.Context,
-						cap ucan.Capability[uploadcap.AddCaveats],
-						inv invocation.Invocation,
-						context server.InvocationContext,
-					) (result.Result[uploadcap.AddOk, failure.IPLDBuilderFailure], fx.Effects, error) {
-						return result.Ok[uploadcap.AddOk, failure.IPLDBuilderFailure](uploadcap.AddOk{
-							Root:   cap.Nb().Root,
-							Shards: cap.Nb().Shards,
-						}), nil, nil
-					},
-				),
-			),
-		),
-	)
-	if err != nil {
-		return fmt.Errorf("command failed to create client: %w", err)
-	}
-	customPutClient := &ctestutil.ClientWithCustomPut{
-		Client:    baseClient,
-		PutClient: &http.Client{Transport: nullTransport{}},
-	}
-	fsys, err := newChangingFS(fakefs.New(0), alterMetadata, alterData)
-	if err != nil {
-		return fmt.Errorf("creating changing FS: %w", err)
-	}
-	api := preparation.NewAPI(repo, customPutClient, preparation.WithGetLocalFSForPathFn(func(path string) (fs.FS, error) {
-		return fsys, nil
-	}))
-
-	uploads, err := api.FindOrCreateUploads(ctx, spaceDID)
-	if err != nil {
-		return fmt.Errorf("command failed to create uploads: %w", err)
-	}
-
-	if len(uploads) == 0 {
-		// Try adding the source and running again.
-
-		_, err = api.FindOrCreateSpace(ctx, spaceDID, spaceDID.String())
-		if err != nil {
-			return fmt.Errorf("command failed to create space: %w", err)
-		}
-
-		source, err := api.CreateSource(ctx, ".", ".")
-		if err != nil {
-			return fmt.Errorf("command failed to create source: %w", err)
-		}
-
-		err = repo.AddSourceToSpace(ctx, spaceDID, source.ID())
-		if err != nil {
-			return fmt.Errorf("command failed to add source to space: %w", err)
-		}
-
-		uploads, err = api.FindOrCreateUploads(ctx, spaceDID)
-		if err != nil {
-			return fmt.Errorf("command failed to create uploads: %w", err)
-		}
-
-	}
-
-	return ui.RunUploadUI(ctx, repo, api, uploads, false, nil)
+	// TODO(forrest): this demo stands up a go-ucanto test server via the client
+	// test harness (ctestutil) using the removed client.WithPrincipal and
+	// go-ucanto server.Provide handlers. The client and test harness were upgraded
+	// to ucantone; porting needs the new test-server API — confirm intent with
+	// Alan. Disabled until then. (The changing-FS helpers above are left intact.)
+	return fmt.Errorf("upload demo is temporarily disabled during the client upgrade to ucantone (TODO(forrest))")
 }

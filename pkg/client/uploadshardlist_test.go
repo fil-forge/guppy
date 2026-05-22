@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	shardcap "github.com/fil-forge/go-libstoracha/capabilities/upload/shard"
-	"github.com/fil-forge/go-libstoracha/testutil"
+	"github.com/fil-forge/libforge/testutil"
 	"github.com/fil-forge/go-ucanto/core/delegation"
 	"github.com/fil-forge/go-ucanto/core/invocation"
 	"github.com/fil-forge/go-ucanto/core/ipld"

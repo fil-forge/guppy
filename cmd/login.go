@@ -7,8 +7,7 @@ import (
 	"time"
 
 	"github.com/briandowns/spinner"
-	"github.com/fil-forge/go-ucanto/core/delegation"
-	"github.com/fil-forge/go-ucanto/core/result"
+	"github.com/fil-forge/ucantone/ucan"
 	"github.com/mitchellh/go-wordwrap"
 	"github.com/spf13/cobra"
 
@@ -50,7 +49,7 @@ var loginCmd = &cobra.Command{
 		}
 		c := cmdutil.MustGetClient(cfg)
 
-		authOk, err := c.RequestAccess(ctx, accountDid.String())
+		authOk, err := c.RequestAccess(ctx, accountDid)
 		if err != nil {
 			return fmt.Errorf("requesting access: %w", err)
 		}
@@ -60,10 +59,10 @@ var loginCmd = &cobra.Command{
 		s.Start()
 		defer s.Stop()
 
-		var claimedDels []delegation.Delegation
+		var claimedDels []ucan.Delegation
 		resultChan := c.PollClaim(ctx, authOk)
 		res := <-resultChan
-		claimedDels, err = result.Unwrap(res)
+		claimedDels, err = res.Unpack()
 		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) || ctx.Err() != nil {
 			cmd.Println("\nlogin canceled")
 			return nil
@@ -73,7 +72,7 @@ var loginCmd = &cobra.Command{
 		}
 
 		fmt.Printf("\nSuccessfully logged in as %s!\n", email)
-		if err := c.AddProofs(claimedDels...); err != nil {
+		if err := c.AddProofs(ctx, claimedDels...); err != nil {
 			return fmt.Errorf("adding proofs: %w", err)
 		}
 

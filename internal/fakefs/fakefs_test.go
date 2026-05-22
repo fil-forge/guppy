@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/fil-forge/go-libstoracha/testutil"
+	"github.com/fil-forge/libforge/testutil"
 	"github.com/fil-forge/guppy/internal/fakefs"
 	"github.com/stretchr/testify/require"
 )

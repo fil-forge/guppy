@@ -3,15 +3,10 @@ package cmd
 import (
 	"fmt"
 
-	uploadcap "github.com/fil-forge/go-libstoracha/capabilities/upload"
-	shardcap "github.com/fil-forge/go-libstoracha/capabilities/upload/shard"
-	"github.com/fil-forge/go-ucanto/core/delegation"
 	"github.com/mitchellh/go-wordwrap"
 	"github.com/spf13/cobra"
 
 	"github.com/fil-forge/guppy/internal/cmdutil"
-	"github.com/fil-forge/guppy/pkg/client"
-	"github.com/fil-forge/guppy/pkg/config"
 )
 
 var shardsPerPage uint64 = 1000
@@ -39,63 +34,11 @@ var lsCmd = &cobra.Command{
 	Args:    cobra.ExactArgs(1),
 
 	RunE: func(cmd *cobra.Command, args []string) error {
-		proofs := []delegation.Delegation{}
-		if lsFlags.proofsPath != "" {
-			proof := cmdutil.MustGetProof(lsFlags.proofsPath)
-			proofs = append(proofs, proof)
-		}
-
-		cfg, err := config.Load[config.Config]()
-		if err != nil {
-			return err
-		}
-		c := cmdutil.MustGetClient(cfg, client.WithAdditionalProofs(proofs...))
-
-		spaceDID, err := cmdutil.ResolveSpace(c, args[0])
-		if err != nil {
-			return err
-		}
-
-		var cursor *string
-		for {
-			listOk, err := c.UploadList(
-				cmd.Context(),
-				spaceDID,
-				uploadcap.ListCaveats{Cursor: cursor})
-			if err != nil {
-				return err
-			}
-
-			for _, r := range listOk.Results {
-				fmt.Printf("%s\n", r.Root)
-				if lsFlags.showShards {
-					var cursor *string
-					for {
-						shardListOk, err := c.UploadShardList(
-							cmd.Context(),
-							spaceDID,
-							shardcap.ListCaveats{Root: r.Root, Cursor: cursor, Size: &shardsPerPage},
-						)
-						if err != nil {
-							return fmt.Errorf("listing shards: %w", err)
-						}
-						for _, s := range shardListOk.Results {
-							fmt.Printf("\t%s\n", s)
-						}
-						cursor = shardListOk.Cursor
-						if cursor == nil {
-							break
-						}
-					}
-				}
-			}
-
-			if listOk.Cursor == nil {
-				break
-			}
-			cursor = listOk.Cursor
-		}
-
-		return nil
+		// TODO(forrest): listing relies on client.WithAdditionalProofs (removed in
+		// the ucantone upgrade — proofs now come from the token store) and the
+		// go-libstoracha ListCaveats types, which became libforge ListArguments.
+		// Porting needs the new proof-supply path and argument types — confirm
+		// intent with Alan. Disabled until then.
+		return cmdutil.NewHandledCliError(fmt.Errorf("ls is temporarily disabled during the client upgrade to ucantone (TODO(forrest))"))
 	},
 }

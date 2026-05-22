@@ -20,7 +20,7 @@ import (
 	"github.com/fil-forge/go-libstoracha/capabilities/types"
 	uploadcap "github.com/fil-forge/go-libstoracha/capabilities/upload"
 	"github.com/fil-forge/go-libstoracha/digestutil"
-	"github.com/fil-forge/go-libstoracha/testutil"
+	"github.com/fil-forge/libforge/testutil"
 	"github.com/fil-forge/go-ucanto/core/delegation"
 	"github.com/fil-forge/go-ucanto/core/invocation"
 	"github.com/fil-forge/go-ucanto/core/receipt/fx"

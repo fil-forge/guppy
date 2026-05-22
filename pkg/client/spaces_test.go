@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	ucancap "github.com/fil-forge/go-libstoracha/capabilities/ucan"
-	"github.com/fil-forge/go-libstoracha/testutil"
+	"github.com/fil-forge/libforge/testutil"
 	"github.com/fil-forge/go-ucanto/core/delegation"
 	"github.com/fil-forge/go-ucanto/principal/ed25519/signer"
 	"github.com/fil-forge/go-ucanto/ucan"

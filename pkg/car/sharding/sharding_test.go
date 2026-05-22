@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/fil-forge/go-libstoracha/testutil"
+	"github.com/fil-forge/libforge/testutil"
 	"github.com/fil-forge/go-ucanto/core/ipld"
 	"github.com/fil-forge/go-ucanto/core/ipld/block"
 	"github.com/fil-forge/go-ucanto/core/ipld/hash/sha256"
