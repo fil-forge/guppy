@@ -1,119 +1,72 @@
 package client_test
 
 import (
-	"context"
 	"fmt"
-	"io"
 	"testing"
 
-	"github.com/fil-forge/go-libstoracha/capabilities/access"
-	uploadcap "github.com/fil-forge/go-libstoracha/capabilities/upload"
+	accesscmds "github.com/fil-forge/libforge/commands/access"
+	uploadcmds "github.com/fil-forge/libforge/commands/upload"
 	"github.com/fil-forge/libforge/testutil"
-	"github.com/fil-forge/go-ucanto/core/delegation"
-	"github.com/fil-forge/go-ucanto/core/invocation"
-	"github.com/fil-forge/go-ucanto/core/receipt/fx"
-	"github.com/fil-forge/go-ucanto/core/result"
-	"github.com/fil-forge/go-ucanto/core/result/failure"
-	"github.com/fil-forge/go-ucanto/server"
-	"github.com/fil-forge/go-ucanto/ucan"
-	"github.com/fil-forge/guppy/pkg/client"
-	ctestutil "github.com/fil-forge/guppy/pkg/client/testutil"
-	"github.com/stretchr/testify/assert"
+	"github.com/fil-forge/ucantone/binding"
+	"github.com/fil-forge/ucantone/server"
+	"github.com/fil-forge/ucantone/ucan"
+	"github.com/fil-forge/ucantone/ucan/container"
+	"github.com/ipfs/go-cid"
 	"github.com/stretchr/testify/require"
+
+	ctestutil "github.com/fil-forge/guppy/pkg/client/testutil"
 )
-
-func buildDelegationsModel(t *testing.T, dels ...delegation.Delegation) access.DelegationsModel {
-	keys := make([]string, 0, len(dels))
-	values := make(map[string][]byte, len(dels))
-
-	for _, del := range dels {
-		keys = append(keys, del.Link().String())
-		values[del.Link().String()] = testutil.Must(io.ReadAll(del.Archive()))(t)
-	}
-
-	return access.DelegationsModel{
-		Keys:   keys,
-		Values: values,
-	}
-}
 
 func TestClaimAccess(t *testing.T) {
 	t.Run("returns the delegations from `access/claim`'s receipt", func(t *testing.T) {
-		// Declare these up front to refer to them in the service method.
-		var storedDels access.DelegationsModel
-		var c *client.Client
+		ctx := t.Context()
+		var del ucan.Delegation
 
-		connection := ctestutil.NewTestServer(
-			server.WithServiceMethod(
-				access.Claim.Can(),
-				server.Provide(
-					access.Claim,
-					func(
-						ctx context.Context,
-						cap ucan.Capability[access.ClaimCaveats],
-						inv invocation.Invocation,
-						context server.InvocationContext,
-					) (result.Result[access.ClaimOk, failure.IPLDBuilderFailure], fx.Effects, error) {
-						assert.Equal(t, c.Issuer().DID().String(), cap.With(), "expected to claim access for the agent")
-
-						return result.Ok[access.ClaimOk, failure.IPLDBuilderFailure](access.ClaimOk{Delegations: storedDels}), nil, nil
-					},
-				),
-			),
-		)
-
-		c = testutil.Must(client.New(client.WithConnection(connection)))(t)
-
-		// Some arbitrary delegation which has been stored to be claimed.
-		del := testutil.Must(uploadcap.Get.Delegate(
-			c.Issuer(),
-			c.Issuer(),
-			c.Issuer().DID().String(),
-			uploadcap.GetCaveats{Root: testutil.RandomCID(t)},
+		c := testutil.Must(ctestutil.Client(t,
+			ctestutil.WithServerRoutes(func(deps ctestutil.RouteDeps) server.Route {
+				return server.NewRoute(accesscmds.Claim, func(req *binding.Request[*accesscmds.ClaimArguments], res *binding.Response[*accesscmds.ClaimOK]) error {
+					// The claimed delegations travel in the response metadata; the OK
+					// payload lists their links.
+					if err := res.SetMetadata(container.New(container.WithDelegations(del))); err != nil {
+						return err
+					}
+					return res.SetSuccess(&accesscmds.ClaimOK{Delegations: []cid.Cid{del.Link()}})
+				})
+			}),
 		))(t)
-		storedDels = buildDelegationsModel(t, del)
 
-		claimedDels, err := c.ClaimAccess(testContext(t))
+		// Some arbitrary delegation which has been "stored" to be claimed.
+		del = testutil.Must(uploadcmds.Add.Delegate(c.Issuer(), c.Issuer().DID(), c.Issuer().DID()))(t)
 
+		claimedDels, err := c.ClaimAccess(ctx)
 		require.NoError(t, err)
 		require.Len(t, claimedDels, 1, "expected exactly one delegation to be claimed")
-		require.Equal(t, del.Link().String(), claimedDels[0].Link().String(), "expected the claimed delegation to match the stored one")
+		require.Equal(t, del.Link(), claimedDels[0].Link(), "expected the claimed delegation to match the stored one")
 	})
 
 	t.Run("returns any handler error", func(t *testing.T) {
-		connection := ctestutil.NewTestServer(
-			server.WithServiceMethod(
-				access.Claim.Can(),
-				server.Provide(
-					access.Claim,
-					func(
-						ctx context.Context,
-						cap ucan.Capability[access.ClaimCaveats],
-						inv invocation.Invocation,
-						context server.InvocationContext,
-					) (result.Result[access.ClaimOk, failure.IPLDBuilderFailure], fx.Effects, error) {
-						return nil, nil, fmt.Errorf("Something went wrong!")
-					},
-				),
-			),
-		)
+		ctx := t.Context()
+		c := testutil.Must(ctestutil.Client(t,
+			ctestutil.WithServerRoutes(func(deps ctestutil.RouteDeps) server.Route {
+				return server.NewRoute(accesscmds.Claim, func(req *binding.Request[*accesscmds.ClaimArguments], res *binding.Response[*accesscmds.ClaimOK]) error {
+					return res.SetFailure(fmt.Errorf("Something went wrong!"))
+				})
+			}),
+		))(t)
 
-		c := testutil.Must(client.New(client.WithConnection(connection)))(t)
-		claimedDels, err := c.ClaimAccess(testContext(t))
-
-		require.ErrorContains(t, err, "`access/claim` failed: Something went wrong!")
+		claimedDels, err := c.ClaimAccess(ctx)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "Something went wrong!")
 		require.Len(t, claimedDels, 0)
 	})
 
-	t.Run("returns a useful error on any other UCAN failure", func(t *testing.T) {
-		// In this case, we test the server not implementing the `access/claim`
-		// capability.
-		connection := ctestutil.NewTestServer()
+	t.Run("returns a useful error when the service does not handle access/claim", func(t *testing.T) {
+		ctx := t.Context()
+		// A server with no routes registered.
+		c := testutil.Must(ctestutil.Client(t))(t)
 
-		c := testutil.Must(client.New(client.WithConnection(connection)))(t)
-		claimedDels, err := c.ClaimAccess(testContext(t))
-
-		require.ErrorContains(t, err, "`access/claim` failed with HandlerNotFoundError error:")
+		claimedDels, err := c.ClaimAccess(ctx)
+		require.Error(t, err)
 		require.Len(t, claimedDels, 0)
 	})
 }

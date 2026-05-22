@@ -304,7 +304,10 @@ func BlobAddHandler(
 				acceptRcpt.Ran(),
 				container.New(
 					container.WithReceipts(acceptRcpt),
-					container.WithInvocations(locationClaim),
+					// Include both the location commitment and the pdp/accept
+					// invocation; BlobAdd reads both from the accept receipt's
+					// metadata invocations.
+					container.WithInvocations(locationClaim, pdpAcceptInv),
 				),
 			)
 
