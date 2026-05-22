@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/fil-forge/go-libstoracha/bytemap"
-	"github.com/fil-forge/go-ucanto/testing/helpers"
 	"github.com/fil-forge/guppy/pkg/client"
 	"github.com/fil-forge/libforge/commands"
 	assertcmds "github.com/fil-forge/libforge/commands/assert"
@@ -400,7 +399,7 @@ func withBlobAdd(t *testing.T, includePutReceipt bool) Option {
 		WithClientOptions(
 			client.WithReceiptsClient(
 				receiptclient.NewClient(
-					helpers.Must(url.Parse("https://receipts.example/receipts")),
+					testutil.Must(url.Parse("https://receipts.example/receipts"))(t),
 					receiptclient.WithHTTPClient(
 						&http.Client{
 							Transport: &receiptsTrans,
