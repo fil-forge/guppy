@@ -1,27 +1,23 @@
 package space
 
 import (
+	"context"
+	"encoding/base64"
 	"fmt"
+	"slices"
 
 	"github.com/mitchellh/go-wordwrap"
 	"github.com/spf13/cobra"
 
 	"github.com/fil-forge/guppy/internal/cmdutil"
+	"github.com/fil-forge/guppy/pkg/client"
+	"github.com/fil-forge/guppy/pkg/config"
+	"github.com/fil-forge/guppy/pkg/didmailto"
+	"github.com/fil-forge/ucantone/did"
+	"github.com/fil-forge/ucantone/principal/ed25519"
+	"github.com/fil-forge/ucantone/ucan/command"
+	"github.com/fil-forge/ucantone/ucan/delegation"
 )
-
-// spaceAccess is the set of capabilities required by the agent to manage a
-// space.
-var spaceAccess = []string{
-	"assert/*",
-	"space/*",
-	"blob/*",
-	"index/*",
-	"store/*",
-	"upload/*",
-	"access/*",
-	"filecoin/*",
-	"usage/*",
-}
 
 var generateFlags struct {
 	name        string
@@ -46,12 +42,115 @@ var generateCmd = &cobra.Command{
 			"local store.",
 		80),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		// TODO(forrest): space generation provisions and grants access by building
-		// delegations with go-ucanto (signer.Generate, delegation.Delegate), and
-		// relies on client APIs that changed/were removed in the ucantone upgrade
-		// (c.Connection, ProviderAdd/AccessDelegate did types, AddProofs signature).
-		// Porting needs decisions on the new delegation/grant flow — confirm intent
-		// with Alan. Disabled until then.
-		return cmdutil.NewHandledCliError(fmt.Errorf("space generate is temporarily disabled during the client upgrade to ucantone (TODO(forrest))"))
+		space, err := ed25519.Generate()
+		if err != nil {
+			cmd.SilenceUsage = false
+			return fmt.Errorf("generating signer for space: %w", err)
+		}
+
+		if generateFlags.outputKey {
+			cmd.PrintErrln("\nWARNING: This is your space private key. Keep it secret and secure!")
+			cmd.PrintErrln("Space Key (base64):")
+			fmt.Println(base64.StdEncoding.EncodeToString(space.Raw()))
+			cmd.PrintErrln()
+		}
+
+		cfg, err := config.Load[config.Config]()
+		if err != nil {
+			return err
+		}
+
+		c := cmdutil.MustGetClient(cfg)
+		accounts, err := c.Accounts(cmd.Context())
+		if err != nil {
+			return err
+		}
+
+		provisionAccount, err := pickAccount(cmd, accounts, generateFlags.provisionTo, "provision-to")
+		if err != nil {
+			return err
+		}
+		grantAccount, err := pickAccount(cmd, accounts, generateFlags.grantTo, "grant-to")
+		if err != nil {
+			return err
+		}
+
+		cmd.PrintErrf("Provisioning %s to %s...\n\n", space.DID(), provisionAccount)
+		if _, err := c.ProviderAdd(cmd.Context(), provisionAccount, c.ServiceID(), space.DID()); err != nil {
+			return fmt.Errorf("provisioning space: %w", err)
+		}
+
+		cmd.PrintErrf("Granting access on %s to %s...\n\n", space.DID(), grantAccount)
+		if err := grant(cmd.Context(), c, space, grantAccount, generateFlags.name); err != nil {
+			return fmt.Errorf("granting capabilities: %w", err)
+		}
+
+		cmd.PrintErr("Generated space: ")
+		// all other output is on stderr; only the space DID goes to stdout, allowing:
+		// export SPACE=$(guppy space generate)
+		cmd.Print(space.DID().String())
+		cmd.PrintErr("\n\n")
+		return nil
 	},
+}
+
+// pickAccount resolves the account for an operation: the explicit flag value if
+// given (and logged in), otherwise the sole logged-in account.
+func pickAccount(cmd *cobra.Command, accounts []did.DID, flagValue, flagName string) (did.DID, error) {
+	if flagValue != "" {
+		account, err := didmailto.FromInput(flagValue)
+		if err != nil {
+			cmd.SilenceUsage = false
+			return did.Undef, fmt.Errorf("parsing `--%s` account %q: %w", flagName, flagValue, err)
+		}
+		if !slices.Contains(accounts, account) {
+			cmd.PrintErrf("Account %s is not logged in yet. Use `guppy login %s` to log in.\n", flagValue, flagValue)
+			return did.Undef, cmdutil.NewHandledCliError(fmt.Errorf("account %s is not logged in", account))
+		}
+		return account, nil
+	}
+
+	switch len(accounts) {
+	case 0:
+		cmd.PrintErrf("No accounts are logged in yet. Use `guppy login <account>` to log in.\n")
+		return did.Undef, cmdutil.NewHandledCliError(fmt.Errorf("no accounts are logged in"))
+	case 1:
+		return accounts[0], nil
+	default:
+		var b string
+		for _, acct := range accounts {
+			b += fmt.Sprintf("- %s\n", acct)
+		}
+		cmd.PrintErrf("Multiple accounts are logged in.\n%s\nSpecify an account with `--%s`.\n", b, flagName)
+		return did.Undef, cmdutil.NewHandledCliError(fmt.Errorf("multiple accounts are logged in"))
+	}
+}
+
+// grant delegates full access to the space to both the agent (so it can act on
+// the space locally) and the account (stored on the service via access/delegate),
+// recording the space's name in the delegation metadata.
+func grant(ctx context.Context, c *client.Client, space ed25519.Signer, account did.DID, name string) error {
+	opts := []delegation.Option{delegation.WithNoExpiration()}
+	if name != "" {
+		opts = append(opts, delegation.WithMetadata(client.SpaceNameMetadata(name)))
+	}
+
+	agentGrant, err := delegation.Delegate(space, c.Issuer().DID(), space.DID(), command.Top(), opts...)
+	if err != nil {
+		return fmt.Errorf("creating agent delegation: %w", err)
+	}
+	accountGrant, err := delegation.Delegate(space, account, space.DID(), command.Top(), opts...)
+	if err != nil {
+		return fmt.Errorf("creating account delegation: %w", err)
+	}
+
+	// Keep both locally so the agent can act, then register the account's grant
+	// with the service.
+	if err := c.AddProofs(ctx, agentGrant, accountGrant); err != nil {
+		return fmt.Errorf("storing delegations: %w", err)
+	}
+	if _, err := c.AccessDelegate(ctx, space.DID(), accountGrant); err != nil {
+		return fmt.Errorf("storing delegation via access/delegate: %w", err)
+	}
+	return nil
 }
