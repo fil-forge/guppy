@@ -7,11 +7,11 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/fil-forge/go-ucanto/did"
 	"github.com/fil-forge/guppy/pkg/preparation/spaces"
 	spacesmodel "github.com/fil-forge/guppy/pkg/preparation/spaces/model"
 	"github.com/fil-forge/guppy/pkg/preparation/sqlrepo/util"
 	"github.com/fil-forge/guppy/pkg/preparation/types/id"
+	"github.com/fil-forge/ucantone/did"
 )
 
 var _ spaces.Repo = (*Repo)(nil)

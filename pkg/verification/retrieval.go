@@ -10,14 +10,15 @@ import (
 	"slices"
 
 	"github.com/cenkalti/backoff/v5"
-	"github.com/fil-forge/go-libstoracha/blobindex"
-	"github.com/fil-forge/go-libstoracha/bytemap"
-	contentcap "github.com/fil-forge/go-libstoracha/capabilities/space/content"
-	"github.com/fil-forge/go-libstoracha/digestutil"
-	"github.com/fil-forge/go-ucanto/client/retrieval"
-	"github.com/fil-forge/go-ucanto/core/delegation"
-	"github.com/fil-forge/go-ucanto/did"
-	"github.com/fil-forge/go-ucanto/principal"
+	"github.com/fil-forge/libforge/blobindex"
+	"github.com/fil-forge/libforge/bytemap"
+	contentcmds "github.com/fil-forge/libforge/commands/content"
+	"github.com/fil-forge/libforge/digestutil"
+	"github.com/fil-forge/libforge/ucan/retrieval"
+	"github.com/fil-forge/ucantone/did"
+	"github.com/fil-forge/ucantone/execution"
+	"github.com/fil-forge/ucantone/ucan"
+	"github.com/fil-forge/ucantone/ucan/invocation"
 	"github.com/ipfs/go-cid"
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/multiformats/go-multihash"
@@ -39,15 +40,15 @@ type VerifiedBlock struct {
 
 // ContentRetrieveProofGetterFunc is a function that obtains proofs for content
 // retrieval in a given space.
-type ContentRetrieveProofGetterFunc func(space did.DID) ([]delegation.Proof, error)
+type ContentRetrieveProofGetterFunc func(space did.DID) ([]ucan.Delegation, error)
 
 // AuthorizeIndexerRetrievalFunc is a function that authorizes retrievals from
 // the indexer by returning a delegation that can be used for retrieval.
-type AuthorizeIndexerRetrievalFunc func() (delegation.Delegation, error)
+type AuthorizeIndexerRetrievalFunc func() ([]ucan.Delegation, error)
 
 // ShardFinder finds shards and their locations for content retrieval.
 type ShardFinder interface {
-	FindShard(ctx context.Context, slice multihash.Multihash) (multihash.Multihash, blobindex.Position, error)
+	FindShard(ctx context.Context, slice multihash.Multihash) (multihash.Multihash, blobindex.Range, error)
 	FindLocations(ctx context.Context, shard multihash.Multihash) ([]Location, error)
 }
 
@@ -58,7 +59,7 @@ type ShardFinder interface {
 // in which case no authorization will be sent for retrievals.
 func VerifyDAGRetrieval(
 	ctx context.Context,
-	id principal.Signer,
+	id ucan.Signer,
 	getProofs ContentRetrieveProofGetterFunc,
 	indexer ShardFinder,
 	root cid.Cid,
@@ -110,16 +111,16 @@ type BlockStat struct {
 }
 
 type Origin struct {
-	Node     did.DID             // The node that provided the data.
-	URL      url.URL             // URL of the shard the data came from.
-	Shard    multihash.Multihash // Hash of the shard.
-	Position blobindex.Position  // Byte range within the shard.
+	Node  did.DID             // The node that provided the data.
+	URL   url.URL             // URL of the shard the data came from.
+	Shard multihash.Multihash // Hash of the shard.
+	Range blobindex.Range     // Byte range within the shard.
 }
 
 type Slice struct {
 	Digest   multihash.Multihash
 	Bytes    []byte
-	Position blobindex.Position
+	Range    blobindex.Range
 	Location Location
 }
 
@@ -127,10 +128,10 @@ type Slice struct {
 // indexer. It also performs integrity checks on the retrieved blocks. Note:
 // the getProofs function can be nil, in which case no authorization will be
 // sent for retrievals.
-func StatBlocks(ctx context.Context, id principal.Signer, getProofs ContentRetrieveProofGetterFunc, indexer ShardFinder, links []cid.Cid) iter.Seq2[BlockStat, error] {
+func StatBlocks(ctx context.Context, id ucan.Signer, getProofs ContentRetrieveProofGetterFunc, indexer ShardFinder, links []cid.Cid) iter.Seq2[BlockStat, error] {
 	return func(yield func(BlockStat, error) bool) {
 		shardLocations := bytemap.NewByteMap[multihash.Multihash, []Location](0)
-		shardSlices := bytemap.NewByteMap[multihash.Multihash, bytemap.ByteMap[multihash.Multihash, blobindex.Position]](0)
+		shardSlices := bytemap.NewByteMap[multihash.Multihash, bytemap.ByteMap[multihash.Multihash, blobindex.Range]](0)
 		blockCIDs := bytemap.NewByteMap[multihash.Multihash, cid.Cid](0)
 
 		// find all shard locations for slices and group by shard
@@ -148,7 +149,7 @@ func StatBlocks(ctx context.Context, id principal.Signer, getProofs ContentRetri
 
 			slices := shardSlices.Get(shard)
 			if slices == nil {
-				slices = bytemap.NewByteMap[multihash.Multihash, blobindex.Position](0)
+				slices = bytemap.NewByteMap[multihash.Multihash, blobindex.Range](0)
 				shardSlices.Set(shard, slices)
 			}
 			slices.Set(link.Hash(), pos)
@@ -200,10 +201,10 @@ func StatBlocks(ctx context.Context, id principal.Signer, getProofs ContentRetri
 					Digest: slice.Digest,
 					Links:  links,
 					Origin: Origin{
-						Node:     slice.Location.Commitment.Issuer().DID(),
-						URL:      slice.Location.Caveats.Location[0],
-						Shard:    shard,
-						Position: slice.Position,
+						Node:  slice.Location.Commitment.Issuer(),
+						URL:   *slice.Location.Arguments.Location[0].URL(),
+						Shard: shard,
+						Range: slice.Range,
 					},
 				}, nil) {
 					return
@@ -215,11 +216,11 @@ func StatBlocks(ctx context.Context, id principal.Signer, getProofs ContentRetri
 
 func batchFetchSlices(
 	ctx context.Context,
-	id principal.Signer,
+	id ucan.Signer,
 	getProofs ContentRetrieveProofGetterFunc,
 	shard multihash.Multihash,
 	locations []Location,
-	slices bytemap.ByteMap[multihash.Multihash, blobindex.Position],
+	slices bytemap.ByteMap[multihash.Multihash, blobindex.Range],
 ) iter.Seq2[Slice, error] {
 	return func(yield func(Slice, error) bool) {
 		batches := batchSlices(slices)
@@ -231,10 +232,10 @@ func batchFetchSlices(
 			log.Debugw("fetching slices in batches", "shard", digestutil.Format(shard), "batches", batchSizes)
 		}
 		for _, batch := range batches {
-			start := slices.Get(batch[0]).Offset
+			start := slices.Get(batch[0]).Start
 			last := slices.Get(batch[len(batch)-1])
-			end := last.Offset + last.Length - 1
-			byteRange := contentcap.Range{Start: start, End: end}
+			end := last.End
+			byteRange := contentcmds.Range{Start: uint64(start), End: uint64(end)}
 
 			var fetchErr error
 			for _, loc := range locations {
@@ -252,9 +253,9 @@ func batchFetchSlices(
 
 				scratch := make([]byte, maxSpaceBetween)
 				for i, digest := range batch {
-					pos := slices.Get(digest)
-					bytes := make([]byte, pos.Length)
-					_, err := io.ReadAtLeast(body, bytes, int(pos.Length))
+					byteRange := slices.Get(digest)
+					bytes := make([]byte, byteRange.End-byteRange.Start+1)
+					_, err := io.ReadAtLeast(body, bytes, int(byteRange.End-byteRange.Start+1))
 					if err != nil {
 						fetchErr = fmt.Errorf("reading bytes for slice %d in batch: %w", i, err)
 						break
@@ -262,7 +263,7 @@ func batchFetchSlices(
 					if !yield(Slice{
 						Digest:   digest,
 						Bytes:    bytes,
-						Position: pos,
+						Range:    byteRange,
 						Location: loc,
 					}, nil) {
 						body.Close()
@@ -270,8 +271,8 @@ func batchFetchSlices(
 					}
 					if i < len(batch)-1 {
 						// read space between if there is any
-						nextPos := slices.Get(batch[i+1])
-						spaceBetween := int(nextPos.Offset - (pos.Offset + pos.Length))
+						nextByteRange := slices.Get(batch[i+1])
+						spaceBetween := int(nextByteRange.Start - byteRange.End + 1)
 						if spaceBetween > 0 {
 							_, err := io.ReadAtLeast(body, scratch[:spaceBetween], spaceBetween)
 							if err != nil {
@@ -298,12 +299,12 @@ func batchFetchSlices(
 	}
 }
 
-func batchSlices(items bytemap.ByteMap[multihash.Multihash, blobindex.Position]) [][]multihash.Multihash {
+func batchSlices(items bytemap.ByteMap[multihash.Multihash, blobindex.Range]) [][]multihash.Multihash {
 	byteOrderedDigests := slices.Collect(items.Keys())
 	slices.SortFunc(byteOrderedDigests, func(a, b multihash.Multihash) int {
 		ap := items.Get(a)
 		bp := items.Get(b)
-		return int(ap.Offset) - int(bp.Offset)
+		return int(ap.Start) - int(bp.Start)
 	})
 	batches := [][]multihash.Multihash{}
 	batch := []multihash.Multihash{}
@@ -312,14 +313,14 @@ func batchSlices(items bytemap.ByteMap[multihash.Multihash, blobindex.Position])
 		pos := items.Get(digest)
 		if len(batch) == 0 {
 			batch = append(batch, digest)
-			offset = pos.Offset + pos.Length
-		} else if offset+maxSpaceBetween >= pos.Offset {
+			offset = uint64(pos.End + 1)
+		} else if offset+maxSpaceBetween >= uint64(pos.Start) {
 			batch = append(batch, digest)
-			offset = pos.Offset + pos.Length
+			offset = uint64(pos.End + 1)
 		} else {
 			batches = append(batches, batch)
 			batch = []multihash.Multihash{digest}
-			offset = pos.Offset + pos.Length
+			offset = uint64(pos.End + 1)
 		}
 	}
 	if len(batch) > 0 {
@@ -328,47 +329,61 @@ func batchSlices(items bytemap.ByteMap[multihash.Multihash, blobindex.Position])
 	return batches
 }
 
-func authorizedFetch(ctx context.Context, id principal.Signer, getProofs ContentRetrieveProofGetterFunc, shard multihash.Multihash, shardLocation Location, byteRange contentcap.Range) (io.ReadCloser, error) {
-	if shardLocation.Caveats.Space == did.Undef {
+func authorizedFetch(ctx context.Context, id ucan.Signer, getProofs ContentRetrieveProofGetterFunc, shard multihash.Multihash, shardLocation Location, byteRange contentcmds.Range) (io.ReadCloser, error) {
+	if shardLocation.Arguments.Space == did.Undef {
 		return nil, fmt.Errorf("missing space DID in location commitment for shard: %s", digestutil.Format(shard))
 	}
 
 	var reqErr error
-	for _, url := range shardLocation.Caveats.Location {
-		conn, err := retrieval.NewConnection(shardLocation.Commitment.Issuer(), &url)
+	for _, url := range shardLocation.Arguments.Location {
+		rclient, err := retrieval.NewClient(url.URL())
 		if err != nil {
-			return nil, fmt.Errorf("creating retrieval connection to %q: %w", url.String(), err)
+			return nil, fmt.Errorf("creating retrieval connection to %q: %w", url.URL().String(), err)
 		}
 
 		body, err := backoff.Retry(ctx, func() (io.ReadCloser, error) {
-			proofs, err := getProofs(shardLocation.Caveats.Space)
+			proofs, err := getProofs(shardLocation.Arguments.Space)
 			if err != nil {
-				return nil, fmt.Errorf("getting proofs for retrieval to %q: %w", url.String(), err)
+				return nil, fmt.Errorf("getting proofs for retrieval to %q: %w", url.URL().String(), err)
+			}
+			proofLinks := make([]cid.Cid, len(proofs))
+			for _, p := range proofs {
+				proofLinks = append(proofLinks, p.Link())
 			}
 
-			inv, err := contentcap.Retrieve.Invoke(
+			inv, err := contentcmds.Retrieve.Invoke(
 				id,
-				shardLocation.Commitment.Issuer(),
-				shardLocation.Caveats.Space.String(),
-				contentcap.RetrieveCaveats{
-					Blob:  contentcap.BlobDigest{Digest: shard},
+				shardLocation.Arguments.Space,
+				&contentcmds.RetrieveArguments{
+					Blob:  contentcmds.Blob{Digest: shard},
 					Range: byteRange,
 				},
-				delegation.WithProof(proofs...),
+				invocation.WithProofs(proofLinks...),
+				invocation.WithAudience(shardLocation.Commitment.Issuer()),
 			)
 			if err != nil {
-				return nil, fmt.Errorf("invoking retrieve capability for retrieval to %q: %w", url.String(), err)
+				return nil, fmt.Errorf("invoking retrieve capability for retrieval to %q: %w", url.URL().String(), err)
 			}
 
-			_, hres, err := retrieval.Execute(ctx, inv, conn)
+			res, err := rclient.Execute(execution.NewRequest(ctx, inv, execution.WithDelegations(proofs...)))
 			if err != nil {
-				return nil, fmt.Errorf("executing retrieve invocation for retrieval to %q: %w", url.String(), err)
+				return nil, fmt.Errorf("executing retrieve invocation for retrieval to %q: %w", url.URL().String(), err)
 			}
-			if hres.Status() != http.StatusOK && hres.Status() != http.StatusPartialContent {
-				hres.Body().Close()
-				return nil, fmt.Errorf("unexpected status code %d for request to %q", hres.Status(), url.String())
+
+			_, err = contentcmds.Retrieve.Unpack(res.Receipt())
+			if err != nil {
+				return nil, fmt.Errorf("unpacking retrieve receipt for retrieval to %q: %w", url.URL().String(), err)
 			}
-			return hres.Body(), nil
+
+			hcRes, ok := res.Metadata().(*retrieval.HTTPHeaderResponseContainer)
+			if !ok {
+				return nil, fmt.Errorf("expected response metadata to be a *HTTPHeaderResponseContainer")
+			}
+			if hcRes.StatusCode != http.StatusOK && hcRes.StatusCode != http.StatusPartialContent {
+				hcRes.Body.Close()
+				return nil, fmt.Errorf("unexpected status code %d for request to %q", hcRes.StatusCode, url.URL().String())
+			}
+			return hcRes.Body, nil
 		}, backoff.WithMaxTries(3))
 		if err != nil {
 			reqErr = err
@@ -380,24 +395,24 @@ func authorizedFetch(ctx context.Context, id principal.Signer, getProofs Content
 	return nil, reqErr
 }
 
-func fetch(ctx context.Context, shardLocation Location, byteRange contentcap.Range) (io.ReadCloser, error) {
+func fetch(ctx context.Context, shardLocation Location, byteRange contentcmds.Range) (io.ReadCloser, error) {
 	var reqErr error
-	for _, url := range shardLocation.Caveats.Location {
-		req, err := http.NewRequestWithContext(ctx, "GET", url.String(), nil)
+	for _, url := range shardLocation.Arguments.Location {
+		req, err := http.NewRequestWithContext(ctx, "GET", url.URL().String(), nil)
 		if err != nil {
-			reqErr = fmt.Errorf("creating request for block %q: %w", url.String(), err)
+			reqErr = fmt.Errorf("creating request for block %q: %w", url.URL().String(), err)
 			continue
 		}
 		req.Header.Set("Range", fmt.Sprintf("bytes=%d-%d", byteRange.Start, byteRange.End))
 
 		res, err := http.DefaultClient.Do(req)
 		if err != nil {
-			reqErr = fmt.Errorf("performing request for block %q: %w", url.String(), err)
+			reqErr = fmt.Errorf("performing request for block %q: %w", url.URL().String(), err)
 			continue
 		}
 		if res.StatusCode != http.StatusOK && res.StatusCode != http.StatusPartialContent {
 			res.Body.Close()
-			reqErr = fmt.Errorf("unexpected status code %d for request to %q", res.StatusCode, url.String())
+			reqErr = fmt.Errorf("unexpected status code %d for request to %q", res.StatusCode, url.URL().String())
 			continue
 		}
 		return res.Body, nil

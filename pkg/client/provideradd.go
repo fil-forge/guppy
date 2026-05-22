@@ -40,7 +40,7 @@ func (c *Client) ProviderAdd(ctx context.Context, customerAccount did.DID, provi
 		ctx,
 		c.ucanClient,
 		inv,
-		execution.WithProofs(proofs...),
+		execution.WithDelegations(proofs...),
 		execution.WithInvocations(attestations...),
 	)
 	if err != nil {

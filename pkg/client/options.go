@@ -1,9 +1,9 @@
 package client
 
 import (
-	rclient "github.com/fil-forge/go-ucanto/client/retrieval"
-	"github.com/fil-forge/guppy/pkg/receipt"
 	"github.com/fil-forge/guppy/pkg/tokenstore"
+	"github.com/fil-forge/libforge/receipt"
+	"github.com/fil-forge/libforge/ucan/retrieval"
 	"github.com/fil-forge/ucantone/client"
 )
 
@@ -14,7 +14,7 @@ type Option func(c *Client) error
 // not provided, the default HTTP client will be used.
 func WithUCANClientOptions(options ...client.HTTPOption) Option {
 	return func(c *Client) error {
-		c.ucanOpts = options
+		c.ucanOpts = append(c.ucanOpts, options...)
 		return nil
 	}
 }
@@ -36,7 +36,7 @@ func WithTokenStore(store tokenstore.Store) Option {
 	}
 }
 
-func WithRetrievalOptions(retrievalOpts ...rclient.Option) Option {
+func WithRetrievalOptions(retrievalOpts ...retrieval.ClientOption) Option {
 	return func(c *Client) error {
 		c.retrievalOpts = append(c.retrievalOpts, retrievalOpts...)
 		return nil

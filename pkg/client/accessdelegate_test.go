@@ -12,12 +12,12 @@ import (
 	"github.com/fil-forge/go-ucanto/core/receipt/fx"
 	"github.com/fil-forge/go-ucanto/core/result"
 	"github.com/fil-forge/go-ucanto/core/result/failure"
-	"github.com/fil-forge/go-ucanto/did"
 	"github.com/fil-forge/go-ucanto/principal/ed25519/signer"
 	"github.com/fil-forge/go-ucanto/server"
 	"github.com/fil-forge/go-ucanto/ucan"
 	"github.com/fil-forge/guppy/pkg/client"
 	ctestutil "github.com/fil-forge/guppy/pkg/client/testutil"
+	"github.com/fil-forge/ucantone/did"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -28,7 +28,7 @@ func TestAccessDelegate(t *testing.T) {
 		var receivedDelegations access.DelegationLinksModel
 		var c *client.Client
 
-		connection := ctestutil.NewTestServerConnection(
+		connection := ctestutil.NewTestServer(
 			server.WithServiceMethod(
 				access.DelegateAbility,
 				server.Provide(
@@ -87,7 +87,7 @@ func TestAccessDelegate(t *testing.T) {
 		var receivedDelegations access.DelegationLinksModel
 		var c *client.Client
 
-		connection := ctestutil.NewTestServerConnection(
+		connection := ctestutil.NewTestServer(
 			server.WithServiceMethod(
 				access.DelegateAbility,
 				server.Provide(
@@ -155,7 +155,7 @@ func TestAccessDelegate(t *testing.T) {
 		var receivedProofLinks []ucan.Link
 		var c *client.Client
 
-		connection := ctestutil.NewTestServerConnection(
+		connection := ctestutil.NewTestServer(
 			server.WithServiceMethod(
 				access.DelegateAbility,
 				server.Provide(
@@ -220,7 +220,7 @@ func TestAccessDelegate(t *testing.T) {
 		space := testutil.Must(signer.Generate())(t)
 		var c *client.Client
 
-		connection := ctestutil.NewTestServerConnection(
+		connection := ctestutil.NewTestServer(
 			server.WithServiceMethod(
 				access.DelegateAbility,
 				server.Provide(

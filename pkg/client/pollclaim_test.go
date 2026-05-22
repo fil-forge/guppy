@@ -53,7 +53,7 @@ func TestPollClaim(t *testing.T) {
 	claimedChan := make(chan struct{})
 	defer close(claimedChan)
 
-	connection := ctestutil.NewTestServerConnection(
+	connection := ctestutil.NewTestServer(
 		server.WithServiceMethod(
 			access.Claim.Can(),
 			server.Provide(

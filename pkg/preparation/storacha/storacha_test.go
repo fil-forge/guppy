@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	stestutil "github.com/fil-forge/go-libstoracha/testutil"
-	"github.com/fil-forge/go-ucanto/did"
+	"github.com/fil-forge/ucantone/did"
 	commcid "github.com/filecoin-project/go-fil-commcid"
 	commp "github.com/filecoin-project/go-fil-commp-hashhash"
 	"github.com/ipfs/go-cid"
@@ -482,7 +482,7 @@ func TestAddStorachaUploadForUpload(t *testing.T) {
 		err = shard1.Close(shard1Digest, piece1CID)
 		require.NoError(t, err)
 		err = shard1.SpaceBlobAdded(client.AddedBlob{
-			Location:  stestutil.RandomLocationDelegation(t),
+			Location:  stestutil.RandomLocationInvocation(t),
 			PDPAccept: nil,
 			Digest:    shard1.Digest(),
 			Size:      shard1.Size(),
@@ -504,7 +504,7 @@ func TestAddStorachaUploadForUpload(t *testing.T) {
 		err = shard2.Close(shard2Digest, piece2CID)
 		require.NoError(t, err)
 		err = shard2.SpaceBlobAdded(client.AddedBlob{
-			Location:  stestutil.RandomLocationDelegation(t),
+			Location:  stestutil.RandomLocationInvocation(t),
 			PDPAccept: nil,
 			Digest:    shard2.Digest(),
 			Size:      shard2.Size(),

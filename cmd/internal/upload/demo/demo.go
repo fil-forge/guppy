@@ -223,7 +223,7 @@ func Demo(ctx context.Context, repo *sqlrepo.Repo, spaceName string, alterMetada
 			// Act as space to avoid auth issues
 			client.WithPrincipal(space),
 		),
-		ctestutil.WithSpaceBlobAdd(),
+		ctestutil.WithBlobAdd(),
 
 		ctestutil.WithServerOptions(
 			server.WithServiceMethod(

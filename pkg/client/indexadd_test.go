@@ -30,7 +30,7 @@ func TestSpaceIndexAdd(t *testing.T) {
 	invokedCapabilities := []ucan.Capability[spaceindexcap.AddCaveats]{}
 	invokedInvocations := []invocation.Invocation{}
 
-	connection := testutil.NewTestServerConnection(
+	connection := testutil.NewTestServer(
 		server.WithServiceMethod(
 			spaceindexcap.Add.Can(),
 			server.Provide(

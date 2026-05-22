@@ -46,7 +46,7 @@ func (c *Client) AccessDelegate(ctx context.Context, space did.DID, delegations 
 		ctx,
 		c.ucanClient,
 		inv,
-		execution.WithProofs(proofs...),
+		execution.WithDelegations(proofs...),
 		execution.WithDelegations(delegations...),
 		execution.WithInvocations(attestations...),
 	)

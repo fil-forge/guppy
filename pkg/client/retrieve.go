@@ -54,7 +54,7 @@ func (c *Client) Retrieve(ctx context.Context, location locator.Location) (io.Re
 		ctx,
 		client,
 		inv,
-		execution.WithProofs(proofs...),
+		execution.WithDelegations(proofs...),
 		execution.WithInvocations(attestations...),
 	)
 	if err != nil {

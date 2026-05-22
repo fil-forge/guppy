@@ -8,7 +8,6 @@ import (
 	"io/fs"
 	"path"
 
-	"github.com/fil-forge/go-ucanto/did"
 	"github.com/fil-forge/guppy/pkg/preparation/scans/checksum"
 	"github.com/fil-forge/guppy/pkg/preparation/scans/model"
 	"github.com/fil-forge/guppy/pkg/preparation/scans/visitor"
@@ -17,6 +16,7 @@ import (
 	"github.com/fil-forge/guppy/pkg/preparation/types/id"
 	"github.com/fil-forge/guppy/pkg/preparation/uploads"
 	uploadmodel "github.com/fil-forge/guppy/pkg/preparation/uploads/model"
+	"github.com/fil-forge/ucantone/did"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"

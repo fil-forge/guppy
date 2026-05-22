@@ -6,7 +6,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/fil-forge/guppy/pkg/config"
-	"github.com/fil-forge/guppy/pkg/identity"
+	"github.com/fil-forge/libforge/identity"
 )
 
 var whoamiCmd = &cobra.Command{

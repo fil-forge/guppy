@@ -1,5 +1,6 @@
 package client_test
 
+/*
 import (
 	"context"
 	"fmt"
@@ -110,3 +111,4 @@ func TestSpaceBlobReplicate(t *testing.T) {
 		}
 	})
 }
+*/

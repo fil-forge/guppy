@@ -4,45 +4,54 @@ import (
 	"context"
 	"fmt"
 
-	uploadcap "github.com/fil-forge/go-libstoracha/capabilities/upload"
-	"github.com/fil-forge/go-ucanto/core/result"
-	"github.com/fil-forge/go-ucanto/did"
-	"github.com/ipld/go-ipld-prime"
+	uploadcmds "github.com/fil-forge/libforge/commands/upload"
+	"github.com/fil-forge/ucantone/did"
+	"github.com/fil-forge/ucantone/execution"
+	"github.com/fil-forge/ucantone/ucan/invocation"
+	"github.com/ipfs/go-cid"
 )
 
 // UploadAdd registers an "upload" with the service. The issuer needs proof of
-// `upload/add` delegated capability.
+// `/upload/add` delegated capability.
 //
-// Required delegated capability proofs: `upload/add`
+// Required delegated capability proofs: `/upload/add`
 //
 // The `space` is the resource the invocation applies to. It is typically the
 // DID of a space.
-//
-// The `proofs` are delegation proofs to use in addition to those in the client.
-// They won't be saved in the client, only used for this invocation.
-//
-// The `caveats` are caveats required to perform an `upload/add` invocation.
-func (c *Client) UploadAdd(ctx context.Context, space did.DID, root ipld.Link, shards []ipld.Link) (uploadcap.AddOk, error) {
-	res, _, err := invokeAndExecute[uploadcap.AddCaveats, uploadcap.AddOk](
-		ctx,
-		c,
-		uploadcap.Add,
-		space.String(),
-		uploadcap.AddCaveats{
+func (c *Client) UploadAdd(ctx context.Context, space did.DID, root cid.Cid, shards []cid.Cid, index *cid.Cid) (*uploadcmds.AddOK, error) {
+	proofs, proofLinks, err := c.ProofChain(ctx, c.signer.DID(), uploadcmds.Add.Command, space)
+	if err != nil {
+		return nil, fmt.Errorf("building proof chain: %w", err)
+	}
+	attestations, err := c.ProofAttestations(ctx, proofs, c.serviceID)
+	if err != nil {
+		return nil, fmt.Errorf("fetching proof attestations: %w", err)
+	}
+	inv, err := uploadcmds.Add.Invoke(
+		c.signer,
+		space,
+		&uploadcmds.AddArguments{
 			Root:   root,
 			Shards: shards,
+			Index:  index,
 		},
-		uploadcap.AddOkType(),
+		invocation.WithAudience(c.serviceID),
+		invocation.WithProofs(proofLinks...),
 	)
-
 	if err != nil {
-		return uploadcap.AddOk{}, fmt.Errorf("invoking and executing `upload/add`: %w", err)
+		return nil, fmt.Errorf("creating invocation: %w", err)
 	}
 
-	addOk, failErr := result.Unwrap(res)
-	if failErr != nil {
-		return uploadcap.AddOk{}, fmt.Errorf("`upload/add` failed: %w", failErr)
+	addOK, _, _, err := Execute[*uploadcmds.AddOK](
+		ctx,
+		c.ucanClient,
+		inv,
+		execution.WithDelegations(proofs...),
+		execution.WithInvocations(attestations...),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("executing invocation: %w", err)
 	}
 
-	return addOk, nil
+	return addOK, nil
 }

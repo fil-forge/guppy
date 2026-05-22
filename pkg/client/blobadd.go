@@ -39,16 +39,16 @@ type BlobAddOption func(*BlobAddConfig)
 
 // BlobAddConfig holds configuration for [BlobAdd].
 type BlobAddConfig struct {
-	putClient          *http.Client
-	precomputedDigest  multihash.Multihash
-	precomputedSizePtr *uint64
-	progressFn         func(uploaded int64)
+	PutClient          *http.Client
+	PrecomputedDigest  multihash.Multihash
+	PrecomputedSizePtr *uint64
+	ProgressFn         func(uploaded int64)
 }
 
 // NewBlobAddConfig creates a new [BlobAddConfig] with the given options.
 func NewBlobAddConfig(options ...BlobAddOption) *BlobAddConfig {
 	cfg := &BlobAddConfig{
-		putClient: &http.Client{
+		PutClient: &http.Client{
 			Transport: otelhttp.NewTransport(http.DefaultTransport),
 		},
 	}
@@ -61,15 +61,15 @@ func NewBlobAddConfig(options ...BlobAddOption) *BlobAddConfig {
 // WithPutClient configures the HTTP client to use for uploading blobs.
 func WithPutClient(client *http.Client) BlobAddOption {
 	return func(cfg *BlobAddConfig) {
-		cfg.putClient = client
+		cfg.PutClient = client
 	}
 }
 
 // WithPrecomputedDigest supplies a previously computed digest/size so we can skip re-hashing.
 func WithPrecomputedDigest(d multihash.Multihash, size uint64) BlobAddOption {
 	return func(cfg *BlobAddConfig) {
-		cfg.precomputedDigest = d
-		cfg.precomputedSizePtr = &size
+		cfg.PrecomputedDigest = d
+		cfg.PrecomputedSizePtr = &size
 	}
 }
 
@@ -77,7 +77,7 @@ func WithPrecomputedDigest(d multihash.Multihash, size uint64) BlobAddOption {
 // The callback is best-effort and may be invoked frequently.
 func WithPutProgress(progressFn func(uploaded int64)) BlobAddOption {
 	return func(cfg *BlobAddConfig) {
-		cfg.progressFn = progressFn
+		cfg.ProgressFn = progressFn
 	}
 }
 
@@ -112,10 +112,10 @@ func (c *Client) BlobAdd(ctx context.Context, content io.Reader, space did.DID, 
 	// Configure options
 	cfg := NewBlobAddConfig(options...)
 
-	putClient := cfg.putClient
+	putClient := cfg.PutClient
 	contentReader := content
-	contentHash := cfg.precomputedDigest
-	contentSizePtr := cfg.precomputedSizePtr
+	contentHash := cfg.PrecomputedDigest
+	contentSizePtr := cfg.PrecomputedSizePtr
 	needsHash := contentSizePtr == nil || contentHash == nil || len(contentHash) == 0
 	start := time.Now()
 	log.Infow("blob adding", "space", space, "has_digest", !needsHash)
@@ -145,11 +145,11 @@ func (c *Client) BlobAdd(ctx context.Context, content io.Reader, space did.DID, 
 		contentSizePtr = &contentSize
 	}
 
-	if cfg.progressFn != nil {
+	if cfg.ProgressFn != nil {
 		contentReader = &progressReader{
 			r:        contentReader,
 			total:    *contentSizePtr,
-			progress: cfg.progressFn,
+			progress: cfg.ProgressFn,
 		}
 	}
 
@@ -209,7 +209,7 @@ func (c *Client) BlobAdd(ctx context.Context, content io.Reader, space did.DID, 
 		ctx,
 		c.ucanClient,
 		inv,
-		execution.WithProofs(proofs...),
+		execution.WithDelegations(proofs...),
 		execution.WithInvocations(attestations...),
 		// add allocate/accept delegations
 		execution.WithDelegations(allocDlg, accDlg),

@@ -43,7 +43,7 @@ func TestClaimAccess(t *testing.T) {
 		var storedDels access.DelegationsModel
 		var c *client.Client
 
-		connection := ctestutil.NewTestServerConnection(
+		connection := ctestutil.NewTestServer(
 			server.WithServiceMethod(
 				access.Claim.Can(),
 				server.Provide(
@@ -81,7 +81,7 @@ func TestClaimAccess(t *testing.T) {
 	})
 
 	t.Run("returns any handler error", func(t *testing.T) {
-		connection := ctestutil.NewTestServerConnection(
+		connection := ctestutil.NewTestServer(
 			server.WithServiceMethod(
 				access.Claim.Can(),
 				server.Provide(
@@ -108,7 +108,7 @@ func TestClaimAccess(t *testing.T) {
 	t.Run("returns a useful error on any other UCAN failure", func(t *testing.T) {
 		// In this case, we test the server not implementing the `access/claim`
 		// capability.
-		connection := ctestutil.NewTestServerConnection()
+		connection := ctestutil.NewTestServer()
 
 		c := testutil.Must(client.New(client.WithConnection(connection)))(t)
 		claimedDels, err := c.ClaimAccess(testContext(t))

@@ -1,15 +1,15 @@
 package verification
 
 import (
+	"bytes"
 	"maps"
 	"slices"
 	"sync"
 
-	"github.com/fil-forge/go-libstoracha/blobindex"
-	"github.com/fil-forge/go-libstoracha/bytemap"
-	"github.com/fil-forge/go-libstoracha/capabilities/assert"
-	"github.com/fil-forge/go-ucanto/core/delegation"
-	"github.com/fil-forge/go-ucanto/validator"
+	"github.com/fil-forge/libforge/blobindex"
+	"github.com/fil-forge/libforge/bytemap"
+	"github.com/fil-forge/libforge/commands/assert"
+	"github.com/fil-forge/ucantone/ucan"
 	"github.com/ipfs/go-cid"
 	"github.com/multiformats/go-multihash"
 )
@@ -45,9 +45,9 @@ func (c *IndexCache) IndexForSlice(slice multihash.Multihash) (blobindex.Sharded
 }
 
 type Location struct {
-	Commitment delegation.Delegation
-	// Caveats are the decoded caveats from the commitment delegation.
-	Caveats assert.LocationCaveats
+	Commitment ucan.Invocation
+	// Arguments are the decoded caveats from the commitment delegation.
+	Arguments *assert.LocationArguments
 }
 
 type LocationCache struct {
@@ -62,24 +62,22 @@ func NewLocationCache() *LocationCache {
 	}
 }
 
-func (c *LocationCache) Add(commitment delegation.Delegation) {
+func (c *LocationCache) Add(commitment ucan.Invocation) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
-	match, err := assert.Location.Match(validator.NewSource(commitment.Capabilities()[0], commitment))
-	if err != nil {
+
+	var args assert.LocationArguments
+	if err := args.UnmarshalCBOR(bytes.NewReader(commitment.ArgumentsBytes())); err != nil {
 		log.Warnw("adding location to cache", "error", err)
 		return
 	}
 
-	root := toCID(commitment.Link())
-	nb := match.Value().Nb()
-
-	shardLocations := c.locations.Get(nb.Content.Hash())
+	shardLocations := c.locations.Get(args.Content)
 	if shardLocations == nil {
 		shardLocations = map[cid.Cid]Location{}
-		c.locations.Set(nb.Content.Hash(), shardLocations)
+		c.locations.Set(args.Content, shardLocations)
 	}
-	shardLocations[root] = Location{Commitment: commitment, Caveats: nb}
+	shardLocations[commitment.Link()] = Location{Commitment: commitment, Arguments: &args}
 }
 
 func (c *LocationCache) LocationsForShard(shard multihash.Multihash) []Location {

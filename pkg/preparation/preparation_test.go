@@ -26,12 +26,12 @@ import (
 	"github.com/fil-forge/go-ucanto/core/receipt/fx"
 	"github.com/fil-forge/go-ucanto/core/result"
 	"github.com/fil-forge/go-ucanto/core/result/failure"
-	"github.com/fil-forge/go-ucanto/did"
 	"github.com/fil-forge/go-ucanto/principal"
 	"github.com/fil-forge/go-ucanto/principal/ed25519/signer"
 	"github.com/fil-forge/go-ucanto/server"
 	"github.com/fil-forge/go-ucanto/testing/helpers"
 	"github.com/fil-forge/go-ucanto/ucan"
+	"github.com/fil-forge/ucantone/did"
 	"github.com/ipfs/boxo/blockservice"
 	"github.com/ipfs/boxo/files"
 	"github.com/ipfs/boxo/ipld/merkledag"
@@ -85,7 +85,7 @@ func prepareTestClient(
 	t.Helper()
 	client := &ctestutil.ClientWithCustomPut{
 		Client: helpers.Must(ctestutil.Client(
-			ctestutil.WithSpaceBlobAdd(),
+			ctestutil.WithBlobAdd(),
 
 			ctestutil.WithServerOptions(
 				server.WithServiceMethod(

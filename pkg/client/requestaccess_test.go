@@ -22,7 +22,7 @@ func TestRequestAccess(t *testing.T) {
 		invokedInvocations := []invocation.Invocation{}
 		invokedCapabilities := []ucan.Capability[access.AuthorizeCaveats]{}
 
-		connection := testutil.NewTestServerConnection(
+		connection := testutil.NewTestServer(
 			server.WithServiceMethod(
 				access.Authorize.Can(),
 				server.Provide(
