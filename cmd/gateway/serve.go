@@ -154,12 +154,21 @@ var serveCmd = &cobra.Command{
 		indexer, indexerID := cmdutil.MustGetIndexClient(cfg.Network)
 
 		// Authorize the indexing service to retrieve content for the queried space.
-		loc := locator.NewIndexLocator(indexer, func(querySpaces []did.DID) (ucan.Delegation, error) {
-			subject := spaces[0]
-			if len(querySpaces) > 0 {
-				subject = querySpaces[0]
+		loc := locator.NewIndexLocator(indexer, func(ctx context.Context, querySpaces []did.DID) ([]ucan.Delegation, error) {
+			var dlgs []ucan.Delegation
+			for _, space := range querySpaces {
+				dlg, err := contentcmds.Retrieve.Delegate(c.Issuer(), indexerID, space)
+				if err != nil {
+					return nil, fmt.Errorf("delegating content retrieve: %w", err)
+				}
+				proofs, _, err := c.ProofChain(ctx, c.Issuer().DID(), contentcmds.Retrieve.Command, space)
+				if err != nil {
+					return nil, fmt.Errorf("retrieving proof chain: %w", err)
+				}
+				dlgs = append(dlgs, dlg)
+				dlgs = append(dlgs, proofs...)
 			}
-			return contentcmds.Retrieve.Delegate(c.Issuer(), indexerID, subject)
+			return dlgs, nil
 		})
 		exchange := dagservice.NewExchange(loc, c, spaces)
 

@@ -26,7 +26,7 @@ func TestAccessDelegate(t *testing.T) {
 
 		c := testutil.Must(ctestutil.Client(t,
 			ctestutil.WithServerRoutes(func(deps ctestutil.RouteDeps) server.Route {
-				return server.NewRoute(accesscmds.Delegate, func(req *binding.Request[*accesscmds.DelegateArguments], res *binding.Response[*accesscmds.DelegateOK]) error {
+				return accesscmds.Delegate.Route(func(req *binding.Request[*accesscmds.DelegateArguments], res *binding.Response[*accesscmds.DelegateOK]) error {
 					receivedSubject = req.Invocation().Subject()
 					receivedDelegations = req.Task().Arguments().Delegations
 					return res.SetSuccess(&accesscmds.DelegateOK{})
@@ -54,7 +54,7 @@ func TestAccessDelegate(t *testing.T) {
 
 		c := testutil.Must(ctestutil.Client(t,
 			ctestutil.WithServerRoutes(func(deps ctestutil.RouteDeps) server.Route {
-				return server.NewRoute(accesscmds.Delegate, func(req *binding.Request[*accesscmds.DelegateArguments], res *binding.Response[*accesscmds.DelegateOK]) error {
+				return accesscmds.Delegate.Route(func(req *binding.Request[*accesscmds.DelegateArguments], res *binding.Response[*accesscmds.DelegateOK]) error {
 					receivedDelegations = req.Task().Arguments().Delegations
 					return res.SetSuccess(&accesscmds.DelegateOK{})
 				})
@@ -83,7 +83,7 @@ func TestAccessDelegate(t *testing.T) {
 
 		c := testutil.Must(ctestutil.Client(t,
 			ctestutil.WithServerRoutes(func(deps ctestutil.RouteDeps) server.Route {
-				return server.NewRoute(accesscmds.Delegate, func(req *binding.Request[*accesscmds.DelegateArguments], res *binding.Response[*accesscmds.DelegateOK]) error {
+				return accesscmds.Delegate.Route(func(req *binding.Request[*accesscmds.DelegateArguments], res *binding.Response[*accesscmds.DelegateOK]) error {
 					receivedProofLinks = req.Invocation().Proofs()
 					return res.SetSuccess(&accesscmds.DelegateOK{})
 				})
@@ -116,7 +116,7 @@ func TestAccessDelegate(t *testing.T) {
 
 		c := testutil.Must(ctestutil.Client(t,
 			ctestutil.WithServerRoutes(func(deps ctestutil.RouteDeps) server.Route {
-				return server.NewRoute(accesscmds.Delegate, func(req *binding.Request[*accesscmds.DelegateArguments], res *binding.Response[*accesscmds.DelegateOK]) error {
+				return accesscmds.Delegate.Route(func(req *binding.Request[*accesscmds.DelegateArguments], res *binding.Response[*accesscmds.DelegateOK]) error {
 					return res.SetFailure(fmt.Errorf("test error"))
 				})
 			}),

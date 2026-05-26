@@ -2,15 +2,15 @@ package walker_test
 
 import (
 	"io/fs"
+	"iter"
 	"slices"
 	"testing"
 	"time"
 
-	"github.com/fil-forge/libforge/testutil"
-	"github.com/fil-forge/go-ucanto/core/iterable"
 	"github.com/fil-forge/guppy/pkg/preparation/scans/model"
 	"github.com/fil-forge/guppy/pkg/preparation/scans/walker"
 	"github.com/fil-forge/guppy/pkg/preparation/types/id"
+	"github.com/fil-forge/libforge/testutil"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/require"
 )
@@ -46,7 +46,7 @@ func TestWalker(t *testing.T) {
 
 	require.Len(t, mockVisitor.visitedChildren, 3, "Should have children for each visited directory")
 	require.Len(t, mockVisitor.visitedChildren["."], 2, "Root directory should have 2 children")
-	require.ElementsMatch(t, slices.Collect(iterable.Map(func(child model.FSEntry) string {
+	require.ElementsMatch(t, slices.Collect(seqMap(func(child model.FSEntry) string {
 		return child.Path()
 	}, slices.Values(mockVisitor.visitedChildren["."]))), []string{
 		"file1.txt",
@@ -54,14 +54,14 @@ func TestWalker(t *testing.T) {
 	}, "Children of root directory should match expected paths")
 
 	require.Len(t, mockVisitor.visitedChildren["dir1"], 2, "Directory 'dir1' should have 2 children")
-	require.ElementsMatch(t, slices.Collect(iterable.Map(func(child model.FSEntry) string {
+	require.ElementsMatch(t, slices.Collect(seqMap(func(child model.FSEntry) string {
 		return child.Path()
 	}, slices.Values(mockVisitor.visitedChildren["dir1"]))), []string{
 		"dir1/file2.txt",
 		"dir1/subdir1",
 	}, "Children of directory 'dir1' should match expected paths")
 	require.Len(t, mockVisitor.visitedChildren["dir1/subdir1"], 1, "Directory 'subdir1' should have 1 child")
-	require.ElementsMatch(t, slices.Collect(iterable.Map(func(child model.FSEntry) string {
+	require.ElementsMatch(t, slices.Collect(seqMap(func(child model.FSEntry) string {
 		return child.Path()
 	},
 		slices.Values(mockVisitor.visitedChildren["dir1/subdir1"]))), []string{
@@ -93,7 +93,7 @@ func TestWalkerSkipEntry(t *testing.T) {
 		// file2.txt was skipped, so only 2 files were visited
 		require.ElementsMatch(t, []string{"file1.txt", "dir1/subdir1/file3.txt"}, v.visitedFiles)
 		// The skipped file's cached entry should appear as a child of dir1
-		dir1Children := slices.Collect(iterable.Map(func(child model.FSEntry) string {
+		dir1Children := slices.Collect(seqMap(func(child model.FSEntry) string {
 			return child.Path()
 		}, slices.Values(v.visitedChildren["dir1"])))
 		require.ElementsMatch(t, []string{"dir1/file2.txt", "dir1/subdir1"}, dir1Children)
@@ -118,7 +118,7 @@ func TestWalkerSkipEntry(t *testing.T) {
 		// subdir1 itself was not visited as a directory
 		require.ElementsMatch(t, []string{".", "dir1"}, v.visitedDirectories)
 		// But the cached entry appears as a child of dir1
-		dir1Children := slices.Collect(iterable.Map(func(child model.FSEntry) string {
+		dir1Children := slices.Collect(seqMap(func(child model.FSEntry) string {
 			return child.Path()
 		}, slices.Values(v.visitedChildren["dir1"])))
 		require.ElementsMatch(t, []string{"dir1/file2.txt", "dir1/subdir1"}, dir1Children)
@@ -152,4 +152,15 @@ func (v *mockFSVisitor) VisitDirectory(path string, dirEntry fs.DirEntry, childr
 	v.visitedChildren[path] = children
 	spaceDID := testutil.RandomDID(v.t)
 	return model.NewDirectory(path, time.Now(), fs.FileMode(0755), []byte(path), id.New(), spaceDID)
+}
+
+// seqMap returns an iterator over f applied to seq.
+func seqMap[In, Out any](f func(In) Out, seq iter.Seq[In]) iter.Seq[Out] {
+	return func(yield func(Out) bool) {
+		for in := range seq {
+			if !yield(f(in)) {
+				return
+			}
+		}
+	}
 }

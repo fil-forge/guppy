@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"io/fs"
@@ -78,8 +79,16 @@ var retrieveCmd = &cobra.Command{
 
 		// Authorize the indexing service to retrieve content from the space on the
 		// agent's behalf.
-		loc := locator.NewIndexLocator(indexer, func(spaces []did.DID) (ucan.Delegation, error) {
-			return contentcmds.Retrieve.Delegate(c.Issuer(), indexerID, space)
+		loc := locator.NewIndexLocator(indexer, func(ctx context.Context, _ []did.DID) ([]ucan.Delegation, error) {
+			dlg, err := contentcmds.Retrieve.Delegate(c.Issuer(), indexerID, space)
+			if err != nil {
+				return nil, fmt.Errorf("delegating content retrieve: %w", err)
+			}
+			proofs, _, err := c.ProofChain(ctx, c.Issuer().DID(), contentcmds.Retrieve.Command, space)
+			if err != nil {
+				return nil, fmt.Errorf("retrieving proof chain: %w", err)
+			}
+			return append(proofs, dlg), nil
 		})
 
 		ds := dagservice.NewDAGService(loc, c, []did.DID{space})

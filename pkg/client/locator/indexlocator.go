@@ -29,7 +29,9 @@ var log = logging.Logger("client/dagservice")
 //
 // It should create a short lived delegation that allows the indexing service
 // to retrieve indexes from the space(s).
-type AuthorizeRetrievalFunc func(spaces []did.DID) (ucan.Delegation, error)
+//
+// It must also return any delegations needed in an proof chain for invocation.
+type AuthorizeRetrievalFunc func(ctx context.Context, spaces []did.DID) ([]ucan.Delegation, error)
 
 func NewIndexLocator(indexer IndexerClient, authorizeRetrieval AuthorizeRetrievalFunc) *indexLocator {
 	return &indexLocator{
@@ -167,14 +169,14 @@ func (s *indexLocator) query(ctx context.Context, spaces []did.DID, digests []mh
 		queryType = types.QueryTypeStandard
 	}
 
-	auth, err := s.authorizeRetrieval(spaces)
+	auth, err := s.authorizeRetrieval(ctx, spaces)
 	if err != nil {
 		return fmt.Errorf("authorizing retrieval for spaces %v: %w", spaces, err)
 	}
 
 	result, err := s.indexer.QueryClaims(ctx, types.Query{
 		Hashes:      digests,
-		Delegations: []ucan.Delegation{auth},
+		Delegations: auth,
 		Match: types.Match{
 			Subject: spaces,
 		},

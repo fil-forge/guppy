@@ -30,7 +30,7 @@ func TestIndexAdd(t *testing.T) {
 
 		c := testutil.Must(ctestutil.Client(t,
 			ctestutil.WithServerRoutes(func(deps ctestutil.RouteDeps) server.Route {
-				return server.NewRoute(indexcmds.Add, func(req *binding.Request[*indexcmds.AddArguments], res *binding.Response[*indexcmds.AddOK]) error {
+				return indexcmds.Add.Route(func(req *binding.Request[*indexcmds.AddArguments], res *binding.Response[*indexcmds.AddOK]) error {
 					capturedIndex = req.Task().Arguments().Index
 					capturedSubject = req.Invocation().Subject()
 					return res.SetSuccess(&indexcmds.AddOK{})

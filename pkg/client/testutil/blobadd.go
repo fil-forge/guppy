@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/fil-forge/go-libstoracha/bytemap"
 	"github.com/fil-forge/guppy/pkg/client"
+	"github.com/fil-forge/libforge/bytemap"
 	"github.com/fil-forge/libforge/commands"
 	assertcmds "github.com/fil-forge/libforge/commands/assert"
 	blobcmds "github.com/fil-forge/libforge/commands/blob"
@@ -232,8 +232,7 @@ func BlobAddHandler(
 	//blobProvider, err := ed25519signer.FromSeed([]byte(blobDigest)[len(blobDigest)-32:])
 	blobProvider := testutil.Must(ed25519.Generate())(t)
 
-	return server.NewRoute(
-		blobcmds.Add,
+	return blobcmds.Add.Route(
 		func(req *binding.Request[*blobcmds.AddArguments], res *binding.Response[*blobcmds.AddOK]) error {
 			args := req.Task().Arguments()
 			inv := req.Invocation()
@@ -391,8 +390,7 @@ func withBlobAdd(t *testing.T, includePutReceipt bool) Option {
 				)
 			},
 			func(_ RouteDeps) server.Route {
-				return server.NewRoute(
-					ucancmds.Conclude,
+				return ucancmds.Conclude.Route(
 					func(req *binding.Request[*ucancmds.ConcludeArguments], res *binding.Response[*ucancmds.ConcludeOK]) error {
 						return res.SetSuccess(&ucancmds.ConcludeOK{})
 					},

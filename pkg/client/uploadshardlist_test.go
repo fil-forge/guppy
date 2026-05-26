@@ -22,7 +22,7 @@ func TestUploadShardList(t *testing.T) {
 
 		c := testutil.Must(ctestutil.Client(t,
 			ctestutil.WithServerRoutes(func(deps ctestutil.RouteDeps) server.Route {
-				return server.NewRoute(shardcmds.List, func(req *binding.Request[*shardcmds.ListArguments], res *binding.Response[*shardcmds.ListOK]) error {
+				return shardcmds.List.Route(func(req *binding.Request[*shardcmds.ListArguments], res *binding.Response[*shardcmds.ListOK]) error {
 					return res.SetSuccess(&shardcmds.ListOK{Size: uint64(len(results)), Results: results})
 				})
 			}),

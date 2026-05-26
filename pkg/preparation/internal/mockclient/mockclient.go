@@ -6,11 +6,11 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/fil-forge/go-libstoracha/digestutil"
 	"github.com/fil-forge/libforge/commands"
 	assertcmds "github.com/fil-forge/libforge/commands/assert"
 	pdpcmds "github.com/fil-forge/libforge/commands/pdp"
 	uploadcmds "github.com/fil-forge/libforge/commands/upload"
+	"github.com/fil-forge/libforge/digestutil"
 	"github.com/fil-forge/libforge/testutil"
 	"github.com/fil-forge/ucantone/did"
 	"github.com/fil-forge/ucantone/principal/ed25519"

@@ -192,8 +192,6 @@ github.com/fil-forge/automobile v0.0.1 h1:9xB3yc4l5b9EdRJSJcNwudgBFNHoMPEAdcb7Gf
 github.com/fil-forge/automobile v0.0.1/go.mod h1:TsO7jlO8ykJZY5tF8j4GsUcu3F02lEzxO7ULoB61hRA=
 github.com/fil-forge/go-ipni-tools v0.0.0-20260519194815-545b9421aec0 h1:HAfXUPvtPjK9UAzofbDSzW0mSXsbubMtIFCEh0SJ2ow=
 github.com/fil-forge/go-ipni-tools v0.0.0-20260519194815-545b9421aec0/go.mod h1:3NRV/7wc4/0uzzrGdI7NoN/yeF1UvqKRwMyjBqGc5s0=
-github.com/fil-forge/go-libstoracha v0.0.0-20260507180245-218ac18ff773 h1:MUBpVnBX9Eql6rBV/f6xKDz/Wm0zICsrcIWWGNH5XeM=
-github.com/fil-forge/go-libstoracha v0.0.0-20260507180245-218ac18ff773/go.mod h1:zE7vPrAYZpoamvIFOtcZvfrWXRi6jyvS5O4o04+X1HE=
 github.com/fil-forge/go-ucanto v0.0.0-20260507172450-5cb5d073f8ab h1:2J2cDThqTKP6/0k3SfdlSxfyPa3aLqjTYnmvbEcryfg=
 github.com/fil-forge/go-ucanto v0.0.0-20260507172450-5cb5d073f8ab/go.mod h1:lZF3UXZ2hGLKYmXdquG50JqI9pRlUrV6lubGtgOYfwc=
 github.com/fil-forge/indexing-service v1.13.5-0.20260522094121-1edae9728a14 h1:KQaJv61CLzTMk35EfSQ1TuzIA5SmMvngjEcrHzIHdG4=
@@ -204,6 +202,8 @@ github.com/fil-forge/libforge v0.0.0-20260522130153-a38febd34c97 h1:4eMwuafgYFig
 github.com/fil-forge/libforge v0.0.0-20260522130153-a38febd34c97/go.mod h1:1ytnrneNEeJcskEbsRDtNZY/Jvgo2Yw5szIUI/9EWPk=
 github.com/fil-forge/ucantone v0.0.0-20260521210642-84d8c533075b h1:ILG7dtSWiOO/fYiesqYj8Esm1qeIxFy7qkZoFdnjPpU=
 github.com/fil-forge/ucantone v0.0.0-20260521210642-84d8c533075b/go.mod h1:XAVqsZwYoZ9vncjZoRUAJ+mL/ApLMFn9HHX7ipohVdY=
+github.com/fil-forge/ucantone v0.0.0-20260522152152-eda937bc2684 h1:kWJLKVltJXPXO7tKS1z0GhzA+c59gwhediGyByEXE0o=
+github.com/fil-forge/ucantone v0.0.0-20260522152152-eda937bc2684/go.mod h1:XAVqsZwYoZ9vncjZoRUAJ+mL/ApLMFn9HHX7ipohVdY=
 github.com/filecoin-project/go-clock v0.1.0 h1:SFbYIM75M8NnFm1yMHhN9Ahy3W5bEZV9gd6MPfXbKVU=
 github.com/filecoin-project/go-clock v0.1.0/go.mod h1:4uB/O4PvOjlx1VCMdZ9MyDZXRm//gkj1ELEbxfI1AZs=
 github.com/filecoin-project/go-data-segment v0.0.1 h1:1wmDxOG4ubWQm3ZC1XI5nCon5qgSq7Ra3Rb6Dbu10Gs=
@@ -648,8 +648,6 @@ github.com/neelance/sourcemap v0.0.0-20200213170602-2833bce08e4c/go.mod h1:Qr6/a
 github.com/opentracing/opentracing-go v1.2.0 h1:uEJPy/1a5RIPAJ0Ov+OIO8OxWu77jEv+1B0VhjKrZUs=
 github.com/opentracing/opentracing-go v1.2.0/go.mod h1:GxEUsuufX4nBwe+T+Wl9TAgYrxe9dPLANfrWvHYVTgc=
 github.com/pascaldekloe/goe v0.0.0-20180627143212-57f6aae5913c/go.mod h1:lzWF7FIEvWOWxwDKqyGYQf6ZUaNfKdP144TG7ZOy1lc=
-github.com/patrickmn/go-cache v2.1.0+incompatible h1:HRMgzkcYKYpi3C8ajMPV8OFXaaRUnok+kx1WdO15EQc=
-github.com/patrickmn/go-cache v2.1.0+incompatible/go.mod h1:3Qf8kWWT7OJRJbdiICTKqZju1ZixQ/KpMGzzAfe6+WQ=
 github.com/paulmach/orb v0.11.1 h1:3koVegMC4X/WeiXYz9iswopaTwMem53NzTJuTF20JzU=
 github.com/paulmach/orb v0.11.1/go.mod h1:5mULz1xQfs3bmQm63QEJA6lNGujuRafwA5S/EnuLaLU=
 github.com/paulmach/protoscan v0.2.1/go.mod h1:SpcSwydNLrxUGSDvXvO0P7g7AuhJ7lcKfDlhJCDw2gY=
@@ -818,8 +816,6 @@ github.com/subosito/gotenv v1.6.0/go.mod h1:Dk4QP5c2W3ibzajGcXpNraDfq2IrhjMIvMSW
 github.com/tidwall/pretty v1.0.0/go.mod h1:XNkn88O1ChpSDQmQeStsy+sBenx6DDtFZJxhVysOjyk=
 github.com/tursodatabase/libsql-client-go v0.0.0-20240902231107-85af5b9d094d h1:dOMI4+zEbDI37KGb0TI44GUAwxHF9cMsIoDTJ7UmgfU=
 github.com/tursodatabase/libsql-client-go v0.0.0-20240902231107-85af5b9d094d/go.mod h1:l8xTsYB90uaVdMHXMCxKKLSgw5wLYBwBKKefNIUnm9s=
-github.com/ucan-wg/go-ucan v0.0.0-20240916120445-37f52863156c h1:A1pMNIlHPnJ6KROqNc6SKg7QlSiQA6umiEoy89Os4cM=
-github.com/ucan-wg/go-ucan v0.0.0-20240916120445-37f52863156c/go.mod h1:IiRc1OKWUk7FziOTWmOo7iwbcEMr7ch0lgs3UrF13pU=
 github.com/ucarion/urlpath v0.0.0-20200424170820-7ccc79b76bbb h1:Ywfo8sUltxogBpFuMOFRrrSifO788kAFxmvVw31PtQQ=
 github.com/ucarion/urlpath v0.0.0-20200424170820-7ccc79b76bbb/go.mod h1:ikPs9bRWicNw3S7XpJ8sK/smGwU9WcSVU3dy9qahYBM=
 github.com/ugorji/go/codec v0.0.0-20181204163529-d75b2dcb6bc8/go.mod h1:VFNgLljTbGfSG7qAOspJ7OScBnGdDN/yBr0sguwnwf0=

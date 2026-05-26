@@ -1,6 +1,7 @@
 package unixfs
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"io/fs"
@@ -56,8 +57,16 @@ var lsCmd = &cobra.Command{
 		c := cmdutil.MustGetClient(cfg)
 		indexer, indexerID := cmdutil.MustGetIndexClient(cfg.Network)
 
-		loc := locator.NewIndexLocator(indexer, func(spaces []did.DID) (ucan.Delegation, error) {
-			return contentcmds.Retrieve.Delegate(c.Issuer(), indexerID, spaceDID)
+		loc := locator.NewIndexLocator(indexer, func(ctx context.Context, _ []did.DID) ([]ucan.Delegation, error) {
+			dlg, err := contentcmds.Retrieve.Delegate(c.Issuer(), indexerID, spaceDID)
+			if err != nil {
+				return nil, fmt.Errorf("delegating content retrieve: %w", err)
+			}
+			proofs, _, err := c.ProofChain(ctx, c.Issuer().DID(), contentcmds.Retrieve.Command, spaceDID)
+			if err != nil {
+				return nil, fmt.Errorf("retrieving proof chain: %w", err)
+			}
+			return append(proofs, dlg), nil
 		})
 
 		dagSvc := dagservice.NewDAGService(loc, c, []did.DID{spaceDID})
