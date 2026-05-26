@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"slices"
 	"time"
 
 	"github.com/fil-forge/guppy/internal/ctxutil"
@@ -290,7 +291,29 @@ func (c *Client) BlobAdd(ctx context.Context, content io.Reader, space did.DID, 
 
 	// invoke `/ucan/conclude` with `/http/put` receipt
 	if !putSuccess {
-		if err := c.sendPutReceipt(ctx, putInv); err != nil {
+		// Re-delegate, since the previous delegation may have expired while we were
+		// performing the HTTP PUT.
+		accDlg, accProofs, accAttestations, err := delegateWithProofs(
+			ctx,
+			c.signer,
+			c.serviceID,
+			space,
+			blobcmds.Accept.Command,
+			dlgPolicy,
+			c,
+			c.serviceID,
+		)
+		if err != nil {
+			return AddedBlob{}, fmt.Errorf("delegating /blob/accept: %w", err)
+		}
+		err = c.sendPutReceipt(
+			ctx,
+			putInv,
+			execution.WithDelegations(accDlg),
+			execution.WithDelegations(accProofs...),
+			execution.WithInvocations(accAttestations...),
+		)
+		if err != nil {
 			return AddedBlob{}, fmt.Errorf("sending put receipt: %w", err)
 		}
 	}
@@ -377,7 +400,7 @@ func putBlob(ctx context.Context, client *http.Client, url *url.URL, headers map
 	return nil
 }
 
-func (c *Client) sendPutReceipt(ctx context.Context, putInv ucan.Invocation) error {
+func (c *Client) sendPutReceipt(ctx context.Context, putInv ucan.Invocation, opts ...execution.RequestOption) error {
 	var putMeta datamodel.Map
 	if err := putMeta.UnmarshalCBOR(bytes.NewReader(putInv.MetadataBytes())); err != nil {
 		return fmt.Errorf("unmarshaling /http/put invocation metadata: %w", err)
@@ -419,12 +442,9 @@ func (c *Client) sendPutReceipt(ctx context.Context, putInv ucan.Invocation) err
 		return fmt.Errorf("generating invocation: %w", err)
 	}
 
-	_, rcpt, _, err := Execute[*ucancmds.ConcludeOK](
-		ctx,
-		c.ucanClient,
-		inv,
-		execution.WithReceipts(putRcpt),
-	)
+	opts = slices.Clone(opts)
+	opts = append(opts, execution.WithReceipts(putRcpt))
+	_, rcpt, _, err := Execute[*ucancmds.ConcludeOK](ctx, c.ucanClient, inv, opts...)
 	if err != nil {
 		return fmt.Errorf("executing invocation: %w", ctxutil.EnrichWithCause(err, ctx))
 	}
