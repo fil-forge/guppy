@@ -22,7 +22,6 @@ import (
 
 	"github.com/fil-forge/guppy/pkg/client"
 	"github.com/fil-forge/guppy/pkg/preparation/storacha"
-	blobcmds "github.com/fil-forge/libforge/commands/blob"
 )
 
 type MockClient struct {
@@ -56,12 +55,12 @@ type indexAddInvocation struct {
 	IndexCID cid.Cid
 }
 
-type blobReplicateInvocation struct {
-	Space              did.DID
-	Blob               blobcmds.Blob
-	ReplicaCount       uint
-	LocationCommitment ucan.Invocation
-}
+// type blobReplicateInvocation struct {
+// 	Space              did.DID
+// 	Blob               blobcmds.Blob
+// 	ReplicaCount       uint
+// 	LocationCommitment ucan.Invocation
+// }
 
 type uploadAddInvocation struct {
 	Space  did.DID

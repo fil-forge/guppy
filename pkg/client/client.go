@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"net/http"
 	"net/url"
 	"reflect"
 
@@ -33,7 +32,6 @@ var (
 type Client struct {
 	signer         ucan.Signer
 	serviceID      did.DID
-	httpClient     *http.Client
 	ucanClient     *client.HTTPClient
 	ucanOpts       []client.HTTPOption
 	receiptsClient *receipt.Client
