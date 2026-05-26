@@ -15,17 +15,16 @@ import (
 	"github.com/fil-forge/ucantone/ucan/command"
 	"github.com/fil-forge/ucantone/ucan/container"
 	"github.com/fil-forge/ucantone/ucan/delegation"
-	"github.com/ipfs/go-cid"
 )
 
 var createFlags struct {
-	can        []string
+	cmds       []string
 	expiration int
 	output     string
 }
 
 func init() {
-	createCmd.Flags().StringArrayVarP(&createFlags.can, "can", "c", nil, "One or more abilities (commands) to delegate, e.g. space/blob/add.")
+	createCmd.Flags().StringArrayVarP(&createFlags.cmds, "cmd", "c", nil, "One or more commands to delegate, e.g. /blob/add.")
 	createCmd.Flags().IntVarP(&createFlags.expiration, "expiration", "e", 0, "Unix timestamp when the delegation is no longer valid. Zero indicates no expiration.")
 	createCmd.Flags().StringVarP(&createFlags.output, "output", "o", "", "Path to write the delegation container to. If not specified, outputs to stdout.")
 }
@@ -45,8 +44,8 @@ var createCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("parsing audience DID: %w", err)
 		}
-		if len(createFlags.can) == 0 {
-			return fmt.Errorf("at least one capability must be specified with --can")
+		if len(createFlags.cmds) == 0 {
+			return fmt.Errorf("at least one command must be specified with --cmd")
 		}
 
 		cfg, err := config.Load[config.Config]()
@@ -69,38 +68,27 @@ var createCmd = &cobra.Command{
 
 		// Collect the new delegations plus the proof chain authorizing each,
 		// deduplicating by CID.
-		seen := map[cid.Cid]struct{}{}
 		var dels []ucan.Delegation
-		add := func(d ucan.Delegation) {
-			if _, ok := seen[d.Link()]; ok {
-				return
-			}
-			seen[d.Link()] = struct{}{}
-			dels = append(dels, d)
-		}
-
-		for _, can := range createFlags.can {
-			cmdName, err := command.Parse(normalizeCommand(can))
+		for _, cmdStr := range createFlags.cmds {
+			cmdName, err := command.Parse(normalizeCommand(cmdStr))
 			if err != nil {
-				return fmt.Errorf("parsing ability %q: %w", can, err)
+				return fmt.Errorf("parsing command %q: %w", cmdStr, err)
 			}
 
 			proofs, _, err := c.ProofChain(cmd.Context(), c.Issuer().DID(), cmdName, space)
 			if err != nil {
-				return fmt.Errorf("building proof chain for %q: %w", can, err)
+				return fmt.Errorf("building proof chain for %q: %w", cmdStr, err)
 			}
 			if len(proofs) == 0 {
-				return fmt.Errorf("no delegations found for ability %q with space %q", can, space)
+				return fmt.Errorf("no delegations found for command %q with space %q", cmdStr, space)
 			}
 
 			del, err := delegation.Delegate(c.Issuer(), aud, space, cmdName, opts...)
 			if err != nil {
 				return fmt.Errorf("creating delegation: %w", err)
 			}
-			add(del)
-			for _, p := range proofs {
-				add(p)
-			}
+			dels = append(dels, del)
+			dels = append(dels, proofs...)
 		}
 
 		encoded, err := container.Encode(container.Base64Gzip, container.New(container.WithDelegations(dels...)))
@@ -119,10 +107,10 @@ var createCmd = &cobra.Command{
 	},
 }
 
-// normalizeCommand ensures an ability is a "/"-prefixed UCAN command.
-func normalizeCommand(can string) string {
-	if strings.HasPrefix(can, "/") {
-		return can
+// normalizeCommand ensures a command is a "/"-prefixed UCAN command.
+func normalizeCommand(cmd string) string {
+	if strings.HasPrefix(cmd, "/") {
+		return cmd
 	}
-	return "/" + can
+	return "/" + cmd
 }

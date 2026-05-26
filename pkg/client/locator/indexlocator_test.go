@@ -7,13 +7,13 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/fil-forge/indexing-service/pkg/types"
 	"github.com/fil-forge/libforge/blobindex"
 	"github.com/fil-forge/libforge/commands"
 	assertcmds "github.com/fil-forge/libforge/commands/assert"
 	uploadcmds "github.com/fil-forge/libforge/commands/upload"
 	"github.com/fil-forge/libforge/digestutil"
 	libtestutil "github.com/fil-forge/libforge/testutil"
-	"github.com/fil-forge/indexing-service/pkg/types"
 	"github.com/fil-forge/ucantone/did"
 	"github.com/fil-forge/ucantone/principal/ed25519"
 	"github.com/fil-forge/ucantone/ucan"
@@ -101,8 +101,8 @@ func TestLocator(t *testing.T) {
 			assert.ElementsMatch(t, []mh.Multihash{blockHash}, digests)
 			return []ucan.Invocation{claim1, claim2}, []blobindex.ShardedDagIndex{index}, nil
 		})
-		l := locator.NewIndexLocator(mockIndexer, func(spaces []did.DID) (ucan.Delegation, error) {
-			return authDelegation, nil
+		l := locator.NewIndexLocator(mockIndexer, func(ctx context.Context, spaces []did.DID) ([]ucan.Delegation, error) {
+			return []ucan.Delegation{authDelegation}, nil
 		})
 
 		locations, err := l.Locate(t.Context(), []did.DID{space.DID()}, blockHash)
@@ -150,7 +150,9 @@ func TestLocator(t *testing.T) {
 			assert.ElementsMatch(t, []mh.Multihash{block1Hash}, digests)
 			return []ucan.Invocation{claim}, []blobindex.ShardedDagIndex{index}, nil
 		})
-		l := locator.NewIndexLocator(mockIndexer, func(spaces []did.DID) (ucan.Delegation, error) { return auth, nil })
+		l := locator.NewIndexLocator(mockIndexer, func(ctx context.Context, spaces []did.DID) ([]ucan.Delegation, error) {
+			return []ucan.Delegation{auth}, nil
+		})
 
 		locations1, err := l.Locate(t.Context(), []did.DID{space.DID()}, block1Hash)
 		require.NoError(t, err)
@@ -184,7 +186,9 @@ func TestLocator(t *testing.T) {
 
 		auth := randomDelegation(t)
 		mockIndexer := newLocationQueryMockIndexer(t, claim1, index)
-		l := locator.NewIndexLocator(mockIndexer, func(spaces []did.DID) (ucan.Delegation, error) { return auth, nil })
+		l := locator.NewIndexLocator(mockIndexer, func(ctx context.Context, spaces []did.DID) ([]ucan.Delegation, error) {
+			return []ucan.Delegation{auth}, nil
+		})
 
 		locations1, err := l.Locate(t.Context(), []did.DID{space.DID()}, block1Hash)
 		require.NoError(t, err)
@@ -221,7 +225,9 @@ func TestLocator(t *testing.T) {
 
 		auth := randomDelegation(t)
 		mockIndexer := &spaceScopedMockIndexer{t: t, space1Claim: claim1, space2Claim: claim2, index: index}
-		session := locator.NewIndexLocator(mockIndexer, func(spaces []did.DID) (ucan.Delegation, error) { return auth, nil })
+		session := locator.NewIndexLocator(mockIndexer, func(ctx context.Context, spaces []did.DID) ([]ucan.Delegation, error) {
+			return []ucan.Delegation{auth}, nil
+		})
 
 		locations1, err := session.Locate(t.Context(), []did.DID{space1.DID()}, blockHash)
 		require.NoError(t, err)
@@ -265,7 +271,9 @@ func TestLocator(t *testing.T) {
 		mockIndexer := newMockIndexerClient(t, func([]mh.Multihash) ([]ucan.Invocation, []blobindex.ShardedDagIndex, error) {
 			return []ucan.Invocation{claim1, claim2}, []blobindex.ShardedDagIndex{index1, index2}, nil
 		})
-		l := locator.NewIndexLocator(mockIndexer, func(spaces []did.DID) (ucan.Delegation, error) { return auth, nil })
+		l := locator.NewIndexLocator(mockIndexer, func(ctx context.Context, spaces []did.DID) ([]ucan.Delegation, error) {
+			return []ucan.Delegation{auth}, nil
+		})
 
 		locations, err := l.Locate(t.Context(), []did.DID{space1.DID(), space2.DID()}, blockDigest1)
 		require.NoError(t, err)
@@ -324,7 +332,9 @@ func TestLocateMany(t *testing.T) {
 			assert.ElementsMatch(t, []mh.Multihash{block1Hash, block2Hash, block3Hash}, digests)
 			return []ucan.Invocation{claim1, claim2}, []blobindex.ShardedDagIndex{index}, nil
 		})
-		l := locator.NewIndexLocator(mockIndexer, func(spaces []did.DID) (ucan.Delegation, error) { return auth, nil })
+		l := locator.NewIndexLocator(mockIndexer, func(ctx context.Context, spaces []did.DID) ([]ucan.Delegation, error) {
+			return []ucan.Delegation{auth}, nil
+		})
 
 		locations, err := l.LocateMany(t.Context(), []did.DID{space.DID()}, []mh.Multihash{block1Hash, block2Hash, block3Hash})
 		require.NoError(t, err)
@@ -370,7 +380,9 @@ func TestLocateMany(t *testing.T) {
 			assert.ElementsMatch(t, []mh.Multihash{block1Hash, block2Hash}, digests)
 			return []ucan.Invocation{claim}, []blobindex.ShardedDagIndex{index}, nil
 		})
-		l := locator.NewIndexLocator(mockIndexer, func(spaces []did.DID) (ucan.Delegation, error) { return auth, nil })
+		l := locator.NewIndexLocator(mockIndexer, func(ctx context.Context, spaces []did.DID) ([]ucan.Delegation, error) {
+			return []ucan.Delegation{auth}, nil
+		})
 
 		locations, err := l.LocateMany(t.Context(), []did.DID{space.DID()}, []mh.Multihash{block1Hash, block2Hash})
 		require.NoError(t, err)
@@ -405,7 +417,9 @@ func TestLocateMany(t *testing.T) {
 		mockIndexer := newMockIndexerClient(t, func(digests []mh.Multihash) ([]ucan.Invocation, []blobindex.ShardedDagIndex, error) {
 			return []ucan.Invocation{claim1, claim2}, []blobindex.ShardedDagIndex{index}, nil
 		})
-		l := locator.NewIndexLocator(mockIndexer, func(spaces []did.DID) (ucan.Delegation, error) { return auth, nil })
+		l := locator.NewIndexLocator(mockIndexer, func(ctx context.Context, spaces []did.DID) ([]ucan.Delegation, error) {
+			return []ucan.Delegation{auth}, nil
+		})
 
 		_, err := l.Locate(t.Context(), []did.DID{space.DID()}, block1Hash)
 		require.NoError(t, err)
@@ -474,9 +488,9 @@ type mockQueryResult struct {
 var _ types.QueryResult = (*mockQueryResult)(nil)
 
 func (m *mockQueryResult) Root() types.Block     { return types.Block{} }
-func (m *mockQueryResult) Blocks() []types.Block  { return m.blocks }
-func (m *mockQueryResult) Claims() []cid.Cid      { return m.claimLinks }
-func (m *mockQueryResult) Indexes() []cid.Cid     { return m.indexLinks }
+func (m *mockQueryResult) Blocks() []types.Block { return m.blocks }
+func (m *mockQueryResult) Claims() []cid.Cid     { return m.claimLinks }
+func (m *mockQueryResult) Indexes() []cid.Cid    { return m.indexLinks }
 
 // spaceScopedMockIndexer returns different claims based on the space in the query.
 type spaceScopedMockIndexer struct {
@@ -604,4 +618,3 @@ func (m *locationQueryMockIndexer) QueryClaims(ctx context.Context, query types.
 	// For standard queries, return both index and claim.
 	return newQueryResult(m.t, []ucan.Invocation{m.claim}, []types.Block{archiveIndex(m.t, m.index)}), nil
 }
-

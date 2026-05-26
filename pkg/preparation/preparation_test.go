@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	blobindex "github.com/fil-forge/go-libstoracha/blobindex"
+	"github.com/fil-forge/libforge/blobindex"
 	blobcmds "github.com/fil-forge/libforge/commands/blob"
 	contentcmds "github.com/fil-forge/libforge/commands/content"
 	indexcmds "github.com/fil-forge/libforge/commands/index"
@@ -97,13 +97,13 @@ func prepareTestClient(t *testing.T, space ed25519.Signer, putClient *http.Clien
 			ctestutil.WithBlobAdd(t),
 			ctestutil.WithServerRoutes(
 				func(deps ctestutil.RouteDeps) server.Route {
-					return server.NewRoute(indexcmds.Add, func(req *binding.Request[*indexcmds.AddArguments], res *binding.Response[*indexcmds.AddOK]) error {
+					return indexcmds.Add.Route(func(req *binding.Request[*indexcmds.AddArguments], res *binding.Response[*indexcmds.AddOK]) error {
 						rec.recordIndex(req.Invocation().Subject(), req.Task().Arguments())
 						return res.SetSuccess(&indexcmds.AddOK{})
 					})
 				},
 				func(deps ctestutil.RouteDeps) server.Route {
-					return server.NewRoute(uploadcmds.Add, func(req *binding.Request[*uploadcmds.AddArguments], res *binding.Response[*uploadcmds.AddOK]) error {
+					return uploadcmds.Add.Route(func(req *binding.Request[*uploadcmds.AddArguments], res *binding.Response[*uploadcmds.AddOK]) error {
 						rec.recordUpload(req.Invocation().Subject(), req.Task().Arguments())
 						return res.SetSuccess(&uploadcmds.AddOK{})
 					})
@@ -367,18 +367,26 @@ func (c *indexAndShardsBlockstore) Get(ctx context.Context, key cid.Cid) (blocks
 					return nil, fmt.Errorf("shard with digest %s not found", digestutil.Format(shardDigest))
 				}
 				shardBlob := c.shards.Get(shardDigest)
-				return blocks.NewBlockWithCid(shardBlob[position.Offset:position.Offset+position.Length], key)
+				return blocks.NewBlockWithCid(shardBlob[position.Start:position.End+1], key)
 			}
 		}
 	}
 	return nil, format.ErrNotFound{Cid: key}
 }
 
-func (c *indexAndShardsBlockstore) DeleteBlock(context.Context, cid.Cid) error      { panic("not implemented") }
-func (c *indexAndShardsBlockstore) Has(context.Context, cid.Cid) (bool, error)      { panic("not implemented") }
-func (c *indexAndShardsBlockstore) GetSize(context.Context, cid.Cid) (int, error)   { panic("not implemented") }
-func (c *indexAndShardsBlockstore) Put(context.Context, blocks.Block) error         { panic("not implemented") }
-func (c *indexAndShardsBlockstore) PutMany(context.Context, []blocks.Block) error   { panic("not implemented") }
+func (c *indexAndShardsBlockstore) DeleteBlock(context.Context, cid.Cid) error {
+	panic("not implemented")
+}
+func (c *indexAndShardsBlockstore) Has(context.Context, cid.Cid) (bool, error) {
+	panic("not implemented")
+}
+func (c *indexAndShardsBlockstore) GetSize(context.Context, cid.Cid) (int, error) {
+	panic("not implemented")
+}
+func (c *indexAndShardsBlockstore) Put(context.Context, blocks.Block) error { panic("not implemented") }
+func (c *indexAndShardsBlockstore) PutMany(context.Context, []blocks.Block) error {
+	panic("not implemented")
+}
 func (c *indexAndShardsBlockstore) AllKeysChan(context.Context) (<-chan cid.Cid, error) {
 	panic("not implemented")
 }

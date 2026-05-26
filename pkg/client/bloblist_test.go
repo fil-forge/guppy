@@ -27,7 +27,7 @@ func TestBlobList(t *testing.T) {
 
 		c := testutil.Must(ctestutil.Client(t,
 			ctestutil.WithServerRoutes(func(deps ctestutil.RouteDeps) server.Route {
-				return server.NewRoute(blobcmds.List, func(req *binding.Request[*blobcmds.ListArguments], res *binding.Response[*blobcmds.ListOK]) error {
+				return blobcmds.List.Route(func(req *binding.Request[*blobcmds.ListArguments], res *binding.Response[*blobcmds.ListOK]) error {
 					return res.SetSuccess(&blobcmds.ListOK{Size: uint64(len(results)), Results: results})
 				})
 			}),

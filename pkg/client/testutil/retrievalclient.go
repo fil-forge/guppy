@@ -12,7 +12,6 @@ import (
 	"github.com/fil-forge/libforge/ucan/retrieval"
 	"github.com/fil-forge/ucantone/binding"
 	"github.com/fil-forge/ucantone/principal"
-	"github.com/fil-forge/ucantone/server"
 	"github.com/fil-forge/ucantone/ucan/container"
 	"github.com/multiformats/go-multihash"
 	"github.com/stretchr/testify/assert"
@@ -46,8 +45,7 @@ func NewRetrievalClient(t *testing.T, service principal.Signer, testData []byte,
 	}
 
 	srv := retrieval.NewServer(service)
-	route := server.NewRoute(
-		contentcmds.Retrieve,
+	route := contentcmds.Retrieve.Route(
 		func(req *binding.Request[*contentcmds.RetrieveArguments], res *binding.Response[*contentcmds.RetrieveOK]) error {
 			args := req.Task().Arguments()
 

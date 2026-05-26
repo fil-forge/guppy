@@ -17,11 +17,13 @@ var lsFlags struct {
 	proofsPath string
 	long       bool
 	human      bool
+	json       bool
 }
 
 func init() {
 	lsCmd.Flags().StringVar(&lsFlags.proofsPath, "proof", "", "Path to a UCAN proof container with proofs for this operation.")
 	lsCmd.Flags().BoolVarP(&lsFlags.long, "long", "l", false, "Display detailed information about blobs.")
+	lsCmd.Flags().BoolVar(&lsFlags.json, "json", false, "Output as newline delimited JSON.")
 	lsCmd.Flags().BoolVarP(&lsFlags.human, "human", "H", false, "Display blob sizes in human-readable format (only applicable with --long).")
 }
 
@@ -55,13 +57,19 @@ var lsCmd = &cobra.Command{
 		var cursor *string
 		size := uint64(pageSize)
 		for {
-			listOk, err := c.BlobList(cmd.Context(), spaceDID, blobcmds.ListArguments{Cursor: cursor, Size: &size})
+			listOK, err := c.BlobList(cmd.Context(), spaceDID, blobcmds.ListArguments{Cursor: cursor, Size: &size})
 			if err != nil {
 				return err
 			}
 
-			for _, r := range listOk.Results {
+			for _, r := range listOK.Results {
 				switch {
+				case lsFlags.json:
+					err := r.MarshalDagJSON(cmd.OutOrStdout())
+					if err != nil {
+						return err
+					}
+					cmd.Println("")
 				case lsFlags.long && lsFlags.human:
 					cmd.Printf("%s\t%s\n", digestutil.Format(r.Blob.Digest), humanize.IBytes(r.Blob.Size))
 				case lsFlags.long:
@@ -71,10 +79,10 @@ var lsCmd = &cobra.Command{
 				}
 			}
 
-			if listOk.Cursor == nil {
+			if listOK.Cursor == nil {
 				break
 			}
-			cursor = listOk.Cursor
+			cursor = listOK.Cursor
 		}
 		return nil
 	},

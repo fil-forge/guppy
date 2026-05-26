@@ -24,7 +24,7 @@ func TestRequestAccess(t *testing.T) {
 
 		c := testutil.Must(ctestutil.Client(t,
 			ctestutil.WithServerRoutes(func(deps ctestutil.RouteDeps) server.Route {
-				return server.NewRoute(accesscmds.Request, func(req *binding.Request[*accesscmds.RequestArguments], res *binding.Response[*accesscmds.RequestOK]) error {
+				return accesscmds.Request.Route(func(req *binding.Request[*accesscmds.RequestArguments], res *binding.Response[*accesscmds.RequestOK]) error {
 					captured = req.Task().Arguments()
 					invLink = req.Invocation().Link()
 					return res.SetSuccess(&accesscmds.RequestOK{

@@ -31,7 +31,7 @@ func TestPollClaim(t *testing.T) {
 
 	c := testutil.Must(ctestutil.Client(t,
 		ctestutil.WithServerRoutes(func(deps ctestutil.RouteDeps) server.Route {
-			return server.NewRoute(accesscmds.Claim, func(req *binding.Request[*accesscmds.ClaimArguments], res *binding.Response[*accesscmds.ClaimOK]) error {
+			return accesscmds.Claim.Route(func(req *binding.Request[*accesscmds.ClaimArguments], res *binding.Response[*accesscmds.ClaimOK]) error {
 				if len(responses) == 0 {
 					return res.SetFailure(fmt.Errorf("no more responses available"))
 				}

@@ -24,7 +24,7 @@ func TestClaimAccess(t *testing.T) {
 
 		c := testutil.Must(ctestutil.Client(t,
 			ctestutil.WithServerRoutes(func(deps ctestutil.RouteDeps) server.Route {
-				return server.NewRoute(accesscmds.Claim, func(req *binding.Request[*accesscmds.ClaimArguments], res *binding.Response[*accesscmds.ClaimOK]) error {
+				return accesscmds.Claim.Route(func(req *binding.Request[*accesscmds.ClaimArguments], res *binding.Response[*accesscmds.ClaimOK]) error {
 					// The claimed delegations travel in the response metadata; the OK
 					// payload lists their links.
 					if err := res.SetMetadata(container.New(container.WithDelegations(del))); err != nil {
@@ -48,7 +48,7 @@ func TestClaimAccess(t *testing.T) {
 		ctx := t.Context()
 		c := testutil.Must(ctestutil.Client(t,
 			ctestutil.WithServerRoutes(func(deps ctestutil.RouteDeps) server.Route {
-				return server.NewRoute(accesscmds.Claim, func(req *binding.Request[*accesscmds.ClaimArguments], res *binding.Response[*accesscmds.ClaimOK]) error {
+				return accesscmds.Claim.Route(func(req *binding.Request[*accesscmds.ClaimArguments], res *binding.Response[*accesscmds.ClaimOK]) error {
 					return res.SetFailure(fmt.Errorf("Something went wrong!"))
 				})
 			}),

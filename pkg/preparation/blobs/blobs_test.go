@@ -10,9 +10,6 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/fil-forge/go-libstoracha/blobindex"
-	stestutil "github.com/fil-forge/libforge/testutil"
-	"github.com/fil-forge/guppy/pkg/internal/util"
 	"github.com/fil-forge/guppy/pkg/preparation/blobs"
 	"github.com/fil-forge/guppy/pkg/preparation/blobs/model"
 	dagsmodel "github.com/fil-forge/guppy/pkg/preparation/dags/model"
@@ -24,12 +21,13 @@ import (
 	repoutil "github.com/fil-forge/guppy/pkg/preparation/sqlrepo/util"
 	"github.com/fil-forge/guppy/pkg/preparation/types"
 	"github.com/fil-forge/guppy/pkg/preparation/types/id"
+	"github.com/fil-forge/libforge/blobindex"
+	stestutil "github.com/fil-forge/libforge/testutil"
 	"github.com/fil-forge/ucantone/did"
 	commcid "github.com/filecoin-project/go-fil-commcid"
 	blocks "github.com/ipfs/go-block-format"
 	"github.com/ipfs/go-cid"
 	"github.com/ipld/go-car/v2/blockstore"
-	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/multiformats/go-multihash"
 	commp "github.com/storacha/go-fil-commp-hashhash"
 	"github.com/stretchr/testify/require"
@@ -1075,15 +1073,13 @@ func TestReaderForIndex(t *testing.T) {
 		indexView, err := blobindex.Extract(indexReader)
 		require.NoError(t, err)
 
-		// Verify the index content
-		require.Equal(t, cidlink.Link{Cid: util.PlaceholderCID}, indexView.Content())
 		require.Equal(t, 1, indexView.Shards().Size(), "index should have one shard")
 
 		shardSlices := indexView.Shards().Get(digest)
 		require.NotNil(t, shardSlices)
 		require.Equal(t, 2, shardSlices.Size(), "shard should have two slices")
-		require.Equal(t, blobindex.Position{Offset: 10 + 1, Length: 100}, shardSlices.Get(node1.CID().Hash()))
-		require.Equal(t, blobindex.Position{Offset: 10 + 1 + 100 + 2, Length: 200}, shardSlices.Get(node2.CID().Hash()))
+		require.Equal(t, blobindex.Range{Start: 10 + 1, End: 10 + 1 + 100 - 1}, shardSlices.Get(node1.CID().Hash()))
+		require.Equal(t, blobindex.Range{Start: 10 + 1 + 100 + 2, End: 10 + 1 + 100 + 2 + 200 - 1}, shardSlices.Get(node2.CID().Hash()))
 	})
 
 	t.Run("returns a reader for a multi-shard index", func(t *testing.T) {
@@ -1155,21 +1151,20 @@ func TestReaderForIndex(t *testing.T) {
 		require.NoError(t, err)
 
 		// Verify the index content
-		require.Equal(t, cidlink.Link{Cid: util.PlaceholderCID}, indexView.Content())
 		require.Equal(t, 2, indexView.Shards().Size(), "index should have two shards")
 
 		// Verify first shard
 		shard1Slices := indexView.Shards().Get(digest1)
 		require.NotNil(t, shard1Slices)
 		require.Equal(t, 2, shard1Slices.Size(), "first shard should have two slices")
-		require.Equal(t, blobindex.Position{Offset: 10 + 1, Length: 100}, shard1Slices.Get(node1.CID().Hash()))
-		require.Equal(t, blobindex.Position{Offset: 10 + 1 + 100 + 2, Length: 200}, shard1Slices.Get(node2.CID().Hash()))
+		require.Equal(t, blobindex.Range{Start: 10 + 1, End: 10 + 1 + 100 - 1}, shard1Slices.Get(node1.CID().Hash()))
+		require.Equal(t, blobindex.Range{Start: 10 + 1 + 100 + 2, End: 10 + 1 + 100 + 2 + 200 - 1}, shard1Slices.Get(node2.CID().Hash()))
 
 		// Verify second shard
 		shard2Slices := indexView.Shards().Get(digest2)
 		require.NotNil(t, shard2Slices)
 		require.Equal(t, 1, shard2Slices.Size(), "second shard should have one slice")
-		require.Equal(t, blobindex.Position{Offset: 20 + 3, Length: 300}, shard2Slices.Get(node3.CID().Hash()))
+		require.Equal(t, blobindex.Range{Start: 20 + 3, End: 20 + 3 + 300 - 1}, shard2Slices.Get(node3.CID().Hash()))
 	})
 
 	t.Run("returns an error when shard has no digest", func(t *testing.T) {
@@ -1244,8 +1239,7 @@ func TestReaderForIndex(t *testing.T) {
 		indexView, err := blobindex.Extract(indexReader)
 		require.NoError(t, err)
 
-		// Verify the index is empty but has the correct root
-		require.Equal(t, cidlink.Link{Cid: util.PlaceholderCID}, indexView.Content())
+		// Verify the index is empty
 		require.Equal(t, 0, indexView.Shards().Size(), "index should have no shards")
 	})
 }
