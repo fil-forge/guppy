@@ -4,16 +4,16 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/fil-forge/go-libstoracha/blobindex"
-	assertcap "github.com/fil-forge/go-libstoracha/capabilities/assert"
-	captypes "github.com/fil-forge/go-libstoracha/capabilities/types"
-	"github.com/fil-forge/go-libstoracha/testutil"
-	"github.com/fil-forge/go-ucanto/core/delegation"
-	"github.com/fil-forge/go-ucanto/principal"
-	ed25519signer "github.com/fil-forge/go-ucanto/principal/ed25519/signer"
+	gtestutil "github.com/fil-forge/guppy/internal/testutil"
 	"github.com/fil-forge/guppy/pkg/verification"
+	"github.com/fil-forge/libforge/blobindex"
+	"github.com/fil-forge/libforge/commands"
+	assertcmds "github.com/fil-forge/libforge/commands/assert"
+	"github.com/fil-forge/libforge/testutil"
 	"github.com/fil-forge/ucantone/did"
-	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
+	"github.com/fil-forge/ucantone/principal/ed25519"
+	"github.com/fil-forge/ucantone/ucan"
+	"github.com/fil-forge/ucantone/ucan/invocation"
 	"github.com/multiformats/go-multihash"
 	"github.com/stretchr/testify/require"
 )
@@ -31,7 +31,7 @@ func TestIndexCache(t *testing.T) {
 	t.Run("returns the index that contains a given slice", func(t *testing.T) {
 		cache := verification.NewIndexCache()
 
-		rootCID := testutil.RandomCID(t).(cidlink.Link).Cid
+		rootCID := testutil.RandomCID(t)
 		index, sliceDigest := randomIndex(t)
 
 		cache.Add(rootCID, index)
@@ -45,10 +45,10 @@ func TestIndexCache(t *testing.T) {
 	t.Run("handles multiple indexes with different slices", func(t *testing.T) {
 		cache := verification.NewIndexCache()
 
-		root1 := testutil.RandomCID(t).(cidlink.Link).Cid
+		root1 := testutil.RandomCID(t)
 		index1, slice1 := randomIndex(t)
 
-		root2 := testutil.RandomCID(t).(cidlink.Link).Cid
+		root2 := testutil.RandomCID(t)
 		index2, slice2 := randomIndex(t)
 
 		cache.Add(root1, index1)
@@ -78,9 +78,9 @@ func TestLocationCache(t *testing.T) {
 		cache := verification.NewLocationCache()
 
 		// Create a location commitment
-		issuer := testutil.Must(ed25519signer.Generate())(t)
-		audience := testutil.Must(ed25519signer.Generate())(t)
-		space := testutil.Must(ed25519signer.Generate())(t)
+		issuer := testutil.Must(ed25519.Generate())(t)
+		audience := testutil.Must(ed25519.Generate())(t)
+		space := testutil.Must(ed25519.Generate())(t)
 
 		shardDigest := testutil.RandomMultihash(t)
 		commitment := createLocationCommitment(t, issuer, audience, space.DID(), shardDigest)
@@ -99,10 +99,10 @@ func TestLocationCache(t *testing.T) {
 		cache := verification.NewLocationCache()
 
 		// Two different storage providers (issuers) for the same shard
-		issuer1 := testutil.Must(ed25519signer.Generate())(t)
-		issuer2 := testutil.Must(ed25519signer.Generate())(t)
-		audience := testutil.Must(ed25519signer.Generate())(t)
-		space := testutil.Must(ed25519signer.Generate())(t)
+		issuer1 := testutil.Must(ed25519.Generate())(t)
+		issuer2 := testutil.Must(ed25519.Generate())(t)
+		audience := testutil.Must(ed25519.Generate())(t)
+		space := testutil.Must(ed25519.Generate())(t)
 
 		shardDigest := testutil.RandomMultihash(t)
 
@@ -121,9 +121,9 @@ func TestLocationCache(t *testing.T) {
 	t.Run("deduplicates identical commitments for the same shard", func(t *testing.T) {
 		cache := verification.NewLocationCache()
 
-		issuer := testutil.Must(ed25519signer.Generate())(t)
-		audience := testutil.Must(ed25519signer.Generate())(t)
-		space := testutil.Must(ed25519signer.Generate())(t)
+		issuer := testutil.Must(ed25519.Generate())(t)
+		audience := testutil.Must(ed25519.Generate())(t)
+		space := testutil.Must(ed25519.Generate())(t)
 
 		shardDigest := testutil.RandomMultihash(t)
 
@@ -141,9 +141,9 @@ func TestLocationCache(t *testing.T) {
 	t.Run("keeps locations for different shards separate", func(t *testing.T) {
 		cache := verification.NewLocationCache()
 
-		issuer := testutil.Must(ed25519signer.Generate())(t)
-		audience := testutil.Must(ed25519signer.Generate())(t)
-		space := testutil.Must(ed25519signer.Generate())(t)
+		issuer := testutil.Must(ed25519.Generate())(t)
+		audience := testutil.Must(ed25519.Generate())(t)
+		space := testutil.Must(ed25519.Generate())(t)
 
 		shard1 := testutil.RandomMultihash(t)
 		shard2 := testutil.RandomMultihash(t)
@@ -167,39 +167,23 @@ func TestLocationCache(t *testing.T) {
 // along with the digest of that slice.
 func randomIndex(t *testing.T) (blobindex.ShardedDagIndex, multihash.Multihash) {
 	t.Helper()
-	_, index := testutil.RandomShardedDagIndexView(t, 1)
-	// Extract one slice from the index to return
-	for _, slices := range index.Shards().Iterator() {
-		for slice := range slices.Iterator() {
-			return index, slice
-		}
-	}
-	t.Fatal("index has no slices")
-	return nil, nil
+	slice, index := gtestutil.RandomShardedDagIndexView(t, 1)
+	return index, slice
 }
 
-func createLocationCommitment(t *testing.T, issuer, audience principal.Signer, space did.DID, shardDigest multihash.Multihash) delegation.Delegation {
+func createLocationCommitment(t *testing.T, issuer, audience ucan.Signer, space did.DID, shardDigest multihash.Multihash) ucan.Invocation {
 	t.Helper()
 
-	storageURL, err := url.Parse("https://storage.example.com/blob/test")
-	require.NoError(t, err)
+	storageURL := testutil.Must(url.Parse("https://storage.example.com/blob/test"))(t)
 
-	caveats := assertcap.LocationCaveats{
-		Space:   space,
-		Content: captypes.FromHash(shardDigest),
-		Range: &assertcap.Range{
-			Offset: 0,
-			Length: ptr(uint64(1000)),
-		},
-		Location: []url.URL{*storageURL},
-	}
-
-	dlg := testutil.Must(assertcap.Location.Delegate(
+	return testutil.Must(assertcmds.Location.Invoke(
 		issuer,
-		audience,
-		issuer.DID().String(),
-		caveats,
+		issuer.DID(),
+		&assertcmds.LocationArguments{
+			Space:    space,
+			Content:  shardDigest,
+			Location: []commands.CborURL{commands.CborURL(*storageURL)},
+		},
+		invocation.WithAudience(audience.DID()),
 	))(t)
-
-	return dlg
 }

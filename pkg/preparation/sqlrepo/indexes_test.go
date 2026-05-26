@@ -4,14 +4,13 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/fil-forge/go-libstoracha/testutil"
 	"github.com/fil-forge/guppy/pkg/preparation/blobs"
 	"github.com/fil-forge/guppy/pkg/preparation/internal/testdb"
 	"github.com/fil-forge/guppy/pkg/preparation/sqlrepo"
 	"github.com/fil-forge/guppy/pkg/preparation/types/id"
+	"github.com/fil-forge/libforge/testutil"
 	"github.com/fil-forge/ucantone/did"
 	"github.com/ipfs/go-cid"
-	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/multiformats/go-multihash"
 	"github.com/stretchr/testify/require"
 )
@@ -26,9 +25,9 @@ func TestShardsNotInIndexes(t *testing.T) {
 		uploadID := id.New()
 
 		// Create nodes (required for shards to have content)
-		nodeCID1 := testutil.RandomCID(t).(cidlink.Link).Cid
-		nodeCID2 := testutil.RandomCID(t).(cidlink.Link).Cid
-		nodeCID3 := testutil.RandomCID(t).(cidlink.Link).Cid
+		nodeCID1 := testutil.RandomCID(t)
+		nodeCID2 := testutil.RandomCID(t)
+		nodeCID3 := testutil.RandomCID(t)
 
 		_, _, err = repo.FindOrCreateRawNode(t.Context(), nodeCID1, 100, spaceDID, uploadID, "dir/file1", id.New(), 0)
 		require.NoError(t, err)
@@ -56,21 +55,21 @@ func TestShardsNotInIndexes(t *testing.T) {
 		// Close all three shards (ShardsNotInIndexes only returns closed shards)
 		digest1, err := multihash.Encode([]byte("shard1"), multihash.IDENTITY)
 		require.NoError(t, err)
-		err = shard1.Close(digest1, testutil.RandomCID(t).(cidlink.Link).Cid)
+		err = shard1.Close(digest1, testutil.RandomCID(t))
 		require.NoError(t, err)
 		err = repo.UpdateShard(t.Context(), shard1)
 		require.NoError(t, err)
 
 		digest2, err := multihash.Encode([]byte("shard2"), multihash.IDENTITY)
 		require.NoError(t, err)
-		err = shard2.Close(digest2, testutil.RandomCID(t).(cidlink.Link).Cid)
+		err = shard2.Close(digest2, testutil.RandomCID(t))
 		require.NoError(t, err)
 		err = repo.UpdateShard(t.Context(), shard2)
 		require.NoError(t, err)
 
 		digest3, err := multihash.Encode([]byte("shard3"), multihash.IDENTITY)
 		require.NoError(t, err)
-		err = shard3.Close(digest3, testutil.RandomCID(t).(cidlink.Link).Cid)
+		err = shard3.Close(digest3, testutil.RandomCID(t))
 		require.NoError(t, err)
 		err = repo.UpdateShard(t.Context(), shard3)
 		require.NoError(t, err)
@@ -103,8 +102,8 @@ func TestShardsNotInIndexes(t *testing.T) {
 		uploadID := id.New()
 
 		// Create nodes
-		nodeCID1 := testutil.RandomCID(t).(cidlink.Link).Cid
-		nodeCID2 := testutil.RandomCID(t).(cidlink.Link).Cid
+		nodeCID1 := testutil.RandomCID(t)
+		nodeCID2 := testutil.RandomCID(t)
 
 		_, _, err = repo.FindOrCreateRawNode(t.Context(), nodeCID1, 100, spaceDID, uploadID, "dir/file1", id.New(), 0)
 		require.NoError(t, err)
@@ -118,7 +117,7 @@ func TestShardsNotInIndexes(t *testing.T) {
 		require.NoError(t, err)
 		digest1, err := multihash.Encode([]byte("shard1"), multihash.IDENTITY)
 		require.NoError(t, err)
-		err = shard1.Close(digest1, testutil.RandomCID(t).(cidlink.Link).Cid)
+		err = shard1.Close(digest1, testutil.RandomCID(t))
 		require.NoError(t, err)
 		err = repo.UpdateShard(t.Context(), shard1)
 		require.NoError(t, err)
@@ -144,7 +143,7 @@ func TestShardsNotInIndexes(t *testing.T) {
 		uploadID := id.New()
 
 		// Create a node
-		nodeCID := testutil.RandomCID(t).(cidlink.Link).Cid
+		nodeCID := testutil.RandomCID(t)
 		_, _, err = repo.FindOrCreateRawNode(t.Context(), nodeCID, 100, spaceDID, uploadID, "dir/file", id.New(), 0)
 		require.NoError(t, err)
 
@@ -156,7 +155,7 @@ func TestShardsNotInIndexes(t *testing.T) {
 
 		digest, err := multihash.Encode([]byte("shard"), multihash.IDENTITY)
 		require.NoError(t, err)
-		err = shard.Close(digest, testutil.RandomCID(t).(cidlink.Link).Cid)
+		err = shard.Close(digest, testutil.RandomCID(t))
 		require.NoError(t, err)
 		err = repo.UpdateShard(t.Context(), shard)
 		require.NoError(t, err)
@@ -183,8 +182,8 @@ func TestShardsNotInIndexes(t *testing.T) {
 		uploadID2 := id.New()
 
 		// Create nodes
-		nodeCID1 := testutil.RandomCID(t).(cidlink.Link).Cid
-		nodeCID2 := testutil.RandomCID(t).(cidlink.Link).Cid
+		nodeCID1 := testutil.RandomCID(t)
+		nodeCID2 := testutil.RandomCID(t)
 
 		_, _, err = repo.FindOrCreateRawNode(t.Context(), nodeCID1, 100, spaceDID, uploadID1, "dir/file1", id.New(), 0)
 		require.NoError(t, err)
@@ -198,7 +197,7 @@ func TestShardsNotInIndexes(t *testing.T) {
 		require.NoError(t, err)
 		digest1, err := multihash.Encode([]byte("shard1"), multihash.IDENTITY)
 		require.NoError(t, err)
-		err = shard1.Close(digest1, testutil.RandomCID(t).(cidlink.Link).Cid)
+		err = shard1.Close(digest1, testutil.RandomCID(t))
 		require.NoError(t, err)
 		err = repo.UpdateShard(t.Context(), shard1)
 		require.NoError(t, err)
@@ -209,7 +208,7 @@ func TestShardsNotInIndexes(t *testing.T) {
 		require.NoError(t, err)
 		digest2, err := multihash.Encode([]byte("shard2"), multihash.IDENTITY)
 		require.NoError(t, err)
-		err = shard2.Close(digest2, testutil.RandomCID(t).(cidlink.Link).Cid)
+		err = shard2.Close(digest2, testutil.RandomCID(t))
 		require.NoError(t, err)
 		err = repo.UpdateShard(t.Context(), shard2)
 		require.NoError(t, err)
@@ -236,10 +235,10 @@ func TestNodesInIndex(t *testing.T) {
 		uploadID := id.New()
 
 		// Create 4 nodes
-		nodeCID1 := testutil.RandomCID(t).(cidlink.Link).Cid
-		nodeCID2 := testutil.RandomCID(t).(cidlink.Link).Cid
-		nodeCID3 := testutil.RandomCID(t).(cidlink.Link).Cid
-		nodeCID4 := testutil.RandomCID(t).(cidlink.Link).Cid
+		nodeCID1 := testutil.RandomCID(t)
+		nodeCID2 := testutil.RandomCID(t)
+		nodeCID3 := testutil.RandomCID(t)
+		nodeCID4 := testutil.RandomCID(t)
 
 		_, _, err = repo.FindOrCreateRawNode(t.Context(), nodeCID1, 100, spaceDID, uploadID, "dir/file1", id.New(), 0)
 		require.NoError(t, err)
@@ -259,7 +258,7 @@ func TestNodesInIndex(t *testing.T) {
 		require.NoError(t, err)
 		digest1, err := multihash.Encode([]byte("shard1"), multihash.IDENTITY)
 		require.NoError(t, err)
-		err = shard1.Close(digest1, testutil.RandomCID(t).(cidlink.Link).Cid)
+		err = shard1.Close(digest1, testutil.RandomCID(t))
 		require.NoError(t, err)
 		err = repo.UpdateShard(t.Context(), shard1)
 		require.NoError(t, err)
@@ -273,7 +272,7 @@ func TestNodesInIndex(t *testing.T) {
 		require.NoError(t, err)
 		digest2, err := multihash.Encode([]byte("shard2"), multihash.IDENTITY)
 		require.NoError(t, err)
-		err = shard2.Close(digest2, testutil.RandomCID(t).(cidlink.Link).Cid)
+		err = shard2.Close(digest2, testutil.RandomCID(t))
 		require.NoError(t, err)
 		err = repo.UpdateShard(t.Context(), shard2)
 		require.NoError(t, err)
@@ -341,8 +340,8 @@ func TestNodesInIndex(t *testing.T) {
 		uploadID := id.New()
 
 		// Create 2 nodes
-		nodeCID1 := testutil.RandomCID(t).(cidlink.Link).Cid
-		nodeCID2 := testutil.RandomCID(t).(cidlink.Link).Cid
+		nodeCID1 := testutil.RandomCID(t)
+		nodeCID2 := testutil.RandomCID(t)
 
 		_, _, err = repo.FindOrCreateRawNode(t.Context(), nodeCID1, 100, spaceDID, uploadID, "dir/file1", id.New(), 0)
 		require.NoError(t, err)
@@ -356,7 +355,7 @@ func TestNodesInIndex(t *testing.T) {
 		require.NoError(t, err)
 		digest1, err := multihash.Encode([]byte("shard1"), multihash.IDENTITY)
 		require.NoError(t, err)
-		err = shard1.Close(digest1, testutil.RandomCID(t).(cidlink.Link).Cid)
+		err = shard1.Close(digest1, testutil.RandomCID(t))
 		require.NoError(t, err)
 		err = repo.UpdateShard(t.Context(), shard1)
 		require.NoError(t, err)
@@ -368,7 +367,7 @@ func TestNodesInIndex(t *testing.T) {
 		require.NoError(t, err)
 		digest2, err := multihash.Encode([]byte("shard2"), multihash.IDENTITY)
 		require.NoError(t, err)
-		err = shard2.Close(digest2, testutil.RandomCID(t).(cidlink.Link).Cid)
+		err = shard2.Close(digest2, testutil.RandomCID(t))
 		require.NoError(t, err)
 		err = repo.UpdateShard(t.Context(), shard2)
 		require.NoError(t, err)
@@ -412,8 +411,8 @@ func TestNodesInIndex(t *testing.T) {
 		uploadID := id.New()
 
 		// Create 2 nodes
-		nodeCID1 := testutil.RandomCID(t).(cidlink.Link).Cid
-		nodeCID2 := testutil.RandomCID(t).(cidlink.Link).Cid
+		nodeCID1 := testutil.RandomCID(t)
+		nodeCID2 := testutil.RandomCID(t)
 
 		_, _, err = repo.FindOrCreateRawNode(t.Context(), nodeCID1, 100, spaceDID, uploadID, "dir/file1", id.New(), 0)
 		require.NoError(t, err)
@@ -427,7 +426,7 @@ func TestNodesInIndex(t *testing.T) {
 		require.NoError(t, err)
 		digest1, err := multihash.Encode([]byte("shard1"), multihash.IDENTITY)
 		require.NoError(t, err)
-		err = shard1.Close(digest1, testutil.RandomCID(t).(cidlink.Link).Cid)
+		err = shard1.Close(digest1, testutil.RandomCID(t))
 		require.NoError(t, err)
 		err = repo.UpdateShard(t.Context(), shard1)
 		require.NoError(t, err)

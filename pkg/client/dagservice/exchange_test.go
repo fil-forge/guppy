@@ -3,14 +3,10 @@ package dagservice_test
 import (
 	"testing"
 
-	"github.com/fil-forge/go-libstoracha/blobindex"
-	assertcap "github.com/fil-forge/go-libstoracha/capabilities/assert"
-	captypes "github.com/fil-forge/go-libstoracha/capabilities/types"
-	stestutil "github.com/fil-forge/go-libstoracha/testutil"
-	"github.com/fil-forge/go-ucanto/ucan"
 	"github.com/fil-forge/guppy/pkg/client/dagservice"
 	"github.com/fil-forge/guppy/pkg/client/locator"
-	ctestutil "github.com/fil-forge/guppy/pkg/client/testutil"
+	"github.com/fil-forge/libforge/blobindex"
+	stestutil "github.com/fil-forge/libforge/testutil"
 	"github.com/fil-forge/ucantone/did"
 	"github.com/ipfs/go-cid"
 	mh "github.com/multiformats/go-multihash"
@@ -26,24 +22,13 @@ func TestStorachaExchange(t *testing.T) {
 			require.NoError(t, err)
 
 			location := locator.Location{
-				Commitment: ucan.NewCapability(
-					assertcap.Location.Can(),
-					space.String(),
-					assertcap.LocationCaveats{
-						Space:   space.DID(),
-						Content: captypes.FromHash(shardHash),
-						Location: ctestutil.Urls(
-							"https://storage1.example.com/block/abc123",
-							"https://storage2.example.com/block/abc123",
-						),
-					},
-				),
+				Commitment: locator.Commitment{
+					Space:   space,
+					Content: shardHash,
+				},
 
 				// "world"
-				Range: blobindex.Position{
-					Offset: 7,
-					Length: 5,
-				},
+				Range: blobindex.Range{Start: 7, End: 7 + 5 - 1},
 			}
 
 			blockData := shardData[7 : 7+5] // "world"
@@ -53,10 +38,9 @@ func TestStorachaExchange(t *testing.T) {
 
 			lctr := newStubLocator()
 			lctr.locations.Set(blockCID.Hash(), []locator.Location{location})
-			retriever, err := newMockRetriever(map[ucan.Capability[assertcap.LocationCaveats]][]byte{
-				location.Commitment: shardData,
+			retriever := newMockRetriever(map[string][]byte{
+				string(location.Commitment.Content): shardData,
 			})
-			require.NoError(t, err)
 
 			exchange := dagservice.NewExchange(lctr, retriever, []did.DID{space})
 			blk, err := exchange.GetBlock(t.Context(), blockCID)
@@ -73,24 +57,13 @@ func TestStorachaExchange(t *testing.T) {
 			require.NoError(t, err)
 
 			location := locator.Location{
-				Commitment: ucan.NewCapability(
-					assertcap.Location.Can(),
-					space.String(),
-					assertcap.LocationCaveats{
-						Space:   space.DID(),
-						Content: captypes.FromHash(correctHash),
-						Location: ctestutil.Urls(
-							"https://storage1.example.com/block/abc123",
-							"https://storage2.example.com/block/abc123",
-						),
-					},
-				),
+				Commitment: locator.Commitment{
+					Space:   space,
+					Content: correctHash,
+				},
 
 				// "correct"/"!WRONG!"
-				Range: blobindex.Position{
-					Offset: 12,
-					Length: 7,
-				},
+				Range: blobindex.Range{Start: 12, End: 12 + 7 - 1},
 			}
 
 			blockData := correctData[12 : 12+7] // "correct"
@@ -100,10 +73,9 @@ func TestStorachaExchange(t *testing.T) {
 
 			lctr := newStubLocator()
 			lctr.locations.Set(blockCID.Hash(), []locator.Location{location})
-			retriever, err := newMockRetriever(map[ucan.Capability[assertcap.LocationCaveats]][]byte{
-				location.Commitment: wrongData,
+			retriever := newMockRetriever(map[string][]byte{
+				string(location.Commitment.Content): wrongData,
 			})
-			require.NoError(t, err)
 
 			exchange := dagservice.NewExchange(lctr, retriever, []did.DID{space})
 			_, err = exchange.GetBlock(t.Context(), blockCID)
@@ -130,35 +102,27 @@ func TestStorachaExchange(t *testing.T) {
 			require.NoError(t, err)
 			block2CID := cid.NewCidV1(cid.Raw, block2Hash)
 
-			shardCommitment := ucan.NewCapability(
-				assertcap.Location.Can(),
-				space.String(),
-				assertcap.LocationCaveats{
-					Space:   space.DID(),
-					Content: captypes.FromHash(shardHash),
-					Location: ctestutil.Urls(
-						"https://storage1.example.com/shard",
-					),
-				},
-			)
+			shardCommitment := locator.Commitment{
+				Space:   space,
+				Content: shardHash,
+			}
 
 			location1 := locator.Location{
 				Commitment: shardCommitment,
-				Range:      blobindex.Position{Offset: 0, Length: 5},
+				Range:      blobindex.Range{Start: 0, End: 0 + 5 - 1},
 			}
 			location2 := locator.Location{
 				Commitment: shardCommitment,
-				Range:      blobindex.Position{Offset: 7, Length: 5},
+				Range:      blobindex.Range{Start: 7, End: 7 + 5 - 1},
 			}
 
 			lctr := newStubLocator()
 			lctr.locations.Set(block1CID.Hash(), []locator.Location{location1})
 			lctr.locations.Set(block2CID.Hash(), []locator.Location{location2})
 
-			retriever, err := newMockRetriever(map[ucan.Capability[assertcap.LocationCaveats]][]byte{
-				shardCommitment: shardData,
+			retriever := newMockRetriever(map[string][]byte{
+				string(shardCommitment.Content): shardData,
 			})
-			require.NoError(t, err)
 
 			exchange := dagservice.NewExchange(lctr, retriever, []did.DID{space})
 			blocksCh, err := exchange.GetBlocks(t.Context(), []cid.Cid{block1CID, block2CID})
@@ -198,29 +162,22 @@ func TestStorachaExchange(t *testing.T) {
 			require.NoError(t, err)
 			block3CID := cid.NewCidV1(cid.Raw, block3Hash)
 
-			shardCommitment := ucan.NewCapability(
-				assertcap.Location.Can(),
-				space.String(),
-				assertcap.LocationCaveats{
-					Space:   space.DID(),
-					Content: captypes.FromHash(shardHash),
-					Location: ctestutil.Urls(
-						"https://storage1.example.com/shard",
-					),
-				},
-			)
+			shardCommitment := locator.Commitment{
+				Space:   space,
+				Content: shardHash,
+			}
 
 			location1 := locator.Location{
 				Commitment: shardCommitment,
-				Range:      blobindex.Position{Offset: 0, Length: 5},
+				Range:      blobindex.Range{Start: 0, End: 0 + 5 - 1},
 			}
 			location2 := locator.Location{
 				Commitment: shardCommitment,
-				Range:      blobindex.Position{Offset: 5, Length: 5},
+				Range:      blobindex.Range{Start: 5, End: 5 + 5 - 1},
 			}
 			location3 := locator.Location{
 				Commitment: shardCommitment,
-				Range:      blobindex.Position{Offset: 10, Length: 5},
+				Range:      blobindex.Range{Start: 10, End: 10 + 5 - 1},
 			}
 
 			lctr := newStubLocator()
@@ -228,10 +185,9 @@ func TestStorachaExchange(t *testing.T) {
 			lctr.locations.Set(block2CID.Hash(), []locator.Location{location2})
 			lctr.locations.Set(block3CID.Hash(), []locator.Location{location3})
 
-			retriever, err := newMockRetriever(map[ucan.Capability[assertcap.LocationCaveats]][]byte{
-				shardCommitment: shardData,
+			retriever := newMockRetriever(map[string][]byte{
+				string(shardCommitment.Content): shardData,
 			})
-			require.NoError(t, err)
 
 			exchange := dagservice.NewExchange(lctr, retriever, []did.DID{space})
 			blocksCh, err := exchange.GetBlocks(t.Context(), []cid.Cid{block1CID, block2CID, block3CID})
@@ -250,8 +206,8 @@ func TestStorachaExchange(t *testing.T) {
 			// Should have made only 1 request for all 3 contiguous blocks
 			require.Len(t, retriever.requests, 1)
 			// The coalesced request should span all blocks
-			require.Equal(t, uint64(0), retriever.requests[0].Range.Offset)
-			require.Equal(t, uint64(15), retriever.requests[0].Range.Length)
+			require.Equal(t, int64(0), retriever.requests[0].Range.Start)
+			require.Equal(t, int64(14), retriever.requests[0].Range.End)
 		})
 
 		t.Run("does not coalesce non-contiguous blocks when maxGap is 0", func(t *testing.T) {
@@ -272,35 +228,27 @@ func TestStorachaExchange(t *testing.T) {
 			require.NoError(t, err)
 			block2CID := cid.NewCidV1(cid.Raw, block2Hash)
 
-			shardCommitment := ucan.NewCapability(
-				assertcap.Location.Can(),
-				space.String(),
-				assertcap.LocationCaveats{
-					Space:   space.DID(),
-					Content: captypes.FromHash(shardHash),
-					Location: ctestutil.Urls(
-						"https://storage1.example.com/shard",
-					),
-				},
-			)
+			shardCommitment := locator.Commitment{
+				Space:   space,
+				Content: shardHash,
+			}
 
 			location1 := locator.Location{
 				Commitment: shardCommitment,
-				Range:      blobindex.Position{Offset: 0, Length: 5},
+				Range:      blobindex.Range{Start: 0, End: 0 + 5 - 1},
 			}
 			location2 := locator.Location{
 				Commitment: shardCommitment,
-				Range:      blobindex.Position{Offset: 10, Length: 5},
+				Range:      blobindex.Range{Start: 10, End: 10 + 5 - 1},
 			}
 
 			lctr := newStubLocator()
 			lctr.locations.Set(block1CID.Hash(), []locator.Location{location1})
 			lctr.locations.Set(block2CID.Hash(), []locator.Location{location2})
 
-			retriever, err := newMockRetriever(map[ucan.Capability[assertcap.LocationCaveats]][]byte{
-				shardCommitment: shardData,
+			retriever := newMockRetriever(map[string][]byte{
+				string(shardCommitment.Content): shardData,
 			})
-			require.NoError(t, err)
 
 			// With maxGap=0, blocks must be exactly contiguous
 			exchange := dagservice.NewExchange(lctr, retriever, []did.DID{space}, dagservice.WithMaxGap(0))
@@ -343,48 +291,33 @@ func TestStorachaExchange(t *testing.T) {
 			require.NoError(t, err)
 			block2CID := cid.NewCidV1(cid.Raw, block2Hash)
 
-			shard1Commitment := ucan.NewCapability(
-				assertcap.Location.Can(),
-				space.String(),
-				assertcap.LocationCaveats{
-					Space:   space.DID(),
-					Content: captypes.FromHash(shard1Hash),
-					Location: ctestutil.Urls(
-						"https://storage1.example.com/shard1",
-					),
-				},
-			)
+			shard1Commitment := locator.Commitment{
+				Space:   space,
+				Content: shard1Hash,
+			}
 
-			shard2Commitment := ucan.NewCapability(
-				assertcap.Location.Can(),
-				space.String(),
-				assertcap.LocationCaveats{
-					Space:   space.DID(),
-					Content: captypes.FromHash(shard2Hash),
-					Location: ctestutil.Urls(
-						"https://storage1.example.com/shard2",
-					),
-				},
-			)
+			shard2Commitment := locator.Commitment{
+				Space:   space,
+				Content: shard2Hash,
+			}
 
 			location1 := locator.Location{
 				Commitment: shard1Commitment,
-				Range:      blobindex.Position{Offset: 0, Length: 5},
+				Range:      blobindex.Range{Start: 0, End: 0 + 5 - 1},
 			}
 			location2 := locator.Location{
 				Commitment: shard2Commitment,
-				Range:      blobindex.Position{Offset: 0, Length: 5},
+				Range:      blobindex.Range{Start: 0, End: 0 + 5 - 1},
 			}
 
 			lctr := newStubLocator()
 			lctr.locations.Set(block1CID.Hash(), []locator.Location{location1})
 			lctr.locations.Set(block2CID.Hash(), []locator.Location{location2})
 
-			retriever, err := newMockRetriever(map[ucan.Capability[assertcap.LocationCaveats]][]byte{
-				shard1Commitment: shard1Data,
-				shard2Commitment: shard2Data,
+			retriever := newMockRetriever(map[string][]byte{
+				string(shard1Commitment.Content): shard1Data,
+				string(shard2Commitment.Content): shard2Data,
 			})
-			require.NoError(t, err)
 
 			exchange := dagservice.NewExchange(lctr, retriever, []did.DID{space})
 			blocksCh, err := exchange.GetBlocks(t.Context(), []cid.Cid{block1CID, block2CID})
@@ -414,8 +347,7 @@ func TestStorachaExchange(t *testing.T) {
 			lctr := newStubLocator()
 			// Don't set any locations for the block
 
-			retriever, err := newMockRetriever(map[ucan.Capability[assertcap.LocationCaveats]][]byte{})
-			require.NoError(t, err)
+			retriever := newMockRetriever(map[string][]byte{})
 
 			exchange := dagservice.NewExchange(lctr, retriever, []did.DID{space})
 			_, err = exchange.GetBlocks(t.Context(), []cid.Cid{blockCID})
@@ -433,30 +365,22 @@ func TestStorachaExchange(t *testing.T) {
 			require.NoError(t, err)
 			blockCID := cid.NewCidV1(cid.Raw, blockHash)
 
-			shardCommitment := ucan.NewCapability(
-				assertcap.Location.Can(),
-				space.String(),
-				assertcap.LocationCaveats{
-					Space:   space.DID(),
-					Content: captypes.FromHash(shardHash),
-					Location: ctestutil.Urls(
-						"https://storage1.example.com/shard",
-					),
-				},
-			)
+			shardCommitment := locator.Commitment{
+				Space:   space,
+				Content: shardHash,
+			}
 
 			location := locator.Location{
 				Commitment: shardCommitment,
-				Range:      blobindex.Position{Offset: 0, Length: 5},
+				Range:      blobindex.Range{Start: 0, End: 0 + 5 - 1},
 			}
 
 			lctr := newStubLocator()
 			lctr.locations.Set(blockCID.Hash(), []locator.Location{location})
 
-			retriever, err := newMockRetriever(map[ucan.Capability[assertcap.LocationCaveats]][]byte{
-				shardCommitment: shardData,
+			retriever := newMockRetriever(map[string][]byte{
+				string(shardCommitment.Content): shardData,
 			})
-			require.NoError(t, err)
 
 			exchange := dagservice.NewExchange(lctr, retriever, []did.DID{space})
 			blocksCh, err := exchange.GetBlocks(t.Context(), []cid.Cid{blockCID})
@@ -475,8 +399,7 @@ func TestStorachaExchange(t *testing.T) {
 			space := stestutil.RandomDID(t)
 
 			lctr := newStubLocator()
-			retriever, err := newMockRetriever(map[ucan.Capability[assertcap.LocationCaveats]][]byte{})
-			require.NoError(t, err)
+			retriever := newMockRetriever(map[string][]byte{})
 
 			exchange := dagservice.NewExchange(lctr, retriever, []did.DID{space})
 			blocksCh, err := exchange.GetBlocks(t.Context(), []cid.Cid{})
@@ -509,35 +432,27 @@ func TestStorachaExchange(t *testing.T) {
 			require.NoError(t, err)
 			block2CID := cid.NewCidV1(cid.Raw, block2Hash)
 
-			shardCommitment := ucan.NewCapability(
-				assertcap.Location.Can(),
-				space.String(),
-				assertcap.LocationCaveats{
-					Space:   space.DID(),
-					Content: captypes.FromHash(shardHash),
-					Location: ctestutil.Urls(
-						"https://storage1.example.com/shard",
-					),
-				},
-			)
+			shardCommitment := locator.Commitment{
+				Space:   space,
+				Content: shardHash,
+			}
 
 			location1 := locator.Location{
 				Commitment: shardCommitment,
-				Range:      blobindex.Position{Offset: 0, Length: 5},
+				Range:      blobindex.Range{Start: 0, End: 0 + 5 - 1},
 			}
 			location2 := locator.Location{
 				Commitment: shardCommitment,
-				Range:      blobindex.Position{Offset: 10, Length: 5},
+				Range:      blobindex.Range{Start: 10, End: 10 + 5 - 1},
 			}
 
 			lctr := newStubLocator()
 			lctr.locations.Set(block1CID.Hash(), []locator.Location{location1})
 			lctr.locations.Set(block2CID.Hash(), []locator.Location{location2})
 
-			retriever, err := newMockRetriever(map[ucan.Capability[assertcap.LocationCaveats]][]byte{
-				shardCommitment: shardData,
+			retriever := newMockRetriever(map[string][]byte{
+				string(shardCommitment.Content): shardData,
 			})
-			require.NoError(t, err)
 
 			// maxGap of 5 should coalesce the blocks (gap is exactly 5 bytes)
 			exchange := dagservice.NewExchange(lctr, retriever, []did.DID{space}, dagservice.WithMaxGap(5))
@@ -556,8 +471,8 @@ func TestStorachaExchange(t *testing.T) {
 			// Should have made only 1 request due to maxGap
 			require.Len(t, retriever.requests, 1)
 			// The coalesced request should span from offset 0 to 15
-			require.Equal(t, uint64(0), retriever.requests[0].Range.Offset)
-			require.Equal(t, uint64(15), retriever.requests[0].Range.Length)
+			require.Equal(t, int64(0), retriever.requests[0].Range.Start)
+			require.Equal(t, int64(14), retriever.requests[0].Range.End)
 		})
 
 		t.Run("does not coalesce blocks beyond maxGap", func(t *testing.T) {
@@ -579,35 +494,27 @@ func TestStorachaExchange(t *testing.T) {
 			require.NoError(t, err)
 			block2CID := cid.NewCidV1(cid.Raw, block2Hash)
 
-			shardCommitment := ucan.NewCapability(
-				assertcap.Location.Can(),
-				space.String(),
-				assertcap.LocationCaveats{
-					Space:   space.DID(),
-					Content: captypes.FromHash(shardHash),
-					Location: ctestutil.Urls(
-						"https://storage1.example.com/shard",
-					),
-				},
-			)
+			shardCommitment := locator.Commitment{
+				Space:   space,
+				Content: shardHash,
+			}
 
 			location1 := locator.Location{
 				Commitment: shardCommitment,
-				Range:      blobindex.Position{Offset: 0, Length: 5},
+				Range:      blobindex.Range{Start: 0, End: 0 + 5 - 1},
 			}
 			location2 := locator.Location{
 				Commitment: shardCommitment,
-				Range:      blobindex.Position{Offset: 10, Length: 5},
+				Range:      blobindex.Range{Start: 10, End: 10 + 5 - 1},
 			}
 
 			lctr := newStubLocator()
 			lctr.locations.Set(block1CID.Hash(), []locator.Location{location1})
 			lctr.locations.Set(block2CID.Hash(), []locator.Location{location2})
 
-			retriever, err := newMockRetriever(map[ucan.Capability[assertcap.LocationCaveats]][]byte{
-				shardCommitment: shardData,
+			retriever := newMockRetriever(map[string][]byte{
+				string(shardCommitment.Content): shardData,
 			})
-			require.NoError(t, err)
 
 			// maxGap of 4 should NOT coalesce the blocks (gap is 5 bytes)
 			exchange := dagservice.NewExchange(lctr, retriever, []did.DID{space}, dagservice.WithMaxGap(4))
@@ -652,29 +559,22 @@ func TestStorachaExchange(t *testing.T) {
 			require.NoError(t, err)
 			block3CID := cid.NewCidV1(cid.Raw, block3Hash)
 
-			shardCommitment := ucan.NewCapability(
-				assertcap.Location.Can(),
-				space.String(),
-				assertcap.LocationCaveats{
-					Space:   space.DID(),
-					Content: captypes.FromHash(shardHash),
-					Location: ctestutil.Urls(
-						"https://storage1.example.com/shard",
-					),
-				},
-			)
+			shardCommitment := locator.Commitment{
+				Space:   space,
+				Content: shardHash,
+			}
 
 			location1 := locator.Location{
 				Commitment: shardCommitment,
-				Range:      blobindex.Position{Offset: 0, Length: 5},
+				Range:      blobindex.Range{Start: 0, End: 0 + 5 - 1},
 			}
 			location2 := locator.Location{
 				Commitment: shardCommitment,
-				Range:      blobindex.Position{Offset: 7, Length: 5},
+				Range:      blobindex.Range{Start: 7, End: 7 + 5 - 1},
 			}
 			location3 := locator.Location{
 				Commitment: shardCommitment,
-				Range:      blobindex.Position{Offset: 14, Length: 5},
+				Range:      blobindex.Range{Start: 14, End: 14 + 5 - 1},
 			}
 
 			lctr := newStubLocator()
@@ -682,10 +582,9 @@ func TestStorachaExchange(t *testing.T) {
 			lctr.locations.Set(block2CID.Hash(), []locator.Location{location2})
 			lctr.locations.Set(block3CID.Hash(), []locator.Location{location3})
 
-			retriever, err := newMockRetriever(map[ucan.Capability[assertcap.LocationCaveats]][]byte{
-				shardCommitment: shardData,
+			retriever := newMockRetriever(map[string][]byte{
+				string(shardCommitment.Content): shardData,
 			})
-			require.NoError(t, err)
 
 			// maxGap of 2 should coalesce all 3 blocks
 			exchange := dagservice.NewExchange(lctr, retriever, []did.DID{space}, dagservice.WithMaxGap(2))
@@ -705,8 +604,8 @@ func TestStorachaExchange(t *testing.T) {
 			// Should have made only 1 request
 			require.Len(t, retriever.requests, 1)
 			// The coalesced request should span from offset 0 to 19
-			require.Equal(t, uint64(0), retriever.requests[0].Range.Offset)
-			require.Equal(t, uint64(19), retriever.requests[0].Range.Length)
+			require.Equal(t, int64(0), retriever.requests[0].Range.Start)
+			require.Equal(t, int64(18), retriever.requests[0].Range.End)
 		})
 	})
 }

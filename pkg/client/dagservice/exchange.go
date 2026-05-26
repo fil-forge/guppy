@@ -144,10 +144,13 @@ func withinGap(a, b locator.Location, maxGap uint64) bool {
 		return false
 	}
 
-	if b.Range.Start > a.Range.End && b.Range.Start <= a.Range.End+int64(maxGap) {
+	// Range.End is inclusive (the last byte index), so the number of bytes
+	// strictly between a and b is (b.Start - a.End - 1). Exactly-contiguous
+	// slices (b.Start == a.End+1) therefore have a gap of 0.
+	if b.Range.Start > a.Range.End && b.Range.Start <= a.Range.End+int64(maxGap)+1 {
 		return true
 	} else {
-		log.Debugf("Locations not within gap: a ends at %d, b starts at %d; gap is %d, maxGap is %d", a.Range.End, b.Range.Start, b.Range.Start-a.Range.End, maxGap)
+		log.Debugf("Locations not within gap: a ends at %d, b starts at %d; gap is %d, maxGap is %d", a.Range.End, b.Range.Start, b.Range.Start-a.Range.End-1, maxGap)
 		return false
 	}
 }

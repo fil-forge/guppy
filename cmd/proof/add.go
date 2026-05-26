@@ -4,32 +4,37 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/fil-forge/go-ucanto/core/delegation"
 	"github.com/mitchellh/go-wordwrap"
 	"github.com/spf13/cobra"
 
 	"github.com/fil-forge/guppy/internal/cmdutil"
 	"github.com/fil-forge/guppy/pkg/config"
+	"github.com/fil-forge/ucantone/ucan/container"
 )
 
 var addCmd = &cobra.Command{
 	Use:   "add <data-or-path>",
 	Short: "Add a proof delegated to this agent.",
 	Long: wordwrap.WrapString(
-		"Parse or decode a proof from the given data or file path. A proof is a delegation for this agent.",
+		"Decode a proof from the given data or file path and store it for this agent. "+
+			"A proof is a UCAN delegation container (e.g. one produced by `guppy delegation create`).",
 		80),
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		dlg, err := delegation.Parse(args[0])
+		// The argument may be a path to a container file or the encoded container
+		// data itself.
+		data, err := os.ReadFile(args[0])
 		if err != nil {
-			dlgBytes, err := os.ReadFile(args[0])
-			if err != nil {
-				return fmt.Errorf("reading delegation file: %w", err)
-			}
-			dlg, err = delegation.Extract(dlgBytes)
-			if err != nil {
-				return fmt.Errorf("extracting delegation: %w", err)
-			}
+			data = []byte(args[0])
+		}
+
+		ct, err := container.Decode(data)
+		if err != nil {
+			return fmt.Errorf("decoding proof container: %w", err)
+		}
+		dels := ct.Delegations()
+		if len(dels) == 0 {
+			return fmt.Errorf("no delegations found in the proof")
 		}
 
 		cfg, err := config.Load[config.Config]()
@@ -38,15 +43,11 @@ var addCmd = &cobra.Command{
 		}
 		c := cmdutil.MustGetClient(cfg)
 
-		if dlg.Audience().DID() != c.Issuer().DID() {
-			return fmt.Errorf("delegation audience %q does not match agent DID %q", dlg.Audience().DID(), c.Issuer().DID())
-		}
-
-		err = c.AddProofs(dlg)
-		if err != nil {
+		if err := c.AddProofs(cmd.Context(), dels...); err != nil {
 			return fmt.Errorf("adding proofs: %w", err)
 		}
 
+		cmd.PrintErrf("Added %d proof(s).\n", len(dels))
 		return nil
 	},
 }

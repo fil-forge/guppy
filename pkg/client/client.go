@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"net/http"
 	"net/url"
 	"reflect"
 
@@ -33,7 +32,6 @@ var (
 type Client struct {
 	signer         ucan.Signer
 	serviceID      did.DID
-	httpClient     *http.Client
 	ucanClient     *client.HTTPClient
 	ucanOpts       []client.HTTPOption
 	receiptsClient *receipt.Client
@@ -76,6 +74,11 @@ func (c *Client) DID() did.DID {
 // Issuer returns the issuing signer of the agent.
 func (c *Client) Issuer() ucan.Signer {
 	return c.signer
+}
+
+// ServiceID returns the DID of the upload service this client is connected to.
+func (c *Client) ServiceID() did.DID {
+	return c.serviceID
 }
 
 // ProofChain recursively builds a proof chain of delegations from the given

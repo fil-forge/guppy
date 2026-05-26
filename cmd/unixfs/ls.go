@@ -1,24 +1,25 @@
 package unixfs
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"io/fs"
 	"os"
 	"strings"
 	"text/tabwriter"
-	"time"
 
-	"github.com/fil-forge/go-libstoracha/capabilities/consumer"
-	"github.com/fil-forge/go-ucanto/core/delegation"
+	contentcmds "github.com/fil-forge/libforge/commands/content"
+	"github.com/fil-forge/ucantone/did"
+	"github.com/fil-forge/ucantone/ucan"
+	"github.com/ipfs/go-cid"
+	"github.com/spf13/cobra"
+
 	"github.com/fil-forge/guppy/internal/cmdutil"
 	"github.com/fil-forge/guppy/pkg/client/dagservice"
 	"github.com/fil-forge/guppy/pkg/client/locator"
 	"github.com/fil-forge/guppy/pkg/config"
 	"github.com/fil-forge/guppy/pkg/dagfs"
-	"github.com/fil-forge/ucantone/did"
-	"github.com/ipfs/go-cid"
-	"github.com/spf13/cobra"
 )
 
 var lsFlags struct {
@@ -33,24 +34,19 @@ var lsCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := cmd.Context()
 
-		spaceDidStr := args[0]
-		cidPathStr := args[1]
-
-		spaceDID, err := did.Parse(spaceDidStr)
+		spaceDID, err := did.Parse(args[0])
 		if err != nil {
 			return fmt.Errorf("invalid space DID: %w", err)
 		}
 
-		parts := strings.SplitN(cidPathStr, "/", 2)
-		rootCidStr := parts[0]
-		subPath := ""
-		if len(parts) > 1 {
-			subPath = parts[1]
-		}
-
-		rootCid, err := cid.Decode(rootCidStr)
+		parts := strings.SplitN(args[1], "/", 2)
+		rootCid, err := cid.Decode(parts[0])
 		if err != nil {
 			return fmt.Errorf("invalid root CID: %w", err)
+		}
+		subPath := "."
+		if len(parts) > 1 && parts[1] != "" {
+			subPath = parts[1]
 		}
 
 		cfg, err := config.Load[config.Config]()
@@ -59,47 +55,26 @@ var lsCmd = &cobra.Command{
 		}
 
 		c := cmdutil.MustGetClient(cfg)
-		indexer, indexerPrincipal := cmdutil.MustGetIndexClient(cfg.Network)
+		indexer, indexerID := cmdutil.MustGetIndexClient(cfg.Network)
 
-		proofs, err := c.Proofs()
-		if err != nil {
-			return err
-		}
-
-		pfs := make([]delegation.Proof, 0, len(proofs))
-		for _, del := range proofs {
-			pfs = append(pfs, delegation.FromDelegation(del))
-		}
-
-		retrievalAuth, err := consumer.Get.Delegate(
-			c.Issuer(),
-			indexerPrincipal,
-			indexerPrincipal.DID().String(),
-			consumer.GetCaveats{
-				Consumer: spaceDID.String(),
-			},
-			delegation.WithProof(pfs...),
-			delegation.WithExpiration(int(time.Now().Add(30*time.Second).Unix())),
-		)
-		if err != nil {
-			return fmt.Errorf("delegating capability: %w", err)
-		}
-
-		loc := locator.NewIndexLocator(indexer, locator.AuthorizeRetrievalFunc(func(spaces []did.DID) (delegation.Delegation, error) {
-			return retrievalAuth, nil
-		}))
+		loc := locator.NewIndexLocator(indexer, func(ctx context.Context, _ []did.DID) ([]ucan.Delegation, error) {
+			dlg, err := contentcmds.Retrieve.Delegate(c.Issuer(), indexerID, spaceDID)
+			if err != nil {
+				return nil, fmt.Errorf("delegating content retrieve: %w", err)
+			}
+			proofs, _, err := c.ProofChain(ctx, c.Issuer().DID(), contentcmds.Retrieve.Command, spaceDID)
+			if err != nil {
+				return nil, fmt.Errorf("retrieving proof chain: %w", err)
+			}
+			return append(proofs, dlg), nil
+		})
 
 		dagSvc := dagservice.NewDAGService(loc, c, []did.DID{spaceDID})
 		dfs := dagfs.New(ctx, dagSvc, rootCid)
 
-		targetPath := subPath
-		if targetPath == "" {
-			targetPath = "."
-		}
-
-		f, err := dfs.Open(targetPath)
+		f, err := dfs.Open(subPath)
 		if err != nil {
-			return fmt.Errorf("opening path %s: %w", targetPath, err)
+			return fmt.Errorf("opening path %s: %w", subPath, err)
 		}
 		defer f.Close()
 
@@ -109,15 +84,9 @@ var lsCmd = &cobra.Command{
 		}
 
 		w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-
 		printEntry := func(info fs.FileInfo) {
 			if lsFlags.long {
-				fmt.Fprintf(w, "%s\t%d\t%s\t%s\n",
-					info.Mode(),
-					info.Size(),
-					info.ModTime().Format("Jan 02 15:04"),
-					info.Name(),
-				)
+				fmt.Fprintf(w, "%s\t%d\t%s\t%s\n", info.Mode(), info.Size(), info.ModTime().Format("Jan 02 15:04"), info.Name())
 			} else {
 				fmt.Println(info.Name())
 			}
@@ -125,8 +94,7 @@ var lsCmd = &cobra.Command{
 
 		if !stat.IsDir() {
 			printEntry(stat)
-			w.Flush()
-			return nil
+			return w.Flush()
 		}
 
 		readDirFile, ok := f.(fs.ReadDirFile)
@@ -142,7 +110,6 @@ var lsCmd = &cobra.Command{
 				}
 				return fmt.Errorf("reading directory: %w", err)
 			}
-
 			for _, entry := range entries {
 				info, err := entry.Info()
 				if err != nil {

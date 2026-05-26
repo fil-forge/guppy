@@ -5,9 +5,8 @@ import (
 	"testing"
 	"time"
 
-	stestutil "github.com/fil-forge/go-libstoracha/testutil"
+	stestutil "github.com/fil-forge/libforge/testutil"
 	"github.com/ipfs/go-cid"
-	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/stretchr/testify/require"
 
 	"github.com/fil-forge/guppy/pkg/preparation/internal/testdb"
@@ -380,7 +379,7 @@ func TestCheckFileSystemIntegrity(t *testing.T) {
 				require.NoError(t, err)
 
 				// Complete with non-existent CID
-				fakeCID := stestutil.RandomCID(t).(cidlink.Link).Cid
+				fakeCID := stestutil.RandomCID(t)
 				err = dagScan.Complete(fakeCID)
 				require.NoError(t, err)
 				err = repo.UpdateDAGScan(t.Context(), dagScan)
@@ -460,7 +459,7 @@ func TestCheckFileSystemIntegrity(t *testing.T) {
 
 				fileDagScan, err := repo.CreateDAGScan(t.Context(), file.ID(), false, upload.ID(), upload.SpaceDID())
 				require.NoError(t, err)
-				fakeCID := stestutil.RandomCID(t).(cidlink.Link).Cid
+				fakeCID := stestutil.RandomCID(t)
 				err = fileDagScan.Complete(fakeCID)
 				require.NoError(t, err)
 				err = repo.UpdateDAGScan(t.Context(), fileDagScan)
@@ -506,7 +505,7 @@ func TestCheckFileSystemIntegrity(t *testing.T) {
 				// Create DAGScan for grandchild with invalid CID
 				grandchildDagScan, err := repo.CreateDAGScan(t.Context(), grandchildFile.ID(), false, upload.ID(), upload.SpaceDID())
 				require.NoError(t, err)
-				fakeCID := stestutil.RandomCID(t).(cidlink.Link).Cid
+				fakeCID := stestutil.RandomCID(t)
 				err = grandchildDagScan.Complete(fakeCID)
 				require.NoError(t, err)
 				err = repo.UpdateDAGScan(t.Context(), grandchildDagScan)

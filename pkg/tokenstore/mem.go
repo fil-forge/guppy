@@ -78,6 +78,16 @@ func (ms *MemStore) ListDelegations(ctx context.Context, aud did.DID, cmd ucan.C
 	}
 }
 
+func (ms *MemStore) Delegations(ctx context.Context) ([]ucan.Delegation, error) {
+	ms.mu.RLock()
+	defer ms.mu.RUnlock()
+	dlgs := make([]ucan.Delegation, 0, len(ms.dlgs))
+	for _, d := range ms.dlgs {
+		dlgs = append(dlgs, d)
+	}
+	return dlgs, nil
+}
+
 func (ms *MemStore) matchDelegations(ctx context.Context, aud did.DID, cmd ucan.Command, sub did.DID) iter.Seq2[ucan.Delegation, error] {
 	return ucanlib.NewDelegationMatcher(ms.ListDelegations)(ctx, aud, cmd, sub)
 }

@@ -2,26 +2,19 @@ package testutil
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"io"
 	"net/http"
 	"testing"
 
-	contentcap "github.com/fil-forge/go-libstoracha/capabilities/space/content"
-	"github.com/fil-forge/go-libstoracha/digestutil"
-	"github.com/fil-forge/go-ucanto/core/invocation"
-	"github.com/fil-forge/go-ucanto/core/receipt/fx"
-	"github.com/fil-forge/go-ucanto/core/result"
-	"github.com/fil-forge/go-ucanto/core/result/failure"
-	"github.com/fil-forge/go-ucanto/principal"
-	"github.com/fil-forge/go-ucanto/server"
-	serverretrieval "github.com/fil-forge/go-ucanto/server/retrieval"
-	thttp "github.com/fil-forge/go-ucanto/transport/http"
-	"github.com/fil-forge/go-ucanto/ucan"
+	contentcmds "github.com/fil-forge/libforge/commands/content"
+	"github.com/fil-forge/libforge/digestutil"
+	"github.com/fil-forge/libforge/ucan/retrieval"
+	"github.com/fil-forge/ucantone/binding"
+	"github.com/fil-forge/ucantone/principal"
+	"github.com/fil-forge/ucantone/ucan/container"
 	"github.com/multiformats/go-multihash"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 // RetrievalClientOption configures a retrieval client.
@@ -39,119 +32,75 @@ func WithoutHashValidation() RetrievalClientOption {
 	}
 }
 
-// NewRetrievalClient creates an in-process retrieval server and returns an HTTP client
-// that can connect to it directly (without network I/O). By default, the server validates that:
-// - URL hash (from path /blob/<hash>)
-// - Capability hash (from invocation)
-// - Actual data hash
-// all match before serving the content.
-//
-// Use WithoutHashValidation() to disable hash validation for testing client-side validation.
+// NewRetrievalClient creates an in-process retrieval server and returns an HTTP
+// client that connects to it directly (without network I/O). The server handles
+// `/content/retrieve` invocations, serving the requested byte range of testData.
+// By default it validates that the capability digest (and the URL path hash, when
+// present) match the actual data hash before serving. Use WithoutHashValidation()
+// to disable that for testing client-side validation.
 func NewRetrievalClient(t *testing.T, service principal.Signer, testData []byte, opts ...RetrievalClientOption) *http.Client {
 	cfg := retrievalClientConfig{}
 	for _, opt := range opts {
 		opt(&cfg)
 	}
-	retrievalServer, err := serverretrieval.NewServer(
-		service,
-		serverretrieval.WithServiceMethod(
-			contentcap.Retrieve.Can(),
-			serverretrieval.Provide(
-				contentcap.Retrieve,
-				func(ctx context.Context, cap ucan.Capability[contentcap.RetrieveCaveats], inv invocation.Invocation, ictx server.InvocationContext, req serverretrieval.Request) (result.Result[contentcap.RetrieveOk, failure.IPLDBuilderFailure], fx.Effects, serverretrieval.Response, error) {
-					nb := cap.Nb()
-					resultValue := result.Ok[contentcap.RetrieveOk, failure.IPLDBuilderFailure](contentcap.RetrieveOk{})
 
-					// Only validate hashes if not configured to skip validation
-					if !cfg.skipHashValidation {
-						// Compute the actual hash of the test data
-						actualHash, err := multihash.Sum(testData, multihash.SHA2_256, -1)
+	srv := retrieval.NewServer(service)
+	route := contentcmds.Retrieve.Route(
+		func(req *binding.Request[*contentcmds.RetrieveArguments], res *binding.Response[*contentcmds.RetrieveOK]) error {
+			args := req.Task().Arguments()
+
+			if !cfg.skipHashValidation {
+				actualHash, err := multihash.Sum(testData, multihash.SHA2_256, -1)
+				if err != nil {
+					return fmt.Errorf("hashing test data: %w", err)
+				}
+				// Capability digest must match the actual data.
+				assert.Equal(t, actualHash, args.Blob.Digest, "capability digest should match actual data; test may be incorrect")
+
+				// If the request carried a URL with a /blob/<hash> path, it must
+				// match the capability digest too.
+				if hcReq, ok := req.Metadata().(*retrieval.HTTPHeaderRequestContainer); ok && hcReq.URL != nil {
+					urlPath := hcReq.URL.Path
+					if len(urlPath) > len("/blob/") && urlPath[:len("/blob/")] == "/blob/" {
+						urlHash, err := digestutil.Parse(urlPath[len("/blob/"):])
 						if err != nil {
-							return nil, nil, serverretrieval.Response{Status: http.StatusInternalServerError}, fmt.Errorf("hashing test data: %w", err)
+							return fmt.Errorf("parsing URL hash: %w", err)
 						}
-
-						// Extract hash from URL path (format: /blob/<hash>)
-						urlPath := req.URL.Path
-						if len(urlPath) < 7 || urlPath[:6] != "/blob/" {
-							return nil, nil, serverretrieval.Response{Status: http.StatusBadRequest}, fmt.Errorf("invalid URL path: expected /blob/<hash>, got %s", urlPath)
-						}
-						urlHashStr := urlPath[6:] // Remove "/blob/" prefix
-
-						// Parse the URL hash
-						urlHash, err := digestutil.Parse(urlHashStr)
-						if err != nil {
-							return nil, nil, serverretrieval.Response{Status: http.StatusBadRequest}, fmt.Errorf("parsing URL hash: %w", err)
-						}
-
-						// Get hash from capability
-						capHash := nb.Blob.Digest
-
-						// Validate all three hashes match. This is just to verify the tests
-						// are written correctly.
-						assert.Equal(t, urlHash, capHash, "URL should match capability; test may be incorrect")
-						assert.Equal(t, urlHash, actualHash, "URL should match actual data; test may be incorrect")
+						assert.Equal(t, urlHash, args.Blob.Digest, "URL hash should match capability; test may be incorrect")
 					}
+				}
+			}
 
-					// Extract range from request
-					start := int(nb.Range.Start)
-					end := int(nb.Range.End)
+			start := int(args.Range.Start)
+			end := int(args.Range.End)
+			if start < 0 || end >= len(testData) || start > end {
+				return res.SetMetadata(&retrieval.HTTPHeaderResponseContainer{
+					Container:  container.New(),
+					StatusCode: http.StatusBadRequest,
+					Header:     http.Header{},
+					Body:       io.NopCloser(bytes.NewReader(nil)),
+				})
+			}
 
-					// Validate range
-					if start < 0 || end >= len(testData) || start > end {
-						return nil, nil, serverretrieval.Response{Status: http.StatusBadRequest}, nil
-					}
+			length := end - start + 1
+			headers := http.Header{}
+			headers.Set("Content-Length", fmt.Sprintf("%d", length))
+			headers.Set("Content-Range", fmt.Sprintf("bytes %d-%d/%d", start, end, len(testData)))
 
-					length := end - start + 1
-					headers := http.Header{}
-					headers.Set("Content-Length", fmt.Sprintf("%d", length))
-					headers.Set("Content-Range", fmt.Sprintf("bytes %d-%d/%d", start, end, len(testData)))
-
-					response := serverretrieval.Response{
-						Status:  http.StatusPartialContent,
-						Headers: headers,
-						Body:    io.NopCloser(bytes.NewReader(testData[start : end+1])),
-					}
-					return resultValue, nil, response, nil
-				},
-			),
-		),
+			if err := res.SetMetadata(&retrieval.HTTPHeaderResponseContainer{
+				Container:  container.New(),
+				StatusCode: http.StatusPartialContent,
+				Header:     headers,
+				Body:       io.NopCloser(bytes.NewReader(testData[start : end+1])),
+			}); err != nil {
+				return err
+			}
+			return res.SetSuccess(&contentcmds.RetrieveOK{})
+		},
 	)
-	require.NoError(t, err)
+	srv.Handle(route.Command, route.Handler)
 
-	// Create an HTTP client that connects directly to the server (in-process)
-	httpClient := &http.Client{
-		Transport: &inProcessRetrievalTransport{server: retrievalServer},
-	}
-
-	return httpClient
-}
-
-// inProcessRetrievalTransport implements http.RoundTripper to connect directly to a retrieval server
-type inProcessRetrievalTransport struct {
-	server *serverretrieval.Server
-}
-
-func (t *inProcessRetrievalTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	// Convert http.Request to transport.HTTPRequest
-	inboundReq := thttp.NewInboundRequest(req.URL, req.Body, req.Header)
-
-	// Call the server directly
-	resp, err := t.server.Request(req.Context(), inboundReq)
-	if err != nil {
-		return nil, err
-	}
-
-	// Convert transport.HTTPResponse to http.Response
-	httpResp := &http.Response{
-		Status:     http.StatusText(resp.Status()),
-		StatusCode: resp.Status(),
-		Proto:      "HTTP/1.1",
-		ProtoMajor: 1,
-		ProtoMinor: 1,
-		Header:     resp.Headers(),
-		Body:       resp.Body(),
-		Request:    req,
-	}
-
-	return httpResp, nil
+	// The retrieval server is itself an http.RoundTripper, so an http.Client
+	// using it as transport talks to it in-process.
+	return &http.Client{Transport: srv}
 }

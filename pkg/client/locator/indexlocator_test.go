@@ -1,757 +1,503 @@
 package locator_test
 
 import (
+	"bytes"
 	"context"
-	"fmt"
-	"io"
-	"iter"
+	"net/url"
 	"slices"
 	"testing"
 
-	"github.com/fil-forge/go-libstoracha/blobindex"
-	assertcap "github.com/fil-forge/go-libstoracha/capabilities/assert"
-	captypes "github.com/fil-forge/go-libstoracha/capabilities/types"
-	"github.com/fil-forge/go-libstoracha/digestutil"
-	"github.com/fil-forge/go-libstoracha/testutil"
-	"github.com/fil-forge/go-ucanto/core/delegation"
-	"github.com/fil-forge/go-ucanto/core/ipld/block"
-	"github.com/fil-forge/go-ucanto/core/ipld/hash/sha256"
-	"github.com/fil-forge/go-ucanto/validator"
-	"github.com/fil-forge/guppy/pkg/client/locator"
-	ctestutil "github.com/fil-forge/guppy/pkg/client/testutil"
 	"github.com/fil-forge/indexing-service/pkg/types"
+	"github.com/fil-forge/libforge/blobindex"
+	"github.com/fil-forge/libforge/commands"
+	assertcmds "github.com/fil-forge/libforge/commands/assert"
+	uploadcmds "github.com/fil-forge/libforge/commands/upload"
+	"github.com/fil-forge/libforge/digestutil"
+	libtestutil "github.com/fil-forge/libforge/testutil"
 	"github.com/fil-forge/ucantone/did"
+	"github.com/fil-forge/ucantone/principal/ed25519"
+	"github.com/fil-forge/ucantone/ucan"
+	"github.com/fil-forge/ucantone/ucan/invocation"
 	"github.com/ipfs/go-cid"
-	"github.com/ipld/go-ipld-prime"
-	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/multiformats/go-multicodec"
 	mh "github.com/multiformats/go-multihash"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/fil-forge/guppy/pkg/client/locator"
 )
+
+// --- helpers ---
+
+// cborURLs parses url strings into the []commands.CborURL form stored on a
+// location commitment.
+func cborURLs(t *testing.T, strs ...string) []commands.CborURL {
+	t.Helper()
+	out := make([]commands.CborURL, 0, len(strs))
+	for _, s := range strs {
+		u := libtestutil.Must(url.Parse(s))(t)
+		out = append(out, commands.CborURL(*u))
+	}
+	return out
+}
+
+// locationClaim builds an assert/location commitment invocation, as the indexer
+// would return it.
+func locationClaim(t *testing.T, provider ed25519.Signer, space did.DID, content mh.Multihash, urls ...string) ucan.Invocation {
+	t.Helper()
+	return libtestutil.Must(assertcmds.Location.Invoke(
+		provider,
+		provider.DID(),
+		&assertcmds.LocationArguments{
+			Space:    space,
+			Content:  content,
+			Location: cborURLs(t, urls...),
+		},
+	))(t)
+}
+
+// randomDelegation returns an arbitrary self-issued delegation, used as the
+// retrieval authorization handed to the indexer.
+func randomDelegation(t *testing.T) ucan.Delegation {
+	t.Helper()
+	s := libtestutil.RandomSigner(t)
+	return libtestutil.Must(uploadcmds.Add.Delegate(s, s.DID(), s.DID()))(t)
+}
+
+// archiveIndex CAR-archives an index and returns its block CID and bytes.
+func archiveIndex(t *testing.T, index blobindex.ShardedDagIndex) types.Block {
+	t.Helper()
+	var buf bytes.Buffer
+	require.NoError(t, blobindex.Archive(index, &buf))
+	data := buf.Bytes()
+	hash, err := mh.Sum(data, mh.SHA2_256, -1)
+	require.NoError(t, err)
+	return types.Block{Link: cid.NewCidV1(uint64(multicodec.Car), hash), Data: data}
+}
 
 func TestLocator(t *testing.T) {
 	t.Run("locates block from indexer", func(t *testing.T) {
-		blockHash := testutil.RandomMultihash(t)
-		rootLink := testutil.RandomCID(t)
-		shardHash := testutil.RandomMultihash(t)
+		blockHash := libtestutil.RandomMultihash(t)
+		shardHash := libtestutil.RandomMultihash(t)
 
-		space := testutil.RandomSigner(t)
-		provider1 := testutil.RandomSigner(t)
-		provider2 := testutil.RandomSigner(t)
+		space := libtestutil.RandomSigner(t)
+		provider1 := libtestutil.RandomSigner(t)
+		provider2 := libtestutil.RandomSigner(t)
 
-		claim1, err := assertcap.Location.Delegate(
-			provider1,
-			provider1.DID(),
-			provider1.DID().String(),
-			assertcap.LocationCaveats{
-				Space:   space.DID(),
-				Content: captypes.FromHash(shardHash),
-				Location: ctestutil.Urls(
-					"https://storage1.example.com/block/abc123",
-					"https://storage2.example.com/block/abc123",
-				),
-			},
+		claim1 := locationClaim(t, provider1, space.DID(), shardHash,
+			"https://storage1.example.com/block/abc123",
+			"https://storage2.example.com/block/abc123",
 		)
-		require.NoError(t, err)
-
-		claim2, err := assertcap.Location.Delegate(
-			provider2,
-			provider2.DID(),
-			provider2.DID().String(),
-			assertcap.LocationCaveats{
-				Space:   space.DID(),
-				Content: captypes.FromHash(shardHash),
-				Location: ctestutil.Urls(
-					"https://storage3.example.com/block/abc123",
-				),
-			},
+		claim2 := locationClaim(t, provider2, space.DID(), shardHash,
+			"https://storage3.example.com/block/abc123",
 		)
-		require.NoError(t, err)
 
-		index := blobindex.NewShardedDagIndexView(rootLink, -1)
-		index.SetSlice(shardHash, blockHash, blobindex.Position{
-			Offset: 10,
-			Length: 2048,
-		})
+		index := blobindex.NewShardedDagIndex(-1)
+		index.SetSlice(shardHash, blockHash, blobindex.Range{Start: 10, End: 2057})
 
-		// This could be any kind of delegation; we just need to see that it gets
-		// sent to the indexer, whatever it is.
-		authDelegation := testutil.RandomLocationInvocation(t)
+		authDelegation := randomDelegation(t)
 
-		mockIndexer := newMockIndexerClient(func(digests []mh.Multihash) ([]delegation.Delegation, []blobindex.ShardedDagIndexView, error) {
+		mockIndexer := newMockIndexerClient(t, func(digests []mh.Multihash) ([]ucan.Invocation, []blobindex.ShardedDagIndex, error) {
 			assert.ElementsMatch(t, []mh.Multihash{blockHash}, digests)
-			return []delegation.Delegation{claim1, claim2}, []blobindex.ShardedDagIndexView{index}, nil
+			return []ucan.Invocation{claim1, claim2}, []blobindex.ShardedDagIndex{index}, nil
 		})
-		locator := locator.NewIndexLocator(mockIndexer, func(spaces []did.DID) (delegation.Delegation, error) {
-			return authDelegation, nil
+		l := locator.NewIndexLocator(mockIndexer, func(ctx context.Context, spaces []did.DID) ([]ucan.Delegation, error) {
+			return []ucan.Delegation{authDelegation}, nil
 		})
 
-		locations, err := locator.Locate(t.Context(), []did.DID{space.DID()}, blockHash)
+		locations, err := l.Locate(t.Context(), []did.DID{space.DID()}, blockHash)
 		require.NoError(t, err)
 
 		require.Len(t, locations, 2)
-		require.ElementsMatch(t, ctestutil.Urls(
+		require.ElementsMatch(t, cborURLs(t,
 			"https://storage1.example.com/block/abc123",
 			"https://storage2.example.com/block/abc123",
-		), locations[0].Commitment.Nb().Location)
-		require.Equal(t, blobindex.Position{
-			Offset: 10,
-			Length: 2048,
-		}, locations[0].Range)
-		require.ElementsMatch(t, ctestutil.Urls(
+		), locations[0].Commitment.Location)
+		require.Equal(t, blobindex.Range{Start: 10, End: 2057}, locations[0].Range)
+		require.ElementsMatch(t, cborURLs(t,
 			"https://storage3.example.com/block/abc123",
-		), locations[1].Commitment.Nb().Location)
-		require.Equal(t, blobindex.Position{
-			Offset: 10,
-			Length: 2048,
-		}, locations[1].Range)
+		), locations[1].Commitment.Location)
+		require.Equal(t, blobindex.Range{Start: 10, End: 2057}, locations[1].Range)
 
 		require.Len(t, mockIndexer.Queries, 1)
 		require.Equal(t, types.Query{
 			Hashes:      []mh.Multihash{blockHash},
-			Delegations: []delegation.Delegation{authDelegation},
-			Match: types.Match{
-				Subject: []did.DID{space.DID()},
-			},
+			Delegations: []ucan.Delegation{authDelegation},
+			Match:       types.Match{Subject: []did.DID{space.DID()}},
 		}, mockIndexer.Queries[0])
 
-		_, err = locator.Locate(t.Context(), []did.DID{space.DID()}, blockHash)
+		_, err = l.Locate(t.Context(), []did.DID{space.DID()}, blockHash)
 		require.NoError(t, err)
 		require.Len(t, mockIndexer.Queries, 1)
 	})
 
 	t.Run("caches unrequested blocks", func(t *testing.T) {
-		// Create two different block hashes that will be in the same shard
-		block1Hash := testutil.RandomMultihash(t)
-		block2Hash := testutil.RandomMultihash(t)
-		rootLink := testutil.RandomCID(t)
-		shardHash := testutil.RandomMultihash(t)
+		block1Hash := libtestutil.RandomMultihash(t)
+		block2Hash := libtestutil.RandomMultihash(t)
+		shardHash := libtestutil.RandomMultihash(t)
 
-		space := testutil.RandomSigner(t)
-		provider := testutil.RandomSigner(t)
+		space := libtestutil.RandomSigner(t)
+		provider := libtestutil.RandomSigner(t)
 
-		// Create a claim for the shard
-		claim, err := assertcap.Location.Delegate(
-			provider,
-			provider.DID(),
-			provider.DID().String(),
-			assertcap.LocationCaveats{
-				Space:   space.DID(),
-				Content: captypes.FromHash(shardHash),
-				Location: ctestutil.Urls(
-					"https://storage.example.com/shard/xyz",
-				),
-			},
-		)
-		require.NoError(t, err)
+		claim := locationClaim(t, provider, space.DID(), shardHash, "https://storage.example.com/shard/xyz")
 
-		// Create an index that contains BOTH blocks in the same shard
-		index := blobindex.NewShardedDagIndexView(rootLink, -1)
-		index.SetSlice(shardHash, block1Hash, blobindex.Position{
-			Offset: 0,
-			Length: 1024,
-		})
-		index.SetSlice(shardHash, block2Hash, blobindex.Position{
-			Offset: 1024,
-			Length: 2048,
-		})
+		index := blobindex.NewShardedDagIndex(-1)
+		index.SetSlice(shardHash, block1Hash, blobindex.Range{Start: 0, End: 1023})
+		index.SetSlice(shardHash, block2Hash, blobindex.Range{Start: 1024, End: 3071})
 
-		requiredDelegations := []delegation.Delegation{
-			testutil.RandomLocationInvocation(t),
-		}
-
-		mockIndexer := newMockIndexerClient(func(digests []mh.Multihash) ([]delegation.Delegation, []blobindex.ShardedDagIndexView, error) {
+		auth := randomDelegation(t)
+		mockIndexer := newMockIndexerClient(t, func(digests []mh.Multihash) ([]ucan.Invocation, []blobindex.ShardedDagIndex, error) {
 			assert.ElementsMatch(t, []mh.Multihash{block1Hash}, digests)
-			return []delegation.Delegation{claim}, []blobindex.ShardedDagIndexView{index}, nil
+			return []ucan.Invocation{claim}, []blobindex.ShardedDagIndex{index}, nil
 		})
-		locator := locator.NewIndexLocator(mockIndexer, func(spaces []did.DID) (delegation.Delegation, error) {
-			return requiredDelegations[0], nil
+		l := locator.NewIndexLocator(mockIndexer, func(ctx context.Context, spaces []did.DID) ([]ucan.Delegation, error) {
+			return []ucan.Delegation{auth}, nil
 		})
 
-		// First, locate block1
-		locations1, err := locator.Locate(t.Context(), []did.DID{space.DID()}, block1Hash)
+		locations1, err := l.Locate(t.Context(), []did.DID{space.DID()}, block1Hash)
 		require.NoError(t, err)
 		require.Len(t, locations1, 1)
-		require.Equal(t, blobindex.Position{
-			Offset: 0,
-			Length: 1024,
-		}, locations1[0].Range)
-		require.ElementsMatch(t, ctestutil.Urls(
-			"https://storage.example.com/shard/xyz",
-		), locations1[0].Commitment.Nb().Location)
-
-		// Verify that we made one query
+		require.Equal(t, blobindex.Range{Start: 0, End: 1023}, locations1[0].Range)
+		require.ElementsMatch(t, cborURLs(t, "https://storage.example.com/shard/xyz"), locations1[0].Commitment.Location)
 		require.Len(t, mockIndexer.Queries, 1)
 
-		// Now locate block2, which should be served from cache
-		locations2, err := locator.Locate(t.Context(), []did.DID{space.DID()}, block2Hash)
+		locations2, err := l.Locate(t.Context(), []did.DID{space.DID()}, block2Hash)
 		require.NoError(t, err)
 		require.Len(t, locations2, 1)
-		require.Equal(t, blobindex.Position{
-			Offset: 1024,
-			Length: 2048,
-		}, locations2[0].Range)
-		require.ElementsMatch(t, ctestutil.Urls(
-			"https://storage.example.com/shard/xyz",
-		), locations2[0].Commitment.Nb().Location)
-
-		// Verify that we STILL have only one query - block2 came from cache
-		require.Len(t, mockIndexer.Queries, 1, "Second block should be served from cache without making a new query")
+		require.Equal(t, blobindex.Range{Start: 1024, End: 3071}, locations2[0].Range)
+		require.ElementsMatch(t, cborURLs(t, "https://storage.example.com/shard/xyz"), locations2[0].Commitment.Location)
+		require.Len(t, mockIndexer.Queries, 1, "Second block should be served from cache")
 	})
 
 	t.Run("location-only query for block in cached index", func(t *testing.T) {
-		// Create two different block hashes that will be in different shards
-		block1Hash := testutil.RandomMultihash(t)
-		block2Hash := testutil.RandomMultihash(t)
-		rootLink := testutil.RandomCID(t)
-		shard1Hash := testutil.RandomMultihash(t)
-		shard2Hash := testutil.RandomMultihash(t)
+		block1Hash := libtestutil.RandomMultihash(t)
+		block2Hash := libtestutil.RandomMultihash(t)
+		shard1Hash := libtestutil.RandomMultihash(t)
+		shard2Hash := libtestutil.RandomMultihash(t)
 
-		space := testutil.RandomSigner(t)
-		provider := testutil.RandomSigner(t)
+		space := libtestutil.RandomSigner(t)
+		provider := libtestutil.RandomSigner(t)
 
-		// Create a claim for shard1 only (not shard2)
-		claim1, err := assertcap.Location.Delegate(
-			provider,
-			provider.DID(),
-			provider.DID().String(),
-			assertcap.LocationCaveats{
-				Space:   space.DID(),
-				Content: captypes.FromHash(shard1Hash),
-				Location: ctestutil.Urls(
-					"https://storage.example.com/shard1",
-				),
-			},
-		)
-		require.NoError(t, err)
+		claim1 := locationClaim(t, provider, space.DID(), shard1Hash, "https://storage.example.com/shard1")
 
-		// Create an index that contains BOTH blocks in different shards
-		index := blobindex.NewShardedDagIndexView(rootLink, -1)
-		index.SetSlice(shard1Hash, block1Hash, blobindex.Position{
-			Offset: 0,
-			Length: 1024,
-		})
-		index.SetSlice(shard2Hash, block2Hash, blobindex.Position{
-			Offset: 0,
-			Length: 2048,
+		index := blobindex.NewShardedDagIndex(-1)
+		index.SetSlice(shard1Hash, block1Hash, blobindex.Range{Start: 0, End: 1023})
+		index.SetSlice(shard2Hash, block2Hash, blobindex.Range{Start: 0, End: 2047})
+
+		auth := randomDelegation(t)
+		mockIndexer := newLocationQueryMockIndexer(t, claim1, index)
+		l := locator.NewIndexLocator(mockIndexer, func(ctx context.Context, spaces []did.DID) ([]ucan.Delegation, error) {
+			return []ucan.Delegation{auth}, nil
 		})
 
-		requiredDelegations := []delegation.Delegation{
-			testutil.RandomLocationInvocation(t),
-		}
-
-		// Create a mock indexer that responds differently based on query type
-		mockIndexer := newLocationQueryMockIndexer(claim1, index)
-		locator := locator.NewIndexLocator(mockIndexer, func(spaces []did.DID) (delegation.Delegation, error) {
-			return requiredDelegations[0], nil
-		})
-
-		// First, locate block1 - should return index and claim for shard1
-		locations1, err := locator.Locate(t.Context(), []did.DID{space.DID()}, block1Hash)
+		locations1, err := l.Locate(t.Context(), []did.DID{space.DID()}, block1Hash)
 		require.NoError(t, err)
 		require.Len(t, locations1, 1)
-		require.Equal(t, blobindex.Position{
-			Offset: 0,
-			Length: 1024,
-		}, locations1[0].Range)
-		require.ElementsMatch(t, ctestutil.Urls(
-			"https://storage.example.com/shard1",
-		), locations1[0].Commitment.Nb().Location)
+		require.Equal(t, blobindex.Range{Start: 0, End: 1023}, locations1[0].Range)
+		require.ElementsMatch(t, cborURLs(t, "https://storage.example.com/shard1"), locations1[0].Commitment.Location)
 
-		// Verify that we made one query
 		require.Len(t, mockIndexer.Queries, 1)
 		require.Equal(t, types.QueryTypeStandard, mockIndexer.Queries[0].Type)
 
-		// Now locate block2 - should make a location-only query since we have the index
-		// But the mock won't return a location claim for shard2, so we should get an error
-		_, err = locator.Locate(t.Context(), []did.DID{space.DID()}, block2Hash)
+		_, err = l.Locate(t.Context(), []did.DID{space.DID()}, block2Hash)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), digestutil.Format(block2Hash))
 		require.Contains(t, err.Error(), "no locations found")
 
-		// Verify that we made a second query, but it was location-only, and was
-		// targeted at shard2
 		require.Len(t, mockIndexer.Queries, 2, "Should have made two queries")
-		require.Equal(t, shard2Hash, mockIndexer.Queries[1].Hashes[0],
-			"Second query should be for shard2 hash")
-		require.Equal(t, types.QueryTypeLocation, mockIndexer.Queries[1].Type,
-			"Second query should be location-only since index is cached")
+		require.Equal(t, shard2Hash, mockIndexer.Queries[1].Hashes[0])
+		require.Equal(t, types.QueryTypeLocation, mockIndexer.Queries[1].Type)
 	})
 
 	t.Run("cache is space-scoped", func(t *testing.T) {
-		// Create a block hash
-		blockHash := testutil.RandomMultihash(t)
-		rootLink := testutil.RandomCID(t)
-		shardHash := testutil.RandomMultihash(t)
+		blockHash := libtestutil.RandomMultihash(t)
+		shardHash := libtestutil.RandomMultihash(t)
 
-		// Create TWO different spaces
-		space1 := testutil.RandomSigner(t)
-		space2 := testutil.RandomSigner(t)
-		provider := testutil.RandomSigner(t)
+		space1 := libtestutil.RandomSigner(t)
+		space2 := libtestutil.RandomSigner(t)
+		provider := libtestutil.RandomSigner(t)
 
-		// Create a claim for space1
-		claim1, err := assertcap.Location.Delegate(
-			provider,
-			provider.DID(),
-			provider.DID().String(),
-			assertcap.LocationCaveats{
-				Space:   space1.DID(),
-				Content: captypes.FromHash(shardHash),
-				Location: ctestutil.Urls(
-					"https://storage1.example.com/space1/block",
-				),
-			},
-		)
-		require.NoError(t, err)
+		claim1 := locationClaim(t, provider, space1.DID(), shardHash, "https://storage1.example.com/space1/block")
+		claim2 := locationClaim(t, provider, space2.DID(), shardHash, "https://storage2.example.com/space2/block")
 
-		// Create a claim for space2
-		claim2, err := assertcap.Location.Delegate(
-			provider,
-			provider.DID(),
-			provider.DID().String(),
-			assertcap.LocationCaveats{
-				Space:   space2.DID(),
-				Content: captypes.FromHash(shardHash),
-				Location: ctestutil.Urls(
-					"https://storage2.example.com/space2/block",
-				),
-			},
-		)
-		require.NoError(t, err)
+		index := blobindex.NewShardedDagIndex(-1)
+		index.SetSlice(shardHash, blockHash, blobindex.Range{Start: 0, End: 1023})
 
-		// Create an index with the block
-		index := blobindex.NewShardedDagIndexView(rootLink, -1)
-		index.SetSlice(shardHash, blockHash, blobindex.Position{
-			Offset: 0,
-			Length: 1024,
+		auth := randomDelegation(t)
+		mockIndexer := &spaceScopedMockIndexer{t: t, space1Claim: claim1, space2Claim: claim2, index: index}
+		session := locator.NewIndexLocator(mockIndexer, func(ctx context.Context, spaces []did.DID) ([]ucan.Delegation, error) {
+			return []ucan.Delegation{auth}, nil
 		})
 
-		requiredDelegations := []delegation.Delegation{
-			testutil.RandomLocationInvocation(t),
-		}
-
-		// Create a mock indexer that returns the appropriate claim based on the query
-		mockIndexer := &spaceScopedMockIndexer{
-			space1Claim: claim1,
-			space2Claim: claim2,
-			index:       index,
-		}
-		session := locator.NewIndexLocator(mockIndexer, func(spaces []did.DID) (delegation.Delegation, error) {
-			return requiredDelegations[0], nil
-		})
-
-		// Locate the block for space1
 		locations1, err := session.Locate(t.Context(), []did.DID{space1.DID()}, blockHash)
 		require.NoError(t, err)
 		require.Len(t, locations1, 1)
-		require.ElementsMatch(t, ctestutil.Urls(
-			"https://storage1.example.com/space1/block",
-		), locations1[0].Commitment.Nb().Location)
+		require.ElementsMatch(t, cborURLs(t, "https://storage1.example.com/space1/block"), locations1[0].Commitment.Location)
 
-		// Locate the block for space2 - should get different location
 		locations2, err := session.Locate(t.Context(), []did.DID{space2.DID()}, blockHash)
 		require.NoError(t, err)
 		require.Len(t, locations2, 1)
-		require.ElementsMatch(t, ctestutil.Urls(
-			"https://storage2.example.com/space2/block",
-		), locations2[0].Commitment.Nb().Location)
+		require.ElementsMatch(t, cborURLs(t, "https://storage2.example.com/space2/block"), locations2[0].Commitment.Location)
 
-		// Verify both queries were made (cache didn't incorrectly return space1's result for space2)
-		require.Equal(t, 2, mockIndexer.queryCount, "Cache should be space-scoped, requiring separate queries for each space")
+		require.Equal(t, 2, mockIndexer.queryCount, "Cache should be space-scoped")
 	})
 
 	t.Run("supports multi space locating", func(t *testing.T) {
-		blockDigest1 := testutil.RandomMultihash(t)
-		blockDigest2 := testutil.RandomMultihash(t)
-		rootLink1 := testutil.RandomCID(t)
-		rootLink2 := testutil.RandomCID(t)
-		shardDigest1 := testutil.RandomMultihash(t)
-		shardDigest2 := testutil.RandomMultihash(t)
+		blockDigest1 := libtestutil.RandomMultihash(t)
+		blockDigest2 := libtestutil.RandomMultihash(t)
+		shardDigest1 := libtestutil.RandomMultihash(t)
+		shardDigest2 := libtestutil.RandomMultihash(t)
 
-		space1 := testutil.RandomSigner(t)
-		space2 := testutil.RandomSigner(t)
-		provider1 := testutil.RandomSigner(t)
-		provider2 := testutil.RandomSigner(t)
+		space1 := libtestutil.RandomSigner(t)
+		space2 := libtestutil.RandomSigner(t)
+		provider1 := libtestutil.RandomSigner(t)
+		provider2 := libtestutil.RandomSigner(t)
 
-		claim1, err := assertcap.Location.Delegate(
-			provider1,
-			provider1.DID(),
-			provider1.DID().String(),
-			assertcap.LocationCaveats{
-				Space:   space1.DID(),
-				Content: captypes.FromHash(shardDigest1),
-				Location: ctestutil.Urls(
-					"https://storage1.example.com/block/abc123",
-					"https://storage2.example.com/block/abc123",
-				),
-			},
-		)
-		require.NoError(t, err)
-
-		claim2, err := assertcap.Location.Delegate(
-			provider2,
-			provider2.DID(),
-			provider2.DID().String(),
-			assertcap.LocationCaveats{
-				Space:   space2.DID(),
-				Content: captypes.FromHash(shardDigest2),
-				Location: ctestutil.Urls(
-					"https://storage3.example.com/block/abc123",
-				),
-			},
-		)
-		require.NoError(t, err)
-
-		index1 := blobindex.NewShardedDagIndexView(rootLink1, -1)
-		index1.SetSlice(shardDigest1, blockDigest1, blobindex.Position{
-			Offset: 10,
-			Length: 2048,
-		})
-
-		index2 := blobindex.NewShardedDagIndexView(rootLink2, -1)
-		index2.SetSlice(shardDigest2, blockDigest2, blobindex.Position{
-			Offset: 57,
-			Length: 1024,
-		})
-
-		// These could be any kind of delegations; we just need to see that they get
-		// sent to the indexer, whatever they are.
-		requiredDelegations := []delegation.Delegation{
-			testutil.RandomLocationInvocation(t),
-		}
-
-		mockIndexer := newMockIndexerClient(func([]mh.Multihash) ([]delegation.Delegation, []blobindex.ShardedDagIndexView, error) {
-			return []delegation.Delegation{claim1, claim2}, []blobindex.ShardedDagIndexView{index1, index2}, nil
-		})
-		locator := locator.NewIndexLocator(mockIndexer, func(spaces []did.DID) (delegation.Delegation, error) {
-			return requiredDelegations[0], nil
-		})
-
-		locations, err := locator.Locate(t.Context(), []did.DID{space1.DID(), space2.DID()}, blockDigest1)
-		require.NoError(t, err)
-
-		require.Len(t, locations, 1)
-		require.ElementsMatch(t, ctestutil.Urls(
+		claim1 := locationClaim(t, provider1, space1.DID(), shardDigest1,
 			"https://storage1.example.com/block/abc123",
 			"https://storage2.example.com/block/abc123",
-		), locations[0].Commitment.Nb().Location)
-		require.Equal(t, blobindex.Position{
-			Offset: 10,
-			Length: 2048,
-		}, locations[0].Range)
+		)
+		claim2 := locationClaim(t, provider2, space2.DID(), shardDigest2,
+			"https://storage3.example.com/block/abc123",
+		)
+
+		index1 := blobindex.NewShardedDagIndex(-1)
+		index1.SetSlice(shardDigest1, blockDigest1, blobindex.Range{Start: 10, End: 2057})
+		index2 := blobindex.NewShardedDagIndex(-1)
+		index2.SetSlice(shardDigest2, blockDigest2, blobindex.Range{Start: 57, End: 1080})
+
+		auth := randomDelegation(t)
+		required := []ucan.Delegation{auth}
+		mockIndexer := newMockIndexerClient(t, func([]mh.Multihash) ([]ucan.Invocation, []blobindex.ShardedDagIndex, error) {
+			return []ucan.Invocation{claim1, claim2}, []blobindex.ShardedDagIndex{index1, index2}, nil
+		})
+		l := locator.NewIndexLocator(mockIndexer, func(ctx context.Context, spaces []did.DID) ([]ucan.Delegation, error) {
+			return []ucan.Delegation{auth}, nil
+		})
+
+		locations, err := l.Locate(t.Context(), []did.DID{space1.DID(), space2.DID()}, blockDigest1)
+		require.NoError(t, err)
+		require.Len(t, locations, 1)
+		require.ElementsMatch(t, cborURLs(t,
+			"https://storage1.example.com/block/abc123",
+			"https://storage2.example.com/block/abc123",
+		), locations[0].Commitment.Location)
+		require.Equal(t, blobindex.Range{Start: 10, End: 2057}, locations[0].Range)
 
 		require.Len(t, mockIndexer.Queries, 1)
 		require.Equal(t, types.Query{
 			Hashes:      []mh.Multihash{blockDigest1},
-			Delegations: requiredDelegations,
-			Match: types.Match{
-				Subject: []did.DID{space1.DID(), space2.DID()},
-			},
+			Delegations: required,
+			Match:       types.Match{Subject: []did.DID{space1.DID(), space2.DID()}},
 		}, mockIndexer.Queries[0])
 
-		locations, err = locator.Locate(t.Context(), []did.DID{space1.DID(), space2.DID()}, blockDigest2)
+		locations, err = l.Locate(t.Context(), []did.DID{space1.DID(), space2.DID()}, blockDigest2)
 		require.NoError(t, err)
-
 		require.Len(t, locations, 1)
-		require.ElementsMatch(t, ctestutil.Urls(
+		require.ElementsMatch(t, cborURLs(t,
 			"https://storage3.example.com/block/abc123",
-		), locations[0].Commitment.Nb().Location)
-		require.Equal(t, blobindex.Position{
-			Offset: 57,
-			Length: 1024,
-		}, locations[0].Range)
+		), locations[0].Commitment.Location)
+		require.Equal(t, blobindex.Range{Start: 57, End: 1080}, locations[0].Range)
 
 		require.Len(t, mockIndexer.Queries, 2)
 		require.Equal(t, types.Query{
 			Hashes:      []mh.Multihash{blockDigest2},
-			Delegations: requiredDelegations,
-			Match: types.Match{
-				Subject: []did.DID{space1.DID(), space2.DID()},
-			},
+			Delegations: required,
+			Match:       types.Match{Subject: []did.DID{space1.DID(), space2.DID()}},
 		}, mockIndexer.Queries[1])
 	})
 }
 
 func TestLocateMany(t *testing.T) {
 	t.Run("locates multiple digests at once across two shards", func(t *testing.T) {
-		// Create three different block hashes
-		block1Hash := testutil.RandomMultihash(t)
-		block2Hash := testutil.RandomMultihash(t)
-		block3Hash := testutil.RandomMultihash(t)
-		rootLink := testutil.RandomCID(t)
-		shard1Hash := testutil.RandomMultihash(t)
-		shard2Hash := testutil.RandomMultihash(t)
+		block1Hash := libtestutil.RandomMultihash(t)
+		block2Hash := libtestutil.RandomMultihash(t)
+		block3Hash := libtestutil.RandomMultihash(t)
+		shard1Hash := libtestutil.RandomMultihash(t)
+		shard2Hash := libtestutil.RandomMultihash(t)
 
-		space := testutil.RandomSigner(t)
-		provider := testutil.RandomSigner(t)
+		space := libtestutil.RandomSigner(t)
+		provider := libtestutil.RandomSigner(t)
 
-		// Create a claim for shard1
-		claim1, err := assertcap.Location.Delegate(
-			provider,
-			provider.DID(),
-			provider.DID().String(),
-			assertcap.LocationCaveats{
-				Space:   space.DID(),
-				Content: captypes.FromHash(shard1Hash),
-				Location: ctestutil.Urls(
-					"https://storage.example.com/shard1/abc",
-				),
-			},
-		)
-		require.NoError(t, err)
+		claim1 := locationClaim(t, provider, space.DID(), shard1Hash, "https://storage.example.com/shard1/abc")
+		claim2 := locationClaim(t, provider, space.DID(), shard2Hash, "https://storage.example.com/shard2/def")
 
-		// Create a claim for shard2
-		claim2, err := assertcap.Location.Delegate(
-			provider,
-			provider.DID(),
-			provider.DID().String(),
-			assertcap.LocationCaveats{
-				Space:   space.DID(),
-				Content: captypes.FromHash(shard2Hash),
-				Location: ctestutil.Urls(
-					"https://storage.example.com/shard2/def",
-				),
-			},
-		)
-		require.NoError(t, err)
+		index := blobindex.NewShardedDagIndex(-1)
+		index.SetSlice(shard1Hash, block1Hash, blobindex.Range{Start: 0, End: 1023})
+		index.SetSlice(shard1Hash, block2Hash, blobindex.Range{Start: 1024, End: 3071})
+		index.SetSlice(shard2Hash, block3Hash, blobindex.Range{Start: 0, End: 511})
 
-		// Create an index with blocks 1 and 2 in shard1, and block 3 in shard2
-		index := blobindex.NewShardedDagIndexView(rootLink, -1)
-		index.SetSlice(shard1Hash, block1Hash, blobindex.Position{
-			Offset: 0,
-			Length: 1024,
-		})
-		index.SetSlice(shard1Hash, block2Hash, blobindex.Position{
-			Offset: 1024,
-			Length: 2048,
-		})
-		index.SetSlice(shard2Hash, block3Hash, blobindex.Position{
-			Offset: 0,
-			Length: 512,
-		})
-
-		authDelegation := testutil.RandomLocationInvocation(t)
-
-		mockIndexer := newMockIndexerClient(func(digests []mh.Multihash) ([]delegation.Delegation, []blobindex.ShardedDagIndexView, error) {
+		auth := randomDelegation(t)
+		mockIndexer := newMockIndexerClient(t, func(digests []mh.Multihash) ([]ucan.Invocation, []blobindex.ShardedDagIndex, error) {
 			assert.ElementsMatch(t, []mh.Multihash{block1Hash, block2Hash, block3Hash}, digests)
-			return []delegation.Delegation{claim1, claim2}, []blobindex.ShardedDagIndexView{index}, nil
+			return []ucan.Invocation{claim1, claim2}, []blobindex.ShardedDagIndex{index}, nil
 		})
-		locator := locator.NewIndexLocator(mockIndexer, func(spaces []did.DID) (delegation.Delegation, error) {
-			return authDelegation, nil
+		l := locator.NewIndexLocator(mockIndexer, func(ctx context.Context, spaces []did.DID) ([]ucan.Delegation, error) {
+			return []ucan.Delegation{auth}, nil
 		})
 
-		// Locate all three blocks at once
-		locations, err := locator.LocateMany(t.Context(), []did.DID{space.DID()}, []mh.Multihash{block1Hash, block2Hash, block3Hash})
+		locations, err := l.LocateMany(t.Context(), []did.DID{space.DID()}, []mh.Multihash{block1Hash, block2Hash, block3Hash})
 		require.NoError(t, err)
 
-		// Verify we got locations for all three blocks
-		require.True(t, locations.Has(block1Hash), "should have location for block1")
-		require.True(t, locations.Has(block2Hash), "should have location for block2")
-		require.True(t, locations.Has(block3Hash), "should have location for block3")
+		require.True(t, locations.Has(block1Hash))
+		require.True(t, locations.Has(block2Hash))
+		require.True(t, locations.Has(block3Hash))
 
-		// Verify the positions and URLs are correct
 		block1Locations := locations.Get(block1Hash)
 		require.Len(t, block1Locations, 1)
-		require.Equal(t, blobindex.Position{Offset: 0, Length: 1024}, block1Locations[0].Range)
-		require.ElementsMatch(t, ctestutil.Urls("https://storage.example.com/shard1/abc"), block1Locations[0].Commitment.Nb().Location)
+		require.Equal(t, blobindex.Range{Start: 0, End: 1023}, block1Locations[0].Range)
+		require.ElementsMatch(t, cborURLs(t, "https://storage.example.com/shard1/abc"), block1Locations[0].Commitment.Location)
 
 		block2Locations := locations.Get(block2Hash)
 		require.Len(t, block2Locations, 1)
-		require.Equal(t, blobindex.Position{Offset: 1024, Length: 2048}, block2Locations[0].Range)
-		require.ElementsMatch(t, ctestutil.Urls("https://storage.example.com/shard1/abc"), block2Locations[0].Commitment.Nb().Location)
+		require.Equal(t, blobindex.Range{Start: 1024, End: 3071}, block2Locations[0].Range)
+		require.ElementsMatch(t, cborURLs(t, "https://storage.example.com/shard1/abc"), block2Locations[0].Commitment.Location)
 
 		block3Locations := locations.Get(block3Hash)
 		require.Len(t, block3Locations, 1)
-		require.Equal(t, blobindex.Position{Offset: 0, Length: 512}, block3Locations[0].Range)
-		require.ElementsMatch(t, ctestutil.Urls("https://storage.example.com/shard2/def"), block3Locations[0].Commitment.Nb().Location)
+		require.Equal(t, blobindex.Range{Start: 0, End: 511}, block3Locations[0].Range)
+		require.ElementsMatch(t, cborURLs(t, "https://storage.example.com/shard2/def"), block3Locations[0].Commitment.Location)
 
-		// Verify only one query was made
 		require.Len(t, mockIndexer.Queries, 1)
 		require.ElementsMatch(t, []mh.Multihash{block1Hash, block2Hash, block3Hash}, mockIndexer.Queries[0].Hashes)
 	})
 
 	t.Run("returns partial results when some blocks not found", func(t *testing.T) {
-		// Create two block hashes, but only one will be in the index
-		block1Hash := testutil.RandomMultihash(t)
-		block2Hash := testutil.RandomMultihash(t)
-		rootLink := testutil.RandomCID(t)
-		shardHash := testutil.RandomMultihash(t)
+		block1Hash := libtestutil.RandomMultihash(t)
+		block2Hash := libtestutil.RandomMultihash(t)
+		shardHash := libtestutil.RandomMultihash(t)
 
-		space := testutil.RandomSigner(t)
-		provider := testutil.RandomSigner(t)
+		space := libtestutil.RandomSigner(t)
+		provider := libtestutil.RandomSigner(t)
 
-		claim, err := assertcap.Location.Delegate(
-			provider,
-			provider.DID(),
-			provider.DID().String(),
-			assertcap.LocationCaveats{
-				Space:   space.DID(),
-				Content: captypes.FromHash(shardHash),
-				Location: ctestutil.Urls(
-					"https://storage.example.com/shard/abc",
-				),
-			},
-		)
-		require.NoError(t, err)
+		claim := locationClaim(t, provider, space.DID(), shardHash, "https://storage.example.com/shard/abc")
 
-		// Create an index with only block1
-		index := blobindex.NewShardedDagIndexView(rootLink, -1)
-		index.SetSlice(shardHash, block1Hash, blobindex.Position{
-			Offset: 0,
-			Length: 1024,
-		})
+		index := blobindex.NewShardedDagIndex(-1)
+		index.SetSlice(shardHash, block1Hash, blobindex.Range{Start: 0, End: 1023})
 
-		authDelegation := testutil.RandomLocationInvocation(t)
-
-		mockIndexer := newMockIndexerClient(func(digests []mh.Multihash) ([]delegation.Delegation, []blobindex.ShardedDagIndexView, error) {
+		auth := randomDelegation(t)
+		mockIndexer := newMockIndexerClient(t, func(digests []mh.Multihash) ([]ucan.Invocation, []blobindex.ShardedDagIndex, error) {
 			assert.ElementsMatch(t, []mh.Multihash{block1Hash, block2Hash}, digests)
-			return []delegation.Delegation{claim}, []blobindex.ShardedDagIndexView{index}, nil
+			return []ucan.Invocation{claim}, []blobindex.ShardedDagIndex{index}, nil
 		})
-		locator := locator.NewIndexLocator(mockIndexer, func(spaces []did.DID) (delegation.Delegation, error) {
-			return authDelegation, nil
+		l := locator.NewIndexLocator(mockIndexer, func(ctx context.Context, spaces []did.DID) ([]ucan.Delegation, error) {
+			return []ucan.Delegation{auth}, nil
 		})
 
-		// Locate both blocks
-		locations, err := locator.LocateMany(t.Context(), []did.DID{space.DID()}, []mh.Multihash{block1Hash, block2Hash})
+		locations, err := l.LocateMany(t.Context(), []did.DID{space.DID()}, []mh.Multihash{block1Hash, block2Hash})
 		require.NoError(t, err)
 
-		// Verify we got location for block1 but not block2
-		require.True(t, locations.Has(block1Hash), "should have location for block1")
-		require.False(t, locations.Has(block2Hash), "should not have location for block2")
+		require.True(t, locations.Has(block1Hash))
+		require.False(t, locations.Has(block2Hash))
 
 		block1Locations := locations.Get(block1Hash)
 		require.Len(t, block1Locations, 1)
-		require.Equal(t, blobindex.Position{Offset: 0, Length: 1024}, block1Locations[0].Range)
+		require.Equal(t, blobindex.Range{Start: 0, End: 1023}, block1Locations[0].Range)
 	})
 
 	t.Run("batches queries for uncached blocks only", func(t *testing.T) {
-		// Create three block hashes
-		block1Hash := testutil.RandomMultihash(t)
-		block2Hash := testutil.RandomMultihash(t)
-		block3Hash := testutil.RandomMultihash(t)
-		rootLink := testutil.RandomCID(t)
-		shard1Hash := testutil.RandomMultihash(t)
-		shard2Hash := testutil.RandomMultihash(t)
+		block1Hash := libtestutil.RandomMultihash(t)
+		block2Hash := libtestutil.RandomMultihash(t)
+		block3Hash := libtestutil.RandomMultihash(t)
+		shard1Hash := libtestutil.RandomMultihash(t)
+		shard2Hash := libtestutil.RandomMultihash(t)
 
-		space := testutil.RandomSigner(t)
-		provider := testutil.RandomSigner(t)
+		space := libtestutil.RandomSigner(t)
+		provider := libtestutil.RandomSigner(t)
 
-		// Create a claim for shard1
-		claim1, err := assertcap.Location.Delegate(
-			provider,
-			provider.DID(),
-			provider.DID().String(),
-			assertcap.LocationCaveats{
-				Space:   space.DID(),
-				Content: captypes.FromHash(shard1Hash),
-				Location: ctestutil.Urls(
-					"https://storage.example.com/shard1/abc",
-				),
-			},
-		)
-		require.NoError(t, err)
+		claim1 := locationClaim(t, provider, space.DID(), shard1Hash, "https://storage.example.com/shard1/abc")
+		claim2 := locationClaim(t, provider, space.DID(), shard2Hash, "https://storage.example.com/shard2/def")
 
-		// Create a claim for shard2
-		claim2, err := assertcap.Location.Delegate(
-			provider,
-			provider.DID(),
-			provider.DID().String(),
-			assertcap.LocationCaveats{
-				Space:   space.DID(),
-				Content: captypes.FromHash(shard2Hash),
-				Location: ctestutil.Urls(
-					"https://storage.example.com/shard2/def",
-				),
-			},
-		)
-		require.NoError(t, err)
+		index := blobindex.NewShardedDagIndex(-1)
+		index.SetSlice(shard1Hash, block1Hash, blobindex.Range{Start: 0, End: 1023})
+		index.SetSlice(shard1Hash, block2Hash, blobindex.Range{Start: 1024, End: 3071})
+		index.SetSlice(shard2Hash, block3Hash, blobindex.Range{Start: 0, End: 511})
 
-		// Create an index with blocks 1 and 2 in shard1, and block 3 in shard2
-		index := blobindex.NewShardedDagIndexView(rootLink, -1)
-		index.SetSlice(shard1Hash, block1Hash, blobindex.Position{
-			Offset: 0,
-			Length: 1024,
+		auth := randomDelegation(t)
+		mockIndexer := newMockIndexerClient(t, func(digests []mh.Multihash) ([]ucan.Invocation, []blobindex.ShardedDagIndex, error) {
+			return []ucan.Invocation{claim1, claim2}, []blobindex.ShardedDagIndex{index}, nil
 		})
-		index.SetSlice(shard1Hash, block2Hash, blobindex.Position{
-			Offset: 1024,
-			Length: 2048,
-		})
-		index.SetSlice(shard2Hash, block3Hash, blobindex.Position{
-			Offset: 0,
-			Length: 512,
+		l := locator.NewIndexLocator(mockIndexer, func(ctx context.Context, spaces []did.DID) ([]ucan.Delegation, error) {
+			return []ucan.Delegation{auth}, nil
 		})
 
-		authDelegation := testutil.RandomLocationInvocation(t)
-
-		mockIndexer := newMockIndexerClient(func(digests []mh.Multihash) ([]delegation.Delegation, []blobindex.ShardedDagIndexView, error) {
-			return []delegation.Delegation{claim1, claim2}, []blobindex.ShardedDagIndexView{index}, nil
-		})
-		locator := locator.NewIndexLocator(mockIndexer, func(spaces []did.DID) (delegation.Delegation, error) {
-			return authDelegation, nil
-		})
-
-		// First, locate block1 to populate the cache
-		_, err = locator.Locate(t.Context(), []did.DID{space.DID()}, block1Hash)
+		_, err := l.Locate(t.Context(), []did.DID{space.DID()}, block1Hash)
 		require.NoError(t, err)
 		require.Len(t, mockIndexer.Queries, 1)
 
-		// Now locate 2 blocks from the same shard - both should come from cache
-		locations, err := locator.LocateMany(t.Context(), []did.DID{space.DID()}, []mh.Multihash{block1Hash, block2Hash})
+		locations, err := l.LocateMany(t.Context(), []did.DID{space.DID()}, []mh.Multihash{block1Hash, block2Hash})
 		require.NoError(t, err)
-
-		// Both blocks should have locations
 		require.True(t, locations.Has(block1Hash))
 		require.True(t, locations.Has(block2Hash))
-
-		// Verify the URLs are correct for each shard
-		require.ElementsMatch(t, ctestutil.Urls("https://storage.example.com/shard1/abc"), locations.Get(block1Hash)[0].Commitment.Nb().Location)
-		require.ElementsMatch(t, ctestutil.Urls("https://storage.example.com/shard1/abc"), locations.Get(block2Hash)[0].Commitment.Nb().Location)
-
-		// Should still be only one query since all blocks were cached from first query
+		require.ElementsMatch(t, cborURLs(t, "https://storage.example.com/shard1/abc"), locations.Get(block1Hash)[0].Commitment.Location)
+		require.ElementsMatch(t, cborURLs(t, "https://storage.example.com/shard1/abc"), locations.Get(block2Hash)[0].Commitment.Location)
 		require.Len(t, mockIndexer.Queries, 1, "All blocks should be served from cache")
 
-		// Now locate all 3 blocks
-		locations, err = locator.LocateMany(t.Context(), []did.DID{space.DID()}, []mh.Multihash{block1Hash, block2Hash, block3Hash})
+		locations, err = l.LocateMany(t.Context(), []did.DID{space.DID()}, []mh.Multihash{block1Hash, block2Hash, block3Hash})
 		require.NoError(t, err)
-
-		// All three blocks should have locations
 		require.True(t, locations.Has(block1Hash))
 		require.True(t, locations.Has(block2Hash))
 		require.True(t, locations.Has(block3Hash))
+		require.ElementsMatch(t, cborURLs(t, "https://storage.example.com/shard2/def"), locations.Get(block3Hash)[0].Commitment.Location)
+		require.Len(t, mockIndexer.Queries, 2, "block3 was not cached")
 
-		// Verify the URLs are correct for each shard
-		require.ElementsMatch(t, ctestutil.Urls("https://storage.example.com/shard1/abc"), locations.Get(block1Hash)[0].Commitment.Nb().Location)
-		require.ElementsMatch(t, ctestutil.Urls("https://storage.example.com/shard1/abc"), locations.Get(block2Hash)[0].Commitment.Nb().Location)
-		require.ElementsMatch(t, ctestutil.Urls("https://storage.example.com/shard2/def"), locations.Get(block3Hash)[0].Commitment.Nb().Location)
-
-		// Should now be 2 queries, since block3 was not cached
-		require.Len(t, mockIndexer.Queries, 2, "All blocks should be served from cache")
-
-		// Now locate all 3 blocks again
-		locations, err = locator.LocateMany(t.Context(), []did.DID{space.DID()}, []mh.Multihash{block1Hash, block2Hash, block3Hash})
+		locations, err = l.LocateMany(t.Context(), []did.DID{space.DID()}, []mh.Multihash{block1Hash, block2Hash, block3Hash})
 		require.NoError(t, err)
-
-		// All three blocks should have locations
 		require.True(t, locations.Has(block1Hash))
 		require.True(t, locations.Has(block2Hash))
 		require.True(t, locations.Has(block3Hash))
-
-		// Verify the URLs are correct for each shard
-		require.ElementsMatch(t, ctestutil.Urls("https://storage.example.com/shard1/abc"), locations.Get(block1Hash)[0].Commitment.Nb().Location)
-		require.ElementsMatch(t, ctestutil.Urls("https://storage.example.com/shard1/abc"), locations.Get(block2Hash)[0].Commitment.Nb().Location)
-		require.ElementsMatch(t, ctestutil.Urls("https://storage.example.com/shard2/def"), locations.Get(block3Hash)[0].Commitment.Nb().Location)
-
-		// Should still be only 2 queries since all blocks are now cached
 		require.Len(t, mockIndexer.Queries, 2, "All blocks should be served from cache")
 	})
 }
 
-// spaceScopedMockIndexer returns different claims based on the space DID in the query
+// --- mock indexers ---
+
+// claimSpaceContent decodes the space and content from a location commitment.
+func claimSpaceContent(claim ucan.Invocation) (did.DID, mh.Multihash, bool) {
+	if claim.Command() != assertcmds.Location.Command {
+		return did.Undef, nil, false
+	}
+	var args assertcmds.LocationArguments
+	if err := args.UnmarshalCBOR(bytes.NewReader(claim.ArgumentsBytes())); err != nil {
+		return did.Undef, nil, false
+	}
+	return args.Space, args.Content, true
+}
+
+func newQueryResult(t *testing.T, claims []ucan.Invocation, indexBlocks []types.Block) *mockQueryResult {
+	t.Helper()
+	r := &mockQueryResult{}
+	for _, claim := range claims {
+		data := libtestutil.Must(invocation.Encode(claim))(t)
+		r.blocks = append(r.blocks, types.Block{Link: claim.Link(), Data: data})
+		r.claimLinks = append(r.claimLinks, claim.Link())
+	}
+	r.blocks = append(r.blocks, indexBlocks...)
+	for _, b := range indexBlocks {
+		r.indexLinks = append(r.indexLinks, b.Link)
+	}
+	return r
+}
+
+type mockQueryResult struct {
+	blocks     []types.Block
+	claimLinks []cid.Cid
+	indexLinks []cid.Cid
+}
+
+var _ types.QueryResult = (*mockQueryResult)(nil)
+
+func (m *mockQueryResult) Root() types.Block     { return types.Block{} }
+func (m *mockQueryResult) Blocks() []types.Block { return m.blocks }
+func (m *mockQueryResult) Claims() []cid.Cid     { return m.claimLinks }
+func (m *mockQueryResult) Indexes() []cid.Cid    { return m.indexLinks }
+
+// spaceScopedMockIndexer returns different claims based on the space in the query.
 type spaceScopedMockIndexer struct {
-	space1Claim delegation.Delegation
-	space2Claim delegation.Delegation
-	index       blobindex.ShardedDagIndexView
+	t           *testing.T
+	space1Claim ucan.Invocation
+	space2Claim ucan.Invocation
+	index       blobindex.ShardedDagIndex
 	queryCount  int
 }
 
@@ -760,16 +506,9 @@ var _ locator.IndexerClient = (*spaceScopedMockIndexer)(nil)
 func (m *spaceScopedMockIndexer) QueryClaims(ctx context.Context, query types.Query) (types.QueryResult, error) {
 	m.queryCount++
 
-	// Determine which claim to return based on the space DID in the query
-	var claim delegation.Delegation
+	var claim ucan.Invocation
 	if len(query.Match.Subject) > 0 {
-		// Extract space DID from space1's claim
-		match1, _ := assertcap.Location.Match(validator.NewSource(
-			m.space1Claim.Capabilities()[0],
-			m.space1Claim,
-		))
-		space1DID := match1.Value().Nb().Space
-
+		space1DID, _, _ := claimSpaceContent(m.space1Claim)
 		if query.Match.Subject[0] == space1DID {
 			claim = m.space1Claim
 		} else {
@@ -777,38 +516,16 @@ func (m *spaceScopedMockIndexer) QueryClaims(ctx context.Context, query types.Qu
 		}
 	}
 
-	// Build index block
-	indexReader, err := blobindex.Archive(m.index)
-	if err != nil {
-		return nil, fmt.Errorf("archiving index: %w", err)
-	}
-	indexBytes, err := io.ReadAll(indexReader)
-	if err != nil {
-		return nil, fmt.Errorf("reading index bytes: %w", err)
-	}
-	hash, err := mh.Sum(indexBytes, sha256.Code, -1)
-	if err != nil {
-		return nil, fmt.Errorf("hashing index bytes: %w", err)
-	}
-	indexBlock := block.NewBlock(
-		cidlink.Link{Cid: cid.NewCidV1(uint64(multicodec.Car), hash)},
-		indexBytes,
-	)
-
-	return &mockQueryResult{
-		claims:      []delegation.Delegation{claim},
-		indexBlocks: []block.Block{indexBlock},
-	}, nil
+	return newQueryResult(m.t, []ucan.Invocation{claim}, []types.Block{archiveIndex(m.t, m.index)}), nil
 }
 
-func newMockIndexerClient(claimsAndIndexesFn func([]mh.Multihash) ([]delegation.Delegation, []blobindex.ShardedDagIndexView, error)) *mockIndexerClient {
-	return &mockIndexerClient{
-		claimsAndIndexesFn: claimsAndIndexesFn,
-	}
+func newMockIndexerClient(t *testing.T, claimsAndIndexesFn func([]mh.Multihash) ([]ucan.Invocation, []blobindex.ShardedDagIndex, error)) *mockIndexerClient {
+	return &mockIndexerClient{t: t, claimsAndIndexesFn: claimsAndIndexesFn}
 }
 
 type mockIndexerClient struct {
-	claimsAndIndexesFn func([]mh.Multihash) ([]delegation.Delegation, []blobindex.ShardedDagIndexView, error)
+	t                  *testing.T
+	claimsAndIndexesFn func([]mh.Multihash) ([]ucan.Invocation, []blobindex.ShardedDagIndex, error)
 
 	Queries []types.Query
 }
@@ -823,72 +540,44 @@ func (m *mockIndexerClient) QueryClaims(ctx context.Context, query types.Query) 
 		return nil, err
 	}
 
-	indexes := []blobindex.ShardedDagIndexView{}
+	indexes := []blobindex.ShardedDagIndex{}
 	shards := []mh.Multihash{}
-
-	// only return indexes that contain the query digest
 	for _, index := range allIndexes {
 		for _, queryDigest := range query.Hashes {
 			if shard, ok := indexContains(index, queryDigest); ok {
 				if !slices.Contains(indexes, index) {
 					indexes = append(indexes, index)
 				}
-				if !slices.ContainsFunc(shards, func(s mh.Multihash) bool {
-					return s.String() == shard.String()
-				}) {
+				if !slices.ContainsFunc(shards, func(s mh.Multihash) bool { return s.String() == shard.String() }) {
 					shards = append(shards, shard)
 				}
 			}
 		}
 	}
 
-	var indexBlocks []block.Block
+	var indexBlocks []types.Block
 	for _, index := range indexes {
-		indexReader, err := blobindex.Archive(index)
-		if err != nil {
-			return nil, fmt.Errorf("archiving index: %w", err)
-		}
-		indexBytes, err := io.ReadAll(indexReader)
-		if err != nil {
-			return nil, fmt.Errorf("reading index bytes: %w", err)
-		}
-		hash, err := mh.Sum(indexBytes, sha256.Code, -1)
-		if err != nil {
-			return nil, fmt.Errorf("hashing index bytes: %w", err)
-		}
-		indexBlock := block.NewBlock(
-			cidlink.Link{Cid: cid.NewCidV1(uint64(multicodec.Car), hash)},
-			indexBytes,
-		)
-		indexBlocks = append(indexBlocks, indexBlock)
+		indexBlocks = append(indexBlocks, archiveIndex(m.t, index))
 	}
 
-	// only return claims that match the query space(s)
-	claims := []delegation.Delegation{}
+	claims := []ucan.Invocation{}
 	for _, claim := range allClaims {
-		match, err := assertcap.Location.Match(validator.NewSource(claim.Capabilities()[0], claim))
-		if err != nil {
+		space, content, ok := claimSpaceContent(claim)
+		if !ok {
 			continue
 		}
 		for _, shard := range shards {
-			digest := match.Value().Nb().Content.Hash()
-			space := match.Value().Nb().Space
-			if digest.String() == shard.String() && slices.Contains(query.Match.Subject, space) {
+			if content.String() == shard.String() && slices.Contains(query.Match.Subject, space) {
 				claims = append(claims, claim)
 				break
 			}
 		}
 	}
 
-	return &mockQueryResult{
-		claims:      claims,
-		indexBlocks: indexBlocks,
-	}, nil
+	return newQueryResult(m.t, claims, indexBlocks), nil
 }
 
-// indexContains checks if the given digest is present in the index's shards or
-// slices. It returns the shard containing the digest and true if found.
-func indexContains(index blobindex.ShardedDagIndexView, digest mh.Multihash) (mh.Multihash, bool) {
+func indexContains(index blobindex.ShardedDagIndex, digest mh.Multihash) (mh.Multihash, bool) {
 	for shard, slices := range index.Shards().Iterator() {
 		if shard.String() == digest.String() {
 			return shard, true
@@ -902,108 +591,30 @@ func indexContains(index blobindex.ShardedDagIndexView, digest mh.Multihash) (mh
 	return nil, false
 }
 
-// locationQueryMockIndexer returns indexes on standard queries, but only claims on location queries
+// locationQueryMockIndexer returns indexes on standard queries, but only claims
+// on location queries.
 type locationQueryMockIndexer struct {
-	claim delegation.Delegation
-	index blobindex.ShardedDagIndexView
+	t     *testing.T
+	claim ucan.Invocation
+	index blobindex.ShardedDagIndex
 
 	Queries []types.Query
 }
 
 var _ locator.IndexerClient = (*locationQueryMockIndexer)(nil)
 
-func newLocationQueryMockIndexer(claim delegation.Delegation, index blobindex.ShardedDagIndexView) *locationQueryMockIndexer {
-	return &locationQueryMockIndexer{
-		claim: claim,
-		index: index,
-	}
+func newLocationQueryMockIndexer(t *testing.T, claim ucan.Invocation, index blobindex.ShardedDagIndex) *locationQueryMockIndexer {
+	return &locationQueryMockIndexer{t: t, claim: claim, index: index}
 }
 
 func (m *locationQueryMockIndexer) QueryClaims(ctx context.Context, query types.Query) (types.QueryResult, error) {
 	m.Queries = append(m.Queries, query)
 
-	var claims []delegation.Delegation
-	var indexBlocks []block.Block
-
-	// For location-only queries, only return claims (no indexes)
+	// For location-only queries, return empty (simulating no location for shard2).
 	if query.Type == types.QueryTypeLocation {
-		// Return empty result for location queries (simulating no location for shard2)
-		return &mockQueryResult{
-			claims:      nil,
-			indexBlocks: nil,
-		}, nil
+		return newQueryResult(m.t, nil, nil), nil
 	}
 
-	// For standard queries, return both index and claims
-	claims = []delegation.Delegation{m.claim}
-
-	indexReader, err := blobindex.Archive(m.index)
-	if err != nil {
-		return nil, fmt.Errorf("archiving index: %w", err)
-	}
-	indexBytes, err := io.ReadAll(indexReader)
-	if err != nil {
-		return nil, fmt.Errorf("reading index bytes: %w", err)
-	}
-	hash, err := mh.Sum(indexBytes, sha256.Code, -1)
-	if err != nil {
-		return nil, fmt.Errorf("hashing index bytes: %w", err)
-	}
-	indexBlock := block.NewBlock(
-		cidlink.Link{Cid: cid.NewCidV1(uint64(multicodec.Car), hash)},
-		indexBytes,
-	)
-	indexBlocks = append(indexBlocks, indexBlock)
-
-	return &mockQueryResult{
-		claims:      claims,
-		indexBlocks: indexBlocks,
-	}, nil
-}
-
-type mockQueryResult struct {
-	claims      []delegation.Delegation
-	indexBlocks []block.Block
-}
-
-var _ types.QueryResult = (*mockQueryResult)(nil)
-
-func (m *mockQueryResult) Root() block.Block {
-	return nil
-}
-
-func (m *mockQueryResult) Blocks() iter.Seq2[block.Block, error] {
-	return func(yield func(block.Block, error) bool) {
-		for _, claim := range m.claims {
-			for block, err := range claim.Blocks() {
-				if !yield(block, err) {
-					return
-				}
-			}
-		}
-
-		for _, indexBlock := range m.indexBlocks {
-			if !yield(indexBlock, nil) {
-				return
-			}
-		}
-	}
-}
-
-func (m *mockQueryResult) Claims() []ipld.Link {
-	var claimsLinks []ipld.Link
-	for _, claim := range m.claims {
-		claimsLinks = append(claimsLinks, claim.Link())
-	}
-
-	return claimsLinks
-}
-
-func (m *mockQueryResult) Indexes() []ipld.Link {
-	var indexLinks []ipld.Link
-	for _, index := range m.indexBlocks {
-		indexLinks = append(indexLinks, index.Link())
-	}
-
-	return indexLinks
+	// For standard queries, return both index and claim.
+	return newQueryResult(m.t, []ucan.Invocation{m.claim}, []types.Block{archiveIndex(m.t, m.index)}), nil
 }

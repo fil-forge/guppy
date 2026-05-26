@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"context"
+	"crypto/ed25519"
 	_ "embed"
 	"errors"
 	"fmt"
@@ -12,19 +13,10 @@ import (
 	"strings"
 	"time"
 
-	contentcap "github.com/fil-forge/go-libstoracha/capabilities/space/content"
-	"github.com/fil-forge/go-libstoracha/principalresolver"
-	"github.com/fil-forge/go-ucanto/core/delegation"
-	"github.com/fil-forge/go-ucanto/ucan"
-	"github.com/fil-forge/go-ucanto/validator"
-	"github.com/fil-forge/guppy/cmd/gateway/banner"
-	"github.com/fil-forge/guppy/internal/cmdutil"
-	"github.com/fil-forge/guppy/pkg/agentstore"
-	"github.com/fil-forge/guppy/pkg/build"
-	"github.com/fil-forge/guppy/pkg/client/dagservice"
-	"github.com/fil-forge/guppy/pkg/client/locator"
-	"github.com/fil-forge/guppy/pkg/config"
+	contentcmds "github.com/fil-forge/libforge/commands/content"
 	"github.com/fil-forge/ucantone/did"
+	uted25519 "github.com/fil-forge/ucantone/principal/ed25519"
+	"github.com/fil-forge/ucantone/ucan"
 	"github.com/ipfs/boxo/blockservice"
 	"github.com/ipfs/boxo/blockstore"
 	"github.com/ipfs/boxo/gateway"
@@ -38,6 +30,13 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	arc "github.com/storacha/go-ds-arc"
+
+	"github.com/fil-forge/guppy/cmd/gateway/banner"
+	"github.com/fil-forge/guppy/internal/cmdutil"
+	"github.com/fil-forge/guppy/pkg/build"
+	"github.com/fil-forge/guppy/pkg/client/dagservice"
+	"github.com/fil-forge/guppy/pkg/client/locator"
+	"github.com/fil-forge/guppy/pkg/config"
 )
 
 const (
@@ -90,7 +89,6 @@ func init() {
 
 	serveCmd.Flags().String("log-level", "", "Logging level for the gateway server (debug, info, warn, error)")
 	cobra.CheckErr(viper.BindPFlag("gateway.log_level", serveCmd.Flags().Lookup("log-level")))
-
 }
 
 var serveCmd = &cobra.Command{
@@ -103,7 +101,6 @@ var serveCmd = &cobra.Command{
 			"Spaces can be specified by DID or by name.",
 		80),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		ctx := cmd.Context()
 
 		cfg, err := config.Load[config.Config]()
 		if err != nil {
@@ -118,25 +115,25 @@ var serveCmd = &cobra.Command{
 
 		c := cmdutil.MustGetClient(cfg)
 
-		pub, err := crypto.UnmarshalEd25519PublicKey(c.Issuer().Verifier().Raw())
+		edSigner, ok := c.Issuer().(uted25519.Signer)
+		if !ok {
+			return fmt.Errorf("agent key is not ed25519")
+		}
+		goKey := ed25519.NewKeyFromSeed(edSigner.Raw())
+		pub, err := crypto.UnmarshalEd25519PublicKey(goKey.Public().(ed25519.PublicKey))
 		cobra.CheckErr(err)
 		peerID, err := peer.IDFromPublicKey(pub)
 		cobra.CheckErr(err)
 
-		allProofs, err := c.Proofs(agentstore.CapabilityQuery{Can: contentcap.RetrieveAbility})
+		// The spaces the agent can act on are the ones it can serve.
+		actSpaces, err := c.Spaces()
 		if err != nil {
-			return err
+			return fmt.Errorf("listing spaces: %w", err)
 		}
 		authdSpaces := map[did.DID]struct{}{}
-		for _, proof := range allProofs {
-			if r, ok := cmdutil.ProofResource(proof, contentcap.RetrieveAbility); ok {
-				spaceDID, err := did.Parse(r)
-				if err == nil {
-					authdSpaces[spaceDID] = struct{}{}
-				}
-			}
+		for _, s := range actSpaces {
+			authdSpaces[s.DID()] = struct{}{}
 		}
-		log.Debugw("found authorizations in proofs", "spaces", slices.Collect(maps.Keys(authdSpaces)))
 
 		var spaces []did.DID
 		for _, arg := range args {
@@ -145,7 +142,7 @@ var serveCmd = &cobra.Command{
 				return err
 			}
 			if _, ok := authdSpaces[space]; !ok {
-				return fmt.Errorf("missing %q proof for space: %s", contentcap.RetrieveAbility, space)
+				return fmt.Errorf("missing retrieval authorization for space: %s", space)
 			}
 			spaces = append(spaces, space)
 		}
@@ -154,53 +151,26 @@ var serveCmd = &cobra.Command{
 			spaces = slices.Collect(maps.Keys(authdSpaces))
 		}
 
-		indexer, indexerPrincipal := cmdutil.MustGetIndexClient(cfg.Network)
+		indexer, indexerID := cmdutil.MustGetIndexClient(cfg.Network)
 
-		network := cmdutil.MustGetNetworkConfig(cfg.Network, "")
-		var resolverOpts []principalresolver.Option
-		if network.InsecureDIDResolution {
-			resolverOpts = append(resolverOpts, principalresolver.InsecureResolution())
-		}
-		uploadServiceVerifier, err := cmdutil.ResolveDIDWebAndWrap(ctx, network.UploadID, resolverOpts...)
-		if err != nil {
-			return err
-		}
-
-		locator := locator.NewIndexLocator(indexer, func(spaces []did.DID) (delegation.Delegation, error) {
-			queries := make([]agentstore.CapabilityQuery, 0, len(spaces))
-			for _, space := range spaces {
-				queries = append(queries, agentstore.CapabilityQuery{
-					Can:  contentcap.RetrieveAbility,
-					With: space.String(),
-				})
+		// Authorize the indexing service to retrieve content for the queried space.
+		loc := locator.NewIndexLocator(indexer, func(ctx context.Context, querySpaces []did.DID) ([]ucan.Delegation, error) {
+			var dlgs []ucan.Delegation
+			for _, space := range querySpaces {
+				dlg, err := contentcmds.Retrieve.Delegate(c.Issuer(), indexerID, space)
+				if err != nil {
+					return nil, fmt.Errorf("delegating content retrieve: %w", err)
+				}
+				proofs, _, err := c.ProofChain(ctx, c.Issuer().DID(), contentcmds.Retrieve.Command, space)
+				if err != nil {
+					return nil, fmt.Errorf("retrieving proof chain: %w", err)
+				}
+				dlgs = append(dlgs, dlg)
+				dlgs = append(dlgs, proofs...)
 			}
-
-			var pfs []delegation.Proof
-			res, err := c.Proofs(queries...)
-			if err != nil {
-				return nil, err
-			}
-			for _, del := range res {
-				pfs = append(pfs, delegation.FromDelegation(del))
-			}
-
-			// Allow the indexing service to retrieve indexes. Enable proof pruning to avoid
-			// exceeding the max header size in authorized retrievals.
-			pruner := validator.NewProofPruner(uploadServiceVerifier, contentcap.Retrieve)
-			caps := make([]ucan.Capability[ucan.NoCaveats], 0, len(spaces))
-			for _, space := range spaces {
-				caps = append(caps, ucan.NewCapability(contentcap.RetrieveAbility, space.String(), ucan.NoCaveats{}))
-			}
-
-			opts := []delegation.Option{
-				delegation.WithProof(pfs...),
-				delegation.WithProofPruning(pruner),
-				delegation.WithExpiration(int(time.Now().Add(30 * time.Second).Unix())),
-			}
-
-			return delegation.Delegate(c.Issuer(), indexerPrincipal, caps, opts...)
+			return dlgs, nil
 		})
-		exchange := dagservice.NewExchange(locator, c, spaces)
+		exchange := dagservice.NewExchange(loc, c, spaces)
 
 		pubGws := map[string]*gateway.PublicGateway{}
 		if cfg.Gateway.Subdomain.Enabled {
@@ -316,7 +286,7 @@ var serveCmd = &cobra.Command{
 		go func() {
 			<-cmd.Context().Done()
 			cmd.Println("\nShutting down server...")
-			ctx, cancel := context.WithTimeout(cmd.Context(), time.Second*5)
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 			defer cancel()
 			if err := e.Shutdown(ctx); err != nil {
 				cmd.PrintErrf("shutting down server: %s", err.Error())

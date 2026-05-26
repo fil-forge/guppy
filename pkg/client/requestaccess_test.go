@@ -1,77 +1,51 @@
 package client_test
 
 import (
-	"context"
 	"testing"
 
-	"github.com/fil-forge/go-libstoracha/capabilities/access"
-	"github.com/fil-forge/go-ucanto/core/invocation"
-	"github.com/fil-forge/go-ucanto/core/receipt/fx"
-	"github.com/fil-forge/go-ucanto/core/result"
-	"github.com/fil-forge/go-ucanto/core/result/failure"
-	"github.com/fil-forge/go-ucanto/server"
-	uhelpers "github.com/fil-forge/go-ucanto/testing/helpers"
-	"github.com/fil-forge/go-ucanto/ucan"
-	"github.com/fil-forge/guppy/pkg/client"
-	"github.com/fil-forge/guppy/pkg/client/testutil"
+	accesscmds "github.com/fil-forge/libforge/commands/access"
+	"github.com/fil-forge/libforge/testutil"
+	"github.com/fil-forge/ucantone/binding"
+	"github.com/fil-forge/ucantone/did"
+	"github.com/fil-forge/ucantone/server"
+	"github.com/fil-forge/ucantone/ucan/command"
+	"github.com/fil-forge/ucantone/ucan/promise"
+	"github.com/ipfs/go-cid"
 	"github.com/stretchr/testify/require"
+
+	ctestutil "github.com/fil-forge/guppy/pkg/client/testutil"
 )
 
 func TestRequestAccess(t *testing.T) {
-	t.Run("invokes `access/authorize`", func(t *testing.T) {
-		invokedInvocations := []invocation.Invocation{}
-		invokedCapabilities := []ucan.Capability[access.AuthorizeCaveats]{}
+	t.Run("invokes `access/request`", func(t *testing.T) {
+		ctx := t.Context()
+		var captured *accesscmds.RequestArguments
+		var invLink cid.Cid
 
-		connection := testutil.NewTestServer(
-			server.WithServiceMethod(
-				access.Authorize.Can(),
-				server.Provide(
-					access.Authorize,
-					func(
-						ctx context.Context,
-						cap ucan.Capability[access.AuthorizeCaveats],
-						inv invocation.Invocation,
-						context server.InvocationContext,
-					) (result.Result[access.AuthorizeOk, failure.IPLDBuilderFailure], fx.Effects, error) {
-						invokedInvocations = append(invokedInvocations, inv)
-						invokedCapabilities = append(invokedCapabilities, cap)
-						return result.Ok[access.AuthorizeOk, failure.IPLDBuilderFailure](
-							access.AuthorizeOk{
-								Request:    inv.Link(),
-								Expiration: 123,
-							},
-						), nil, nil
-					},
-				),
-			),
-		)
+		c := testutil.Must(ctestutil.Client(t,
+			ctestutil.WithServerRoutes(func(deps ctestutil.RouteDeps) server.Route {
+				return accesscmds.Request.Route(func(req *binding.Request[*accesscmds.RequestArguments], res *binding.Response[*accesscmds.RequestOK]) error {
+					captured = req.Task().Arguments()
+					invLink = req.Invocation().Link()
+					return res.SetSuccess(&accesscmds.RequestOK{
+						Request:    req.Invocation().Link(),
+						Confirm:    promise.AwaitOK{Task: req.Invocation().Link()},
+						Expiration: 123,
+					})
+				})
+			}),
+		))(t)
 
-		c := uhelpers.Must(client.New(client.WithConnection(connection)))
-
-		authOk, err := c.RequestAccess(testContext(t), "did:mailto:example.com:alice")
+		account := testutil.Must(did.Parse("did:mailto:example.com:alice"))(t)
+		authOk, err := c.RequestAccess(ctx, account)
 		require.NoError(t, err)
 
-		require.Len(t, invokedInvocations, 1, "expected exactly one invocation to be invoked")
-		invocation := invokedInvocations[0]
-		require.Len(t, invokedCapabilities, 1, "expected exactly one capability to be invoked")
-		capability := invokedCapabilities[0]
+		require.NotNil(t, captured, "expected access/request to be invoked")
+		require.Equal(t, account, captured.Issuer, "expected to authorize the correct account")
+		require.Len(t, captured.Attenuations, 1, "expected one requested capability")
+		require.Equal(t, command.Top(), captured.Attenuations[0].Command, "expected to request all capabilities")
 
-		nb := uhelpers.Must(access.AuthorizeCaveatsReader.Read(capability.Nb()))
-		require.Equal(t, "did:mailto:example.com:alice", *nb.Iss, "expected to authorize the correct issuer")
-
-		requestedCapabilities := make([]string, 0, len(nb.Att))
-		for _, att := range nb.Att {
-			requestedCapabilities = append(requestedCapabilities, att.Can)
-		}
-
-		require.ElementsMatch(
-			t,
-			[]string{"*"}, requestedCapabilities,
-			"expected to authorize all capabilities",
-		)
-
-		require.NoError(t, err, "expected to successfully request access")
-		require.Equal(t, invocation.Link().String(), authOk.Request.String(), "expected to return the request link")
-		require.Equal(t, 123, authOk.Expiration, "expected to return the expiration")
+		require.Equal(t, invLink, authOk.Request, "expected to return the request link")
+		require.Equal(t, int64(123), authOk.Expiration, "expected to return the expiration")
 	})
 }

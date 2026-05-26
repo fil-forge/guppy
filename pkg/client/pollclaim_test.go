@@ -6,164 +6,118 @@ import (
 	"testing"
 	"time"
 
-	"github.com/fil-forge/go-libstoracha/capabilities/access"
-	uploadcap "github.com/fil-forge/go-libstoracha/capabilities/upload"
-	"github.com/fil-forge/go-libstoracha/testutil"
-	"github.com/fil-forge/go-ucanto/core/delegation"
-	"github.com/fil-forge/go-ucanto/core/invocation"
-	"github.com/fil-forge/go-ucanto/core/ipld"
-	"github.com/fil-forge/go-ucanto/core/receipt/fx"
-	"github.com/fil-forge/go-ucanto/core/result"
-	"github.com/fil-forge/go-ucanto/core/result/failure"
-	"github.com/fil-forge/go-ucanto/server"
-	"github.com/fil-forge/go-ucanto/ucan"
-	"github.com/fil-forge/guppy/pkg/client"
-	ctestutil "github.com/fil-forge/guppy/pkg/client/testutil"
-	"github.com/ipld/go-ipld-prime/datamodel"
-	basicnode "github.com/ipld/go-ipld-prime/node/basic"
+	accesscmds "github.com/fil-forge/libforge/commands/access"
+	uploadcmds "github.com/fil-forge/libforge/commands/upload"
+	"github.com/fil-forge/libforge/testutil"
+	"github.com/fil-forge/ucantone/binding"
+	"github.com/fil-forge/ucantone/ipld/datamodel"
+	"github.com/fil-forge/ucantone/server"
+	"github.com/fil-forge/ucantone/ucan"
+	"github.com/fil-forge/ucantone/ucan/container"
+	"github.com/fil-forge/ucantone/ucan/delegation"
+	"github.com/ipfs/go-cid"
 	"github.com/stretchr/testify/require"
+
+	ctestutil "github.com/fil-forge/guppy/pkg/client/testutil"
 )
 
-type factBuilder map[string]ipld.Builder
-
-func (fs factBuilder) ToIPLD() (map[string]datamodel.Node, error) {
-	result := make(map[string]datamodel.Node)
-	for k, v := range fs {
-		vn, err := v.ToIPLD()
-		if err != nil {
-			return nil, err
-		}
-		result[k] = vn
-	}
-	return result, nil
-}
-
-type linkBuilder struct {
-	link ipld.Link
-}
-
-func (l linkBuilder) ToIPLD() (datamodel.Node, error) {
-	return basicnode.NewLink(l.link), nil
+type claimResponse struct {
+	dels []ucan.Delegation
+	err  error
 }
 
 func TestPollClaim(t *testing.T) {
-	var responses []result.Result[access.ClaimOk, failure.IPLDBuilderFailure]
-	var c *client.Client
+	var responses []claimResponse
 
-	claimedChan := make(chan struct{})
-	defer close(claimedChan)
-
-	connection := ctestutil.NewTestServer(
-		server.WithServiceMethod(
-			access.Claim.Can(),
-			server.Provide(
-				access.Claim,
-				func(
-					ctx context.Context,
-					cap ucan.Capability[access.ClaimCaveats],
-					inv invocation.Invocation,
-					context server.InvocationContext,
-				) (result.Result[access.ClaimOk, failure.IPLDBuilderFailure], fx.Effects, error) {
-					var response result.Result[access.ClaimOk, failure.IPLDBuilderFailure]
-					if len(responses) == 0 {
-						return nil, nil, fmt.Errorf("no more responses available")
-					}
-					response, responses = responses[0], responses[1:]
-					return response, nil, nil
-				},
-			),
-		),
-	)
-
-	c = testutil.Must(client.New(client.WithConnection(connection)))(t)
+	c := testutil.Must(ctestutil.Client(t,
+		ctestutil.WithServerRoutes(func(deps ctestutil.RouteDeps) server.Route {
+			return accesscmds.Claim.Route(func(req *binding.Request[*accesscmds.ClaimArguments], res *binding.Response[*accesscmds.ClaimOK]) error {
+				if len(responses) == 0 {
+					return res.SetFailure(fmt.Errorf("no more responses available"))
+				}
+				var r claimResponse
+				r, responses = responses[0], responses[1:]
+				if r.err != nil {
+					return res.SetFailure(r.err)
+				}
+				links := make([]cid.Cid, 0, len(r.dels))
+				for _, d := range r.dels {
+					links = append(links, d.Link())
+				}
+				if err := res.SetMetadata(container.New(container.WithDelegations(r.dels...))); err != nil {
+					return err
+				}
+				return res.SetSuccess(&accesscmds.ClaimOK{Delegations: links})
+			})
+		}),
+	))(t)
 
 	requestLink := testutil.RandomCID(t)
 
-	unrelatedDel := testutil.Must(uploadcap.Get.Delegate(
+	unrelatedDel := testutil.Must(uploadcmds.Add.Delegate(c.Issuer(), c.Issuer().DID(), c.Issuer().DID()))(t)
+	relatedDel := testutil.Must(uploadcmds.Add.Delegate(
 		c.Issuer(),
-		c.Issuer(),
-		c.Issuer().DID().String(),
-		uploadcap.GetCaveats{Root: testutil.RandomCID(t)},
+		c.Issuer().DID(),
+		c.Issuer().DID(),
+		delegation.WithMetadata(datamodel.Map{accesscmds.RequestMetaKey: requestLink}),
 	))(t)
-	relatedDel := testutil.Must(uploadcap.Get.Delegate(
-		c.Issuer(),
-		c.Issuer(),
-		c.Issuer().DID().String(),
-		uploadcap.GetCaveats{Root: testutil.RandomCID(t)},
-		delegation.WithFacts([]ucan.FactBuilder{factBuilder{
-			"access/request": linkBuilder{link: requestLink},
-		}}),
-	))(t)
+
+	requestOK := &accesscmds.RequestOK{Request: requestLink}
 
 	t.Run("polls until it finds authorized delegations", func(t *testing.T) {
-		responses = []result.Result[access.ClaimOk, failure.IPLDBuilderFailure]{
-			result.Ok[access.ClaimOk, failure.IPLDBuilderFailure](access.ClaimOk{Delegations: buildDelegationsModel(t)}),
-			result.Ok[access.ClaimOk, failure.IPLDBuilderFailure](access.ClaimOk{Delegations: buildDelegationsModel(t, unrelatedDel)}),
-			result.Ok[access.ClaimOk, failure.IPLDBuilderFailure](access.ClaimOk{Delegations: buildDelegationsModel(t, unrelatedDel, relatedDel)}),
+		responses = []claimResponse{
+			{dels: nil},
+			{dels: []ucan.Delegation{unrelatedDel}},
+			{dels: []ucan.Delegation{unrelatedDel, relatedDel}},
 		}
 
-		// A channel of three ticks, ready to read
 		tickChan := make(chan time.Time, 3)
 		tickChan <- time.Now()
 		tickChan <- time.Now()
 		tickChan <- time.Now()
 
-		resultChan := c.PollClaimWithTick(testContext(t), access.AuthorizeOk{
-			Request:    requestLink,
-			Expiration: 0,
-		}, tickChan)
+		resultChan := c.PollClaimWithTick(t.Context(), requestOK, tickChan)
 
-		claimedDels, err := result.Unwrap(<-resultChan)
+		claimedDels, err := (<-resultChan).Unpack()
 		require.NoError(t, err, "expected no error from PollClaim")
 		require.Len(t, claimedDels, 1, "expected exactly one delegation to be claimed")
-		require.Equal(t, relatedDel.Link().String(), claimedDels[0].Link().String(), "expected the claimed delegation to be only the related one")
+		require.Equal(t, relatedDel.Link(), claimedDels[0].Link(), "expected only the related delegation")
 
 		_, ok := <-resultChan
 		require.False(t, ok, "expected result channel to be closed after claim")
 	})
 
 	t.Run("reports an error during claim", func(t *testing.T) {
-		responses = []result.Result[access.ClaimOk, failure.IPLDBuilderFailure]{
-			result.Error[access.ClaimOk](failure.FromError(fmt.Errorf("Something went wrong!"))),
+		responses = []claimResponse{
+			{err: fmt.Errorf("Something went wrong!")},
 		}
 
-		// A channel of a tick, ready to read
 		tickChan := make(chan time.Time, 1)
 		tickChan <- time.Now()
 
-		resultChan := c.PollClaimWithTick(testContext(t), access.AuthorizeOk{
-			Request:    requestLink,
-			Expiration: 0,
-		}, tickChan)
+		resultChan := c.PollClaimWithTick(t.Context(), requestOK, tickChan)
 
-		claimedDels, err := result.Unwrap(<-resultChan)
-
-		require.Empty(t, claimedDels, "expected no delegations to be claimed due to context cancelation")
+		claimedDels, err := (<-resultChan).Unpack()
+		require.Empty(t, claimedDels)
 		require.ErrorContains(t, err, "Something went wrong!", "expected error from PollClaim")
 
 		_, ok := <-resultChan
-		require.False(t, ok, "expected result channel to be closed after context cancelation")
+		require.False(t, ok, "expected result channel to be closed after error")
 	})
 
 	t.Run("respects the context's cancelation", func(t *testing.T) {
-		// A channel that will never tick
-		tickChan := make(chan time.Time)
-		ctx, cancel := context.WithCancel(testContext(t))
+		responses = nil
+		tickChan := make(chan time.Time) // never ticks
+		ctx, cancel := context.WithCancel(t.Context())
 
-		resultChan := c.PollClaimWithTick(ctx, access.AuthorizeOk{
-			Request:    requestLink,
-			Expiration: 0,
-		}, tickChan)
-
-		// Cancel the context to simulate a timeout
+		resultChan := c.PollClaimWithTick(ctx, requestOK, tickChan)
 		cancel()
 
-		claimedDels, err := result.Unwrap(<-resultChan)
-
-		require.Empty(t, claimedDels, "expected no delegations to be claimed due to context cancelation")
-		require.ErrorContains(t, err, "context canceled", "expected context cancelation error from PollClaim")
+		claimedDels, err := (<-resultChan).Unpack()
+		require.Empty(t, claimedDels)
+		require.ErrorContains(t, err, "context canceled")
 
 		_, ok := <-resultChan
-		require.False(t, ok, "expected result channel to be closed after context cancelation")
+		require.False(t, ok, "expected result channel to be closed after cancelation")
 	})
 }

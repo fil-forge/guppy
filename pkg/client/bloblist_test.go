@@ -1,75 +1,42 @@
 package client_test
 
 import (
-	"context"
 	"testing"
 	"time"
 
-	spaceblobcap "github.com/fil-forge/go-libstoracha/capabilities/space/blob"
-	"github.com/fil-forge/go-libstoracha/capabilities/types"
-	"github.com/fil-forge/go-libstoracha/testutil"
-	"github.com/fil-forge/go-ucanto/core/delegation"
-	"github.com/fil-forge/go-ucanto/core/invocation"
-	"github.com/fil-forge/go-ucanto/core/receipt/fx"
-	"github.com/fil-forge/go-ucanto/core/result"
-	"github.com/fil-forge/go-ucanto/core/result/failure"
-	ed25519 "github.com/fil-forge/go-ucanto/principal/ed25519/signer"
-	"github.com/fil-forge/go-ucanto/server"
-	"github.com/fil-forge/go-ucanto/ucan"
-	ctestutil "github.com/fil-forge/guppy/pkg/client/testutil"
+	blobcmds "github.com/fil-forge/libforge/commands/blob"
+	"github.com/fil-forge/libforge/testutil"
+	"github.com/fil-forge/ucantone/binding"
+	"github.com/fil-forge/ucantone/server"
 	"github.com/stretchr/testify/require"
+
+	ctestutil "github.com/fil-forge/guppy/pkg/client/testutil"
 )
 
-func TestSpaceBlobList(t *testing.T) {
+func TestBlobList(t *testing.T) {
 	t.Run("lists blobs in a space", func(t *testing.T) {
-		space, err := ed25519.Generate()
-		require.NoError(t, err)
+		ctx := t.Context()
+		space := testutil.RandomSigner(t)
 
-		blobBytes := testutil.RandomBytes(t, 32)
-		results := []spaceblobcap.ListBlobItem{
+		results := []blobcmds.ListBlobItem{
 			{
-				Blob: types.Blob{
-					Digest: testutil.MultihashFromBytes(t, blobBytes),
-					Size:   uint64(len(blobBytes)),
-				},
-				Cause:      testutil.RandomCID(t),
-				InsertedAt: time.Unix(time.Now().Unix(), 0).UTC(),
+				Blob:       blobcmds.Blob{Digest: testutil.RandomMultihash(t), Size: 32},
+				InsertedAt: time.Now().Unix(),
 			},
 		}
 
-		c, err := ctestutil.Client(
-			ctestutil.WithServerOptions(
-				server.WithServiceMethod(
-					spaceblobcap.ListAbility,
-					server.Provide(
-						spaceblobcap.List,
-						func(
-							ctx context.Context,
-							cap ucan.Capability[spaceblobcap.ListCaveats],
-							inv invocation.Invocation,
-							context server.InvocationContext,
-						) (result.Result[spaceblobcap.ListOk, failure.IPLDBuilderFailure], fx.Effects, error) {
-							return result.Ok[spaceblobcap.ListOk, failure.IPLDBuilderFailure](
-								spaceblobcap.ListOk{
-									Size:    uint64(len(results)),
-									Results: results,
-								},
-							), nil, nil
-						},
-					),
-				),
-			),
-		)
-		require.NoError(t, err)
+		c := testutil.Must(ctestutil.Client(t,
+			ctestutil.WithServerRoutes(func(deps ctestutil.RouteDeps) server.Route {
+				return blobcmds.List.Route(func(req *binding.Request[*blobcmds.ListArguments], res *binding.Response[*blobcmds.ListOK]) error {
+					return res.SetSuccess(&blobcmds.ListOK{Size: uint64(len(results)), Results: results})
+				})
+			}),
+		))(t)
 
-		cap := ucan.NewCapability("*", space.DID().String(), ucan.NoCaveats{})
-		proof, err := delegation.Delegate(space, c.Issuer(), []ucan.Capability[ucan.NoCaveats]{cap}, delegation.WithNoExpiration())
-		require.NoError(t, err)
+		proof := testutil.Must(blobcmds.List.Delegate(space, c.Issuer().DID(), space.DID()))(t)
+		require.NoError(t, c.AddProofs(ctx, proof))
 
-		err = c.AddProofs(proof)
-		require.NoError(t, err)
-
-		page, err := c.SpaceBlobList(t.Context(), space.DID(), spaceblobcap.ListCaveats{})
+		page, err := c.BlobList(ctx, space.DID(), blobcmds.ListArguments{})
 		require.NoError(t, err)
 		require.Equal(t, uint64(len(results)), page.Size)
 		require.Equal(t, results, page.Results)

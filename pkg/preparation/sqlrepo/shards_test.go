@@ -3,15 +3,14 @@ package sqlrepo_test
 import (
 	"testing"
 
-	"github.com/fil-forge/go-libstoracha/testutil"
 	"github.com/fil-forge/guppy/pkg/preparation/blobs/model"
 	dagsmodel "github.com/fil-forge/guppy/pkg/preparation/dags/model"
 	"github.com/fil-forge/guppy/pkg/preparation/internal/testdb"
 	"github.com/fil-forge/guppy/pkg/preparation/sqlrepo"
 	"github.com/fil-forge/guppy/pkg/preparation/types/id"
+	"github.com/fil-forge/libforge/testutil"
 	"github.com/fil-forge/ucantone/did"
 	"github.com/ipfs/go-cid"
-	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/stretchr/testify/require"
 )
 
@@ -24,7 +23,7 @@ func TestAddNodeToShard(t *testing.T) {
 	uploadID := id.New()
 
 	makeRawNodeWithSize := func(size uint64) dagsmodel.Node {
-		node, _, err := repo.FindOrCreateRawNode(t.Context(), testutil.RandomCID(t).(cidlink.Link).Cid, size, spaceDID, uploadID, "dir/file", id.New(), 0)
+		node, _, err := repo.FindOrCreateRawNode(t.Context(), testutil.RandomCID(t), size, spaceDID, uploadID, "dir/file", id.New(), 0)
 		require.NoError(t, err)
 		return node
 	}
@@ -88,9 +87,9 @@ func TestNodesNotInShards(t *testing.T) {
 		uploadID := id.New()
 
 		// Create nodes
-		nodeCID1 := testutil.RandomCID(t).(cidlink.Link).Cid
-		nodeCID2 := testutil.RandomCID(t).(cidlink.Link).Cid
-		nodeCID3 := testutil.RandomCID(t).(cidlink.Link).Cid
+		nodeCID1 := testutil.RandomCID(t)
+		nodeCID2 := testutil.RandomCID(t)
+		nodeCID3 := testutil.RandomCID(t)
 
 		_, _, err = repo.FindOrCreateRawNode(t.Context(), nodeCID1, 100, spaceDID, uploadID, "dir/file1", id.New(), 0)
 		require.NoError(t, err)
@@ -125,7 +124,7 @@ func TestNodesNotInShards(t *testing.T) {
 		require.NoError(t, err)
 
 		uploadID := id.New()
-		nodeCID := testutil.RandomCID(t).(cidlink.Link).Cid
+		nodeCID := testutil.RandomCID(t)
 
 		// Create node and node_upload
 		_, _, err = repo.FindOrCreateRawNode(t.Context(), nodeCID, 100, spaceDID, uploadID, "dir/file", id.New(), 0)
@@ -151,8 +150,8 @@ func TestNodesNotInShards(t *testing.T) {
 		uploadID1 := id.New()
 		uploadID2 := id.New()
 
-		nodeCID1 := testutil.RandomCID(t).(cidlink.Link).Cid
-		nodeCID2 := testutil.RandomCID(t).(cidlink.Link).Cid
+		nodeCID1 := testutil.RandomCID(t)
+		nodeCID2 := testutil.RandomCID(t)
 
 		// Create nodes
 		_, _, err = repo.FindOrCreateRawNode(t.Context(), nodeCID1, 100, spaceDID, uploadID1, "dir/file1", id.New(), 0)

@@ -180,6 +180,9 @@ func (c *Client) BlobAdd(ctx context.Context, content io.Reader, space did.DID, 
 		c,
 		c.serviceID,
 	)
+	if err != nil {
+		return AddedBlob{}, fmt.Errorf("delegating /blob/allocate: %w", err)
+	}
 
 	accDlg, accProofs, accAttestations, err := delegateWithProofs(
 		ctx,
@@ -191,6 +194,9 @@ func (c *Client) BlobAdd(ctx context.Context, content io.Reader, space did.DID, 
 		c,
 		c.serviceID,
 	)
+	if err != nil {
+		return AddedBlob{}, fmt.Errorf("delegating /blob/accept: %w", err)
+	}
 
 	inv, err := blobcmds.Add.Invoke(
 		c.signer,
@@ -204,6 +210,9 @@ func (c *Client) BlobAdd(ctx context.Context, content io.Reader, space did.DID, 
 		invocation.WithAudience(c.serviceID),
 		invocation.WithProofs(proofLinks...),
 	)
+	if err != nil {
+		return AddedBlob{}, fmt.Errorf("generating invocation: %w", err)
+	}
 
 	addOK, _, meta, err := Execute[*blobcmds.AddOK](
 		ctx,
@@ -219,6 +228,9 @@ func (c *Client) BlobAdd(ctx context.Context, content io.Reader, space did.DID, 
 		execution.WithDelegations(accProofs...),
 		execution.WithInvocations(accAttestations...),
 	)
+	if err != nil {
+		return AddedBlob{}, fmt.Errorf("executing blob add: %w", err)
+	}
 
 	accInv, err := findInvocation(addOK.Site.Task, meta.Invocations())
 	if err != nil {

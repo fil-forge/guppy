@@ -2,47 +2,30 @@ package demo
 
 import (
 	"context"
-	"crypto/ed25519"
 	"crypto/sha512"
 	"fmt"
 	"io"
 	"io/fs"
-	"net/http"
+	"net/url"
 	"path"
 	"time"
 
-	filecoincap "github.com/fil-forge/go-libstoracha/capabilities/filecoin"
-	spaceblobcap "github.com/fil-forge/go-libstoracha/capabilities/space/blob"
-	spaceindexcap "github.com/fil-forge/go-libstoracha/capabilities/space/index"
-	"github.com/fil-forge/go-libstoracha/capabilities/types"
-	uploadcap "github.com/fil-forge/go-libstoracha/capabilities/upload"
-	"github.com/fil-forge/go-ucanto/core/invocation"
-	"github.com/fil-forge/go-ucanto/core/receipt/fx"
-	"github.com/fil-forge/go-ucanto/core/result"
-	"github.com/fil-forge/go-ucanto/core/result/failure"
-	"github.com/fil-forge/go-ucanto/principal/ed25519/signer"
-	"github.com/fil-forge/go-ucanto/server"
-	"github.com/fil-forge/go-ucanto/ucan"
+	"github.com/fil-forge/libforge/commands"
+	assertcmds "github.com/fil-forge/libforge/commands/assert"
+	uploadcmds "github.com/fil-forge/libforge/commands/upload"
+	"github.com/fil-forge/libforge/digestutil"
+	"github.com/fil-forge/ucantone/did"
+	"github.com/fil-forge/ucantone/principal/ed25519"
+	"github.com/ipfs/go-cid"
+	"github.com/multiformats/go-multihash"
+
 	"github.com/fil-forge/guppy/cmd/internal/upload/ui"
 	"github.com/fil-forge/guppy/internal/fakefs"
 	"github.com/fil-forge/guppy/pkg/client"
-	ctestutil "github.com/fil-forge/guppy/pkg/client/testutil"
 	"github.com/fil-forge/guppy/pkg/preparation"
 	"github.com/fil-forge/guppy/pkg/preparation/sqlrepo"
-	"github.com/ipfs/go-cid"
-	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
-	"github.com/multiformats/go-multihash"
+	"github.com/fil-forge/guppy/pkg/preparation/storacha"
 )
-
-type nullTransport struct{}
-
-func (t nullTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	time.Sleep(1 * time.Second)
-	return &http.Response{
-		StatusCode: http.StatusOK,
-		Body:       http.NoBody,
-	}, nil
-}
 
 type changingFS struct {
 	fs.FS
@@ -211,150 +194,97 @@ func newChangingFS(fsys fs.FS, changeModTime, changeData bool) (fs.FS, error) {
 }
 
 func Demo(ctx context.Context, repo *sqlrepo.Repo, spaceName string, alterMetadata, alterData bool) error {
-	hash := sha512.Sum512_256([]byte(spaceName))
-	space, err := signer.FromRaw(ed25519.NewKeyFromSeed(hash[:]))
+	// Derive a deterministic space key from the name so re-runs use the same space.
+	seed := sha512.Sum512_256([]byte(spaceName))
+	space, err := ed25519.FromRaw(seed[:])
 	if err != nil {
-		return fmt.Errorf("command failed to create space key: %w", err)
+		return fmt.Errorf("creating space key: %w", err)
 	}
 	spaceDID := space.DID()
 
-	baseClient, err := ctestutil.Client(
-		ctestutil.WithClientOptions(
-			// Act as space to avoid auth issues
-			client.WithPrincipal(space),
-		),
-		ctestutil.WithBlobAdd(),
-
-		ctestutil.WithServerOptions(
-			server.WithServiceMethod(
-				spaceindexcap.Add.Can(),
-				server.Provide(
-					spaceindexcap.Add,
-					func(
-						ctx context.Context,
-						cap ucan.Capability[spaceindexcap.AddCaveats],
-						inv invocation.Invocation,
-						context server.InvocationContext,
-					) (result.Result[spaceindexcap.AddOk, failure.IPLDBuilderFailure], fx.Effects, error) {
-						return result.Ok[spaceindexcap.AddOk, failure.IPLDBuilderFailure](spaceindexcap.AddOk{}), nil, nil
-					},
-				),
-			),
-
-			server.WithServiceMethod(
-				spaceblobcap.Replicate.Can(),
-				server.Provide(
-					spaceblobcap.Replicate,
-					func(
-						ctx context.Context,
-						cap ucan.Capability[spaceblobcap.ReplicateCaveats],
-						inv invocation.Invocation,
-						context server.InvocationContext,
-					) (result.Result[spaceblobcap.ReplicateOk, failure.IPLDBuilderFailure], fx.Effects, error) {
-						sitePromises := make([]types.Promise, cap.Nb().Replicas)
-						for i := range sitePromises {
-							siteDigest, err := multihash.Encode(fmt.Appendf(nil, "test-replicated-site-%d", i), multihash.IDENTITY)
-							if err != nil {
-								return nil, nil, fmt.Errorf("encoding site digest: %w", err)
-							}
-							sitePromises[i] = types.Promise{
-								UcanAwait: types.Await{
-									Selector: ".out.ok.site",
-									Link:     cidlink.Link{Cid: cid.NewCidV1(cid.Raw, siteDigest)},
-								},
-							}
-						}
-						return result.Ok[spaceblobcap.ReplicateOk, failure.IPLDBuilderFailure](
-							spaceblobcap.ReplicateOk{
-								Site: sitePromises,
-							},
-						), nil, nil
-					},
-				),
-			),
-
-			server.WithServiceMethod(
-				filecoincap.Offer.Can(),
-				server.Provide(
-					filecoincap.Offer,
-					func(
-						ctx context.Context,
-						cap ucan.Capability[filecoincap.OfferCaveats],
-						inv invocation.Invocation,
-						context server.InvocationContext,
-					) (result.Result[filecoincap.OfferOk, failure.IPLDBuilderFailure], fx.Effects, error) {
-						return result.Ok[filecoincap.OfferOk, failure.IPLDBuilderFailure](
-							filecoincap.OfferOk{
-								Piece: cap.Nb().Piece,
-							},
-						), nil, nil
-					},
-				),
-			),
-
-			server.WithServiceMethod(
-				uploadcap.Add.Can(),
-				server.Provide(
-					uploadcap.Add,
-					func(
-						ctx context.Context,
-						cap ucan.Capability[uploadcap.AddCaveats],
-						inv invocation.Invocation,
-						context server.InvocationContext,
-					) (result.Result[uploadcap.AddOk, failure.IPLDBuilderFailure], fx.Effects, error) {
-						return result.Ok[uploadcap.AddOk, failure.IPLDBuilderFailure](uploadcap.AddOk{
-							Root:   cap.Nb().Root,
-							Shards: cap.Nb().Shards,
-						}), nil, nil
-					},
-				),
-			),
-		),
-	)
+	service, err := ed25519.Generate()
 	if err != nil {
-		return fmt.Errorf("command failed to create client: %w", err)
+		return fmt.Errorf("creating service key: %w", err)
 	}
-	customPutClient := &ctestutil.ClientWithCustomPut{
-		Client:    baseClient,
-		PutClient: &http.Client{Transport: nullTransport{}},
-	}
+
 	fsys, err := newChangingFS(fakefs.New(0), alterMetadata, alterData)
 	if err != nil {
 		return fmt.Errorf("creating changing FS: %w", err)
 	}
-	api := preparation.NewAPI(repo, customPutClient, preparation.WithGetLocalFSForPathFn(func(path string) (fs.FS, error) {
+
+	api := preparation.NewAPI(repo, &demoClient{service: service}, preparation.WithGetLocalFSForPathFn(func(string) (fs.FS, error) {
 		return fsys, nil
 	}))
 
 	uploads, err := api.FindOrCreateUploads(ctx, spaceDID)
 	if err != nil {
-		return fmt.Errorf("command failed to create uploads: %w", err)
+		return fmt.Errorf("creating uploads: %w", err)
 	}
-
 	if len(uploads) == 0 {
-		// Try adding the source and running again.
-
-		_, err = api.FindOrCreateSpace(ctx, spaceDID, spaceDID.String())
-		if err != nil {
-			return fmt.Errorf("command failed to create space: %w", err)
+		if _, err := api.FindOrCreateSpace(ctx, spaceDID, spaceDID.String()); err != nil {
+			return fmt.Errorf("creating space: %w", err)
 		}
-
 		source, err := api.CreateSource(ctx, ".", ".")
 		if err != nil {
-			return fmt.Errorf("command failed to create source: %w", err)
+			return fmt.Errorf("creating source: %w", err)
 		}
-
-		err = repo.AddSourceToSpace(ctx, spaceDID, source.ID())
-		if err != nil {
-			return fmt.Errorf("command failed to add source to space: %w", err)
+		if err := repo.AddSourceToSpace(ctx, spaceDID, source.ID()); err != nil {
+			return fmt.Errorf("adding source to space: %w", err)
 		}
-
 		uploads, err = api.FindOrCreateUploads(ctx, spaceDID)
 		if err != nil {
-			return fmt.Errorf("command failed to create uploads: %w", err)
+			return fmt.Errorf("creating uploads: %w", err)
 		}
-
 	}
 
 	return ui.RunUploadUI(ctx, repo, api, uploads, false, nil)
+}
+
+// demoClient is a fake storacha.Client that accepts blobs locally (no network),
+// so the demo can exercise the full scan -> DAG -> shard -> upload pipeline
+// without real credentials or a service.
+type demoClient struct {
+	service ed25519.Signer
+}
+
+var _ storacha.Client = (*demoClient)(nil)
+
+func (d *demoClient) BlobAdd(ctx context.Context, content io.Reader, space did.DID, options ...client.BlobAddOption) (client.AddedBlob, error) {
+	cfg := client.NewBlobAddConfig(options...)
+	data, err := io.ReadAll(content)
+	if err != nil {
+		return client.AddedBlob{}, fmt.Errorf("reading blob content: %w", err)
+	}
+	digest := cfg.PrecomputedDigest
+	if len(digest) == 0 {
+		digest, err = multihash.Sum(data, multihash.SHA2_256, -1)
+		if err != nil {
+			return client.AddedBlob{}, fmt.Errorf("hashing blob: %w", err)
+		}
+	}
+	blobURL, err := url.Parse("https://demo.example/blob/" + digestutil.Format(digest))
+	if err != nil {
+		return client.AddedBlob{}, err
+	}
+	location, err := assertcmds.Location.Invoke(
+		d.service,
+		d.service.DID(),
+		&assertcmds.LocationArguments{
+			Space:    space,
+			Content:  digest,
+			Location: []commands.CborURL{commands.CborURL(*blobURL)},
+		},
+	)
+	if err != nil {
+		return client.AddedBlob{}, fmt.Errorf("creating location commitment: %w", err)
+	}
+	return client.AddedBlob{Digest: digest, Size: uint64(len(data)), Location: location}, nil
+}
+
+func (d *demoClient) IndexAdd(ctx context.Context, indexCID cid.Cid, space did.DID) error {
+	return nil
+}
+
+func (d *demoClient) UploadAdd(ctx context.Context, space did.DID, root cid.Cid, shards []cid.Cid, index *cid.Cid) (*uploadcmds.AddOK, error) {
+	return &uploadcmds.AddOK{}, nil
 }
