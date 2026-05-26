@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/fil-forge/libforge/testutil"
 	"github.com/fil-forge/guppy/internal/fakefs"
+	"github.com/fil-forge/libforge/testutil"
 	"github.com/stretchr/testify/require"
 )
 

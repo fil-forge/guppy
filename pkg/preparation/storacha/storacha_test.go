@@ -7,10 +7,10 @@ import (
 	"io"
 	"testing"
 
-	commcid "github.com/filecoin-project/go-fil-commcid"
-	commp "github.com/filecoin-project/go-fil-commp-hashhash"
 	stestutil "github.com/fil-forge/libforge/testutil"
 	"github.com/fil-forge/ucantone/did"
+	commcid "github.com/filecoin-project/go-fil-commcid"
+	commp "github.com/filecoin-project/go-fil-commp-hashhash"
 	"github.com/ipfs/go-cid"
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/multiformats/go-multicodec"
