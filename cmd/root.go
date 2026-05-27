@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path"
@@ -24,6 +25,8 @@ import (
 	"github.com/fil-forge/guppy/cmd/proof"
 	"github.com/fil-forge/guppy/cmd/space"
 	"github.com/fil-forge/guppy/cmd/upload"
+	libid "github.com/fil-forge/libforge/identity"
+	"github.com/fil-forge/ucantone/principal/ed25519"
 )
 
 var (
@@ -31,6 +34,8 @@ var (
 	tracer = otel.Tracer("cmd")
 	// path to guppy config file relative to user config directory
 	configFilePath = path.Join("guppy", "config.toml")
+	// path to guppy identity file relative to user config directory
+	identityFilePath = path.Join("guppy", "identity.pem")
 )
 
 var cfgFile string
@@ -131,9 +136,42 @@ func initConfig() {
 	if cfgFile == "" {
 		if configDir, err := os.UserConfigDir(); err == nil {
 			defaultCfgFile := path.Join(configDir, configFilePath)
-			if inf, err := os.Stat(defaultCfgFile); err == nil && !inf.IsDir() {
+			if _, err := os.Stat(defaultCfgFile); err == nil {
 				log.Infof("loading config automatically from: %s", defaultCfgFile)
 				cfgFile = defaultCfgFile
+			} else {
+				// Generate a config file and identity PEM automatically if they don't
+				// exist, to make onboarding easier for new users.
+
+				// First ensure the identity file also does not exist.
+				defaultIdentityFile := path.Join(configDir, identityFilePath)
+				if _, err := os.Stat(defaultIdentityFile); errors.Is(err, os.ErrNotExist) {
+					log.Infof("generating identity")
+					signer, err := ed25519.Generate()
+					if err != nil {
+						log.Fatalf("failed to generate identity: %v", err)
+					}
+					pem, err := libid.EncodeEd25519SignerToPEM(signer)
+					if err != nil {
+						log.Fatalf("failed to encode identity to PEM: %v", err)
+					}
+
+					// Write the identity and config file with default values
+					log.Infof("writing identity to: %s", defaultIdentityFile)
+					if err := os.WriteFile(defaultIdentityFile, pem, 0600); err != nil {
+						log.Fatalf("failed to write identity to file: %v", err)
+					}
+
+					// Set the value for the identity file we just created
+					viper.Set("identity.key_file", defaultIdentityFile)
+
+					log.Infof("writing config to: %s", defaultCfgFile)
+					err = viper.SafeWriteConfigAs(defaultCfgFile)
+					if err != nil {
+						log.Fatalf("failed to write config file: %v", err)
+					}
+					cfgFile = defaultCfgFile
+				}
 			}
 		}
 	}
