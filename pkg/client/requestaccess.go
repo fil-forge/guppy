@@ -36,6 +36,14 @@ func (c *Client) RequestAccess(ctx context.Context, account did.DID) (*access.Re
 	if err != nil {
 		return nil, fmt.Errorf("executing request invocation: %w", err)
 	}
+	// Sprue's access/request handler returns the invocation envelope link in
+	// RequestOK.Request, but it writes the *task* link into the confirmed
+	// delegation's metadata under access.RequestMetaKey (see sprue's
+	// access_request.go and access_confirm.go). PollClaim filters delegations
+	// by `meta[access.RequestMetaKey] == requestOK.Request`, so the two CIDs
+	// must match. Override the wire value with the task link locally so the
+	// filter works — both halves now reference the same task identity.
+	requestOK.Request = inv.Task().Link()
 
 	return requestOK, nil
 }

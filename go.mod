@@ -12,7 +12,7 @@ require (
 	github.com/dgraph-io/badger v1.6.2
 	github.com/dustin/go-humanize v1.0.1
 	github.com/fil-forge/indexing-service v1.13.5-0.20260522094121-1edae9728a14
-	github.com/fil-forge/libforge v0.0.0-20260522130153-a38febd34c97
+	github.com/fil-forge/libforge v0.0.0-20260527161255-4361ce61ff88
 	github.com/fil-forge/ucantone v0.0.0-20260522152152-eda937bc2684
 	github.com/filecoin-project/go-data-segment v0.0.1
 	github.com/filecoin-project/go-fil-commcid v0.3.1
