@@ -346,7 +346,7 @@ func authorizedFetch(ctx context.Context, id ucan.Signer, getProofs ContentRetri
 			if err != nil {
 				return nil, fmt.Errorf("getting proofs for retrieval to %q: %w", url.URL().String(), err)
 			}
-			proofLinks := make([]cid.Cid, len(proofs))
+			proofLinks := make([]cid.Cid, 0, len(proofs))
 			for _, p := range proofs {
 				proofLinks = append(proofLinks, p.Link())
 			}
