@@ -61,6 +61,10 @@ var verifyCmd = &cobra.Command{
 		var authorizeIndexer verification.AuthorizeIndexerRetrievalFunc
 		var getProofs verification.ContentRetrieveProofGetterFunc
 		if network.AuthorizedRetrievals {
+			getProofs = func(space did.DID) ([]ucan.Delegation, error) {
+				proofs, _, err := guppy.ProofChain(cmd.Context(), guppy.Issuer().DID(), contentcmds.Retrieve.Command, space)
+				return proofs, err
+			}
 			authorizeIndexer = func() ([]ucan.Delegation, error) {
 				dels := make([]ucan.Delegation, 0, len(authdSpaces))
 				for _, space := range authdSpaces {
@@ -69,12 +73,14 @@ var verifyCmd = &cobra.Command{
 						return nil, err
 					}
 					dels = append(dels, d)
+
+					proofs, err := getProofs(space)
+					if err != nil {
+						return nil, err
+					}
+					dels = append(dels, proofs...)
 				}
 				return dels, nil
-			}
-			getProofs = func(space did.DID) ([]ucan.Delegation, error) {
-				proofs, _, err := guppy.ProofChain(cmd.Context(), guppy.Issuer().DID(), contentcmds.Retrieve.Command, space)
-				return proofs, err
 			}
 		}
 
