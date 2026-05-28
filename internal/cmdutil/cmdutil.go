@@ -222,7 +222,7 @@ func (e HandledCliError) Unwrap() error {
 // If the identifier is a valid DID, it returns that DID directly.
 // Otherwise, it looks up the space by name using the provided client.
 // Returns an error if the name matches no spaces or multiple spaces.
-func ResolveSpace(c *client.Client, identifier string) (did.DID, error) {
+func ResolveSpace(ctx context.Context, c *client.Client, identifier string) (did.DID, error) {
 	// First, try to parse as a DID
 	spaceDID, err := did.Parse(identifier)
 	if err == nil {
@@ -230,7 +230,7 @@ func ResolveSpace(c *client.Client, identifier string) (did.DID, error) {
 	}
 
 	// Not a valid DID, try to look up by name
-	space, err := c.SpaceNamed(identifier)
+	space, err := c.SpaceNamed(ctx, identifier)
 	if err != nil {
 		var notFoundErr client.SpaceNotFoundError
 		if errors.As(err, &notFoundErr) {

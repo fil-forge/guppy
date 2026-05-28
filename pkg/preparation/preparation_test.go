@@ -47,10 +47,10 @@ import (
 	uploadsmodel "github.com/fil-forge/guppy/pkg/preparation/uploads/model"
 )
 
-// NOTE: space/blob/replicate and filecoin/offer are commented out in the
+// NOTE: /blob/replicate and filecoin/offer are commented out in the
 // production storacha API, so this end-to-end test only exercises (and asserts)
-// the surviving flow: space/blob/add (via the ctestutil blob/add harness),
-// space/index/add, and upload/add. TODO(forrest): restore the replicate / offer
+// the surviving flow: /blob/add (via the ctestutil blob/add harness),
+// /index/add, and upload/add. TODO(forrest): restore the replicate / offer
 // assertions when those steps are re-enabled.
 
 func randomBytes(n int) []byte {

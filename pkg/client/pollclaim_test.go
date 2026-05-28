@@ -80,8 +80,8 @@ func TestPollClaim(t *testing.T) {
 
 		claimedDels, err := (<-resultChan).Unpack()
 		require.NoError(t, err, "expected no error from PollClaim")
-		require.Len(t, claimedDels, 1, "expected exactly one delegation to be claimed")
-		require.Equal(t, relatedDel.Link(), claimedDels[0].Link(), "expected only the related delegation")
+		require.Len(t, claimedDels.Delegations, 1, "expected exactly one delegation to be claimed")
+		require.Equal(t, relatedDel.Link(), claimedDels.Delegations[0].Link(), "expected only the related delegation")
 
 		_, ok := <-resultChan
 		require.False(t, ok, "expected result channel to be closed after claim")

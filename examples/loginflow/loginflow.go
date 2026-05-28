@@ -22,7 +22,7 @@ func main() {
 	space, _ := did.Parse("did:key:z6MkwDuRThQcyWjqNsK54yKAmzfsiH6BTkASyiucThMtHt1y")
 
 	// the account to log in as, which has access to the space
-	account, _ := did.Parse("mailto:example.com:ucansam")
+	account, _ := did.Parse("did:mailto:example.com:ucansam")
 
 	c, _ := client.New(
 		agent,
@@ -38,10 +38,18 @@ func main() {
 	fmt.Println("Please click the link in your email to authenticate...")
 	// Wait for the user to authenticate
 	proofResult := <-resultChan
-	proofs, _ := proofResult.Unpack()
+	claim, _ := proofResult.Unpack()
 
 	// Add the proofs to the client
-	c.AddProofs(context.Background(), proofs...)
+	c.AddProofs(context.Background(), claim.Delegations...)
+	c.AddAttestations(context.Background(), claim.Attestations...)
+
+	// Claim any delegations for the account itself, which should include access
+	// to the space.
+	accountDelegations, _, _ := c.ClaimAccess(context.Background(), account)
+	if len(accountDelegations) > 0 {
+		c.AddProofs(context.Background(), accountDelegations...)
+	}
 
 	listOk, _ := c.UploadList(
 		context.Background(),

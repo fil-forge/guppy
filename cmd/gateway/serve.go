@@ -126,7 +126,7 @@ var serveCmd = &cobra.Command{
 		cobra.CheckErr(err)
 
 		// The spaces the agent can act on are the ones it can serve.
-		actSpaces, err := c.Spaces()
+		actSpaces, err := c.Spaces(cmd.Context())
 		if err != nil {
 			return fmt.Errorf("listing spaces: %w", err)
 		}
@@ -137,7 +137,7 @@ var serveCmd = &cobra.Command{
 
 		var spaces []did.DID
 		for _, arg := range args {
-			space, err := cmdutil.ResolveSpace(c, arg)
+			space, err := cmdutil.ResolveSpace(cmd.Context(), c, arg)
 			if err != nil {
 				return err
 			}

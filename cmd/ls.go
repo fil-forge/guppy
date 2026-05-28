@@ -48,7 +48,7 @@ var lsCmd = &cobra.Command{
 			}
 		}
 
-		spaceDID, err := cmdutil.ResolveSpace(c, args[0])
+		spaceDID, err := cmdutil.ResolveSpace(cmd.Context(), c, args[0])
 		if err != nil {
 			return err
 		}

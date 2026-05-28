@@ -46,7 +46,7 @@ var verifyCmd = &cobra.Command{
 		guppy := cmdutil.MustGetClientForNetwork(cfg, "")
 
 		// The spaces the agent can act on are the ones it can authorize retrievals for.
-		spaces, err := guppy.Spaces()
+		spaces, err := guppy.Spaces(cmd.Context())
 		if err != nil {
 			return fmt.Errorf("listing spaces: %w", err)
 		}

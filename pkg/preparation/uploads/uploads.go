@@ -660,7 +660,7 @@ func runShardUploadWorker(
 				return nil
 			})
 			if err != nil {
-				return fmt.Errorf("`space/blob/add`ing shards for upload %s: %w", uploadID, err)
+				return fmt.Errorf("`/blob/add`ing shards for upload %s: %w", uploadID, err)
 			}
 
 			return nil
@@ -772,7 +772,7 @@ func runIndexUploadWorker(
 				return nil
 			})
 			if err != nil {
-				return fmt.Errorf("`space/blob/add`ing indexes for upload %s: %w", uploadID, err)
+				return fmt.Errorf("`/blob/add`ing indexes for upload %s: %w", uploadID, err)
 			}
 			return nil
 		},

@@ -104,6 +104,11 @@ func (c *Client) AddProofs(ctx context.Context, delegations ...ucan.Delegation) 
 	return c.tokenStore.AddDelegations(ctx, delegations...)
 }
 
+// AddAttestations adds the given attestations to the client's token store.
+func (c *Client) AddAttestations(ctx context.Context, attestations ...ucan.Invocation) error {
+	return c.tokenStore.AddInvocations(ctx, attestations...)
+}
+
 // Reset clears all tokens from the token store.
 func (c *Client) Reset(ctx context.Context) error {
 	return c.tokenStore.Reset(ctx)

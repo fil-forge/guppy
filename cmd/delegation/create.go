@@ -54,7 +54,7 @@ var createCmd = &cobra.Command{
 		}
 		c := cmdutil.MustGetClient(cfg)
 
-		space, err := cmdutil.ResolveSpace(c, args[0])
+		space, err := cmdutil.ResolveSpace(cmd.Context(), c, args[0])
 		if err != nil {
 			return err
 		}

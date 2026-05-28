@@ -44,7 +44,7 @@ func (c *Client) ProviderAdd(ctx context.Context, customerAccount did.DID, provi
 		execution.WithInvocations(attestations...),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("executing delegate invocation: %w", err)
+		return nil, fmt.Errorf("executing provider add invocation: %w", err)
 	}
 
 	return addOK, nil

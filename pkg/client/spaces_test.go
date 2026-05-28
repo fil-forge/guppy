@@ -37,7 +37,7 @@ func spaceGrant(t *testing.T, c *client.Client, space ed25519.Signer, opts ...de
 
 func TestSpaces(t *testing.T) {
 	t.Run("returns empty when no space proofs exist", func(t *testing.T) {
-		spaces, err := newSpacesClient(t).Spaces()
+		spaces, err := newSpacesClient(t).Spaces(t.Context())
 		require.NoError(t, err)
 		require.Empty(t, spaces)
 	})
@@ -47,7 +47,7 @@ func TestSpaces(t *testing.T) {
 		space := testutil.RandomSigner(t)
 		require.NoError(t, c.AddProofs(t.Context(), spaceGrant(t, c, space)))
 
-		spaces, err := c.Spaces()
+		spaces, err := c.Spaces(t.Context())
 		require.NoError(t, err)
 		require.Len(t, spaces, 1)
 		require.Equal(t, space.DID(), spaces[0].DID())
@@ -59,7 +59,7 @@ func TestSpaces(t *testing.T) {
 		space2 := testutil.RandomSigner(t)
 		require.NoError(t, c.AddProofs(t.Context(), spaceGrant(t, c, space1), spaceGrant(t, c, space2)))
 
-		spaces, err := c.Spaces()
+		spaces, err := c.Spaces(t.Context())
 		require.NoError(t, err)
 		require.Len(t, spaces, 2)
 		require.ElementsMatch(t,
@@ -77,7 +77,7 @@ func TestSpaces(t *testing.T) {
 			testutil.Must(delegation.Delegate(testutil.RandomSigner(t), c.Issuer().DID(), space.DID(), blobcmds.Add.Command))(t),
 		))
 
-		spaces, err := c.Spaces()
+		spaces, err := c.Spaces(t.Context())
 		require.NoError(t, err)
 		require.Len(t, spaces, 1)
 		require.Equal(t, space.DID(), spaces[0].DID())
@@ -93,7 +93,7 @@ func TestSpaces(t *testing.T) {
 			testutil.Must(delegation.Delegate(attestSpace, c.Issuer().DID(), attestSpace.DID(), command.MustParse("/ucan/attest")))(t),
 		))
 
-		spaces, err := c.Spaces()
+		spaces, err := c.Spaces(t.Context())
 		require.NoError(t, err)
 		require.Len(t, spaces, 1)
 		require.Equal(t, space.DID(), spaces[0].DID())
@@ -108,7 +108,7 @@ func TestSpaces(t *testing.T) {
 			spaceGrant(t, c, futureSpace, delegation.WithNotBefore(ucan.Now()+100)),
 		))
 
-		spaces, err := c.Spaces()
+		spaces, err := c.Spaces(t.Context())
 		require.NoError(t, err)
 		require.Empty(t, spaces)
 	})
@@ -122,7 +122,7 @@ func TestSpace(t *testing.T) {
 			spaceGrant(t, c, space, delegation.WithMetadata(client.SpaceNameMetadata("my cool space"))),
 		))
 
-		spaces, err := c.Spaces()
+		spaces, err := c.Spaces(t.Context())
 		require.NoError(t, err)
 		require.Len(t, spaces, 1)
 		require.Equal(t, []string{"my cool space"}, spaces[0].Names())
@@ -133,7 +133,7 @@ func TestSpace(t *testing.T) {
 		space := testutil.RandomSigner(t)
 		require.NoError(t, c.AddProofs(t.Context(), spaceGrant(t, c, space)))
 
-		spaces, err := c.Spaces()
+		spaces, err := c.Spaces(t.Context())
 		require.NoError(t, err)
 		require.Len(t, spaces, 1)
 		require.Empty(t, spaces[0].Names())
@@ -145,7 +145,7 @@ func TestSpace(t *testing.T) {
 		grant := spaceGrant(t, c, space)
 		require.NoError(t, c.AddProofs(t.Context(), grant))
 
-		spaces, err := c.Spaces()
+		spaces, err := c.Spaces(t.Context())
 		require.NoError(t, err)
 		require.Len(t, spaces, 1)
 		proofs := spaces[0].AccessProofs()
@@ -160,7 +160,7 @@ func TestSpaceNamed(t *testing.T) {
 		space := testutil.RandomSigner(t)
 		require.NoError(t, c.AddProofs(t.Context(), spaceGrant(t, c, space, delegation.WithMetadata(client.SpaceNameMetadata("some name")))))
 
-		_, err := c.SpaceNamed("different name")
+		_, err := c.SpaceNamed(t.Context(), "different name")
 		var notFound client.SpaceNotFoundError
 		require.ErrorAs(t, err, &notFound)
 		require.Equal(t, "different name", notFound.Name)
@@ -171,7 +171,7 @@ func TestSpaceNamed(t *testing.T) {
 		space := testutil.RandomSigner(t)
 		require.NoError(t, c.AddProofs(t.Context(), spaceGrant(t, c, space, delegation.WithMetadata(client.SpaceNameMetadata("my space")))))
 
-		result, err := c.SpaceNamed("my space")
+		result, err := c.SpaceNamed(t.Context(), "my space")
 		require.NoError(t, err)
 		require.Equal(t, space.DID(), result.DID())
 	})
@@ -185,7 +185,7 @@ func TestSpaceNamed(t *testing.T) {
 			spaceGrant(t, c, space2, delegation.WithMetadata(client.SpaceNameMetadata("shared"))),
 		))
 
-		_, err := c.SpaceNamed("shared")
+		_, err := c.SpaceNamed(t.Context(), "shared")
 		var multiple client.MultipleSpacesFoundError
 		require.ErrorAs(t, err, &multiple)
 		require.Equal(t, "shared", multiple.Name)

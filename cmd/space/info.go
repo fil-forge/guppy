@@ -34,7 +34,7 @@ var infoCmd = &cobra.Command{
 		}
 		c := cmdutil.MustGetClient(cfg)
 
-		spaceDID, err := cmdutil.ResolveSpace(c, args[0])
+		spaceDID, err := cmdutil.ResolveSpace(cmd.Context(), c, args[0])
 		if err != nil {
 			return err
 		}

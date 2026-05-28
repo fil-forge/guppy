@@ -104,7 +104,7 @@ type AddedBlob struct {
 //
 // Returns the multihash of the added blob and the location commitment that contains details about where the
 // blob can be located, or an error if something went wrong.
-func (c *Client) BlobAdd(ctx context.Context, content io.Reader, space did.DID, options ...BlobAddOption) (AddedBlob, error) {
+func (c *Client) BlobAdd(ctx context.Context, content io.Reader, space did.DID, options ...BlobAddOption) (blob AddedBlob, err error) {
 	ctx, span := tracer.Start(ctx, "blob-add", trace.WithAttributes(
 		attribute.String("space", space.String()),
 	))
@@ -121,7 +121,11 @@ func (c *Client) BlobAdd(ctx context.Context, content io.Reader, space did.DID, 
 	start := time.Now()
 	log.Infow("blob adding", "space", space, "has_digest", !needsHash)
 	defer func() {
-		log.Infow("blob added", "space", space, "has_digest", !needsHash, "duration", time.Since(start))
+		if err != nil {
+			log.Errorw("blob add failed", "space", space, "has_digest", !needsHash, "error", err, "duration", time.Since(start))
+		} else {
+			log.Infow("blob added", "space", space, "has_digest", !needsHash, "duration", time.Since(start))
+		}
 	}()
 	if needsHash {
 		ctx, readSpan := tracer.Start(ctx, "read-content")

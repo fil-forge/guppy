@@ -4,8 +4,11 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"maps"
 	"slices"
+	"strings"
 
+	"github.com/fil-forge/guppy/pkg/tokenstore"
 	"github.com/fil-forge/ucantone/did"
 	"github.com/fil-forge/ucantone/ipld/datamodel"
 	"github.com/fil-forge/ucantone/ucan"
@@ -97,19 +100,62 @@ func SpaceNameMetadata(name string) datamodel.Map {
 // Spaces returns all spaces we can act as, derived from the delegations held by
 // the token store: each distinct subject of a (valid, non-attestation)
 // delegation addressed to this agent is a space.
-func (c *Client) Spaces() ([]Space, error) {
-	dels, err := c.tokenStore.Delegations(context.Background())
+func (c *Client) Spaces(ctx context.Context) ([]Space, error) {
+	// Get direct delegations to the agent
+	dlgs, err := delegationsForAudience(ctx, c.tokenStore, c.signer.DID())
+	if err != nil {
+		return nil, fmt.Errorf("getting delegations for agent: %w", err)
+	}
+
+	accs, err := c.Accounts(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("getting accounts: %w", err)
+	}
+
+	// Get delegations to the agent's accounts
+	for _, acc := range accs {
+		accDlgs, err := delegationsForAudience(ctx, c.tokenStore, acc)
+		if err != nil {
+			return nil, fmt.Errorf("getting delegations for account %s: %w", acc, err)
+		}
+		dlgs = append(dlgs, accDlgs...)
+	}
+
+	// Group delegations by subject (space DID)
+	proofs := map[did.DID]map[cid.Cid]ucan.Delegation{}
+	for _, d := range dlgs {
+		sub := d.Subject()
+		dlgs, ok := proofs[sub]
+		if !ok {
+			dlgs = map[cid.Cid]ucan.Delegation{}
+			proofs[sub] = dlgs
+		}
+		dlgs[d.Link()] = d
+	}
+
+	spaces := make([]Space, 0, len(proofs))
+	for space, dlgs := range proofs {
+		spaces = append(spaces, Space{
+			did:          space,
+			accessProofs: slices.Collect(maps.Values(dlgs)),
+		})
+	}
+	slices.SortFunc(spaces, func(a, b Space) int {
+		return strings.Compare(a.DID().String(), b.DID().String())
+	})
+	return spaces, nil
+}
+
+func delegationsForAudience(ctx context.Context, store tokenstore.Store, aud did.DID) ([]ucan.Delegation, error) {
+	dels, err := store.Delegations(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("listing delegations: %w", err)
 	}
 
-	agent := c.signer.DID()
 	now := ucan.Now()
-
-	order := make([]did.DID, 0)
-	proofs := map[did.DID][]ucan.Delegation{}
+	var proofs []ucan.Delegation
 	for _, d := range dels {
-		if d.Audience() != agent {
+		if d.Audience() != aud {
 			continue
 		}
 		if d.Command().String() == attestCommand {
@@ -122,28 +168,28 @@ func (c *Client) Spaces() ([]Space, error) {
 			continue
 		}
 		sub := d.Subject()
-		if !sub.Defined() || sub == agent {
+		if !sub.Defined() || sub == aud {
 			continue
 		}
-		if _, ok := proofs[sub]; !ok {
-			order = append(order, sub)
+		// Skip account-root delegations. Sprue's access/confirm issues
+		// a root delegation from the account to the agent with
+		// subject == account.DID() (a did:mailto), required by the UCAN
+		// spec — see ucantone/validator/validator.go's "root delegation
+		// subject is null" check. That delegation represents access to
+		// the account itself, not to a space, so it shouldn't be listed
+		// here. Spaces always use did:key subjects.
+		if sub.Method() == "mailto" {
+			continue
 		}
-		proofs[sub] = append(proofs[sub], d)
+		proofs = append(proofs, d)
 	}
 
-	spaces := make([]Space, 0, len(order))
-	for _, sub := range order {
-		spaces = append(spaces, Space{
-			did:          sub,
-			accessProofs: deduplicateDelegations(proofs[sub]),
-		})
-	}
-	return spaces, nil
+	return proofs, nil
 }
 
 // SpacesNamed returns all spaces with the given name.
-func (c *Client) SpacesNamed(name string) ([]Space, error) {
-	spaces, err := c.Spaces()
+func (c *Client) SpacesNamed(ctx context.Context, name string) ([]Space, error) {
+	spaces, err := c.Spaces(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -160,8 +206,8 @@ func (c *Client) SpacesNamed(name string) ([]Space, error) {
 // SpaceNamed returns the single space with the given name. Returns
 // [SpaceNotFoundError] if no space is found. Returns [MultipleSpacesFoundError]
 // if multiple spaces have the same name.
-func (c *Client) SpaceNamed(name string) (Space, error) {
-	spaces, err := c.SpacesNamed(name)
+func (c *Client) SpaceNamed(ctx context.Context, name string) (Space, error) {
+	spaces, err := c.SpacesNamed(ctx, name)
 	if err != nil {
 		return Space{}, err
 	}
@@ -173,18 +219,4 @@ func (c *Client) SpaceNamed(name string) (Space, error) {
 		return Space{}, MultipleSpacesFoundError{Name: name, Spaces: spaces}
 	}
 	return spaces[0], nil
-}
-
-// deduplicateDelegations removes duplicate delegations by CID.
-func deduplicateDelegations(dels []ucan.Delegation) []ucan.Delegation {
-	seen := make(map[cid.Cid]struct{})
-	result := make([]ucan.Delegation, 0, len(dels))
-	for _, d := range dels {
-		if _, exists := seen[d.Link()]; exists {
-			continue
-		}
-		seen[d.Link()] = struct{}{}
-		result = append(result, d)
-	}
-	return slices.Clip(result)
 }

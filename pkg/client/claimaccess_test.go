@@ -38,7 +38,7 @@ func TestClaimAccess(t *testing.T) {
 		// Some arbitrary delegation which has been "stored" to be claimed.
 		del = testutil.Must(uploadcmds.Add.Delegate(c.Issuer(), c.Issuer().DID(), c.Issuer().DID()))(t)
 
-		claimedDels, err := c.ClaimAccess(ctx)
+		claimedDels, _, err := c.ClaimAccess(ctx, c.Issuer().DID())
 		require.NoError(t, err)
 		require.Len(t, claimedDels, 1, "expected exactly one delegation to be claimed")
 		require.Equal(t, del.Link(), claimedDels[0].Link(), "expected the claimed delegation to match the stored one")
@@ -54,7 +54,7 @@ func TestClaimAccess(t *testing.T) {
 			}),
 		))(t)
 
-		claimedDels, err := c.ClaimAccess(ctx)
+		claimedDels, _, err := c.ClaimAccess(ctx, c.Issuer().DID())
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "Something went wrong!")
 		require.Len(t, claimedDels, 0)
@@ -65,7 +65,7 @@ func TestClaimAccess(t *testing.T) {
 		// A server with no routes registered.
 		c := testutil.Must(ctestutil.Client(t))(t)
 
-		claimedDels, err := c.ClaimAccess(ctx)
+		claimedDels, _, err := c.ClaimAccess(ctx, c.Issuer().DID())
 		require.Error(t, err)
 		require.Len(t, claimedDels, 0)
 	})

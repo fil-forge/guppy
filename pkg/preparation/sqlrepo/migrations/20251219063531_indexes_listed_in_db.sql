@@ -16,9 +16,9 @@ CREATE TABLE IF NOT EXISTS indexes (
   -- The total number of slices (nodes) across all shards in this index
   slice_count INTEGER NOT NULL DEFAULT 0,
   state TEXT NOT NULL,
-  -- The location commitment from space/blob/add
+  -- The location commitment from /blob/add
   location_inv BLOB,
-  -- The PDP accept invocation from space/blob/add 1
+  -- The PDP accept invocation from /blob/add 1
   pdp_accept_inv BLOB
 ) STRICT;
 

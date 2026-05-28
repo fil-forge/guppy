@@ -355,7 +355,7 @@ func (r *receiptsTransport) RoundTrip(req *http.Request) (*http.Response, error)
 	return transport.DefaultHTTPInboundCodec.Encode(ct)
 }
 
-// WithBlobAdd creates an [Option] that adds `space/blob/add` support to
+// WithBlobAdd creates an [Option] that adds `/blob/add` support to
 // the server. NB: This takes over the receipts client entirely. Currently,
 // different options can't cooperate to share a receipts client. That's
 // solvable, but hasn't been necessary yet.

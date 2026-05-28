@@ -110,8 +110,8 @@ func (a API) PostProcessUploadedShards(ctx context.Context, uploadID id.UploadID
 }
 
 // addBlobs adds the given blobs to the space, in parallel. For each blob, it
-// will `space/blob/add` if it hasn't been added yet, then call the `afterUploaded` callback if successful.
-// `SpaceBlobAdded()` will be called after `space/blob/add`. `Added()` will be
+// will `/blob/add` if it hasn't been added yet, then call the `afterUploaded` callback if successful.
+// `SpaceBlobAdded()` will be called after `/blob/add`. `Added()` will be
 // called at the very end. If any of these steps fail, an error will be
 // returned.
 func (a API) addBlobs(ctx context.Context, blobs []model.Blob, spaceDID did.DID, afterUploaded func(blob model.Blob) error) error {
@@ -262,10 +262,10 @@ func (a API) addBlob(ctx context.Context, blob model.Blob, spaceDID did.DID) err
 		}
 	}()
 	// If we don't have a location commitment yet, we have yet to successfully
-	// `space/blob/add`. (Note that `shard.PDPAccept()` is optional and may be
-	// legitimately nil even if the `space/blob/add` succeeded.)
+	// `/blob/add`. (Note that `shard.PDPAccept()` is optional and may be
+	// legitimately nil even if the `/blob/add` succeeded.)
 	if blob.Location() == nil {
-		log.Infof("adding blob %s to space %s via `space/blob/add`", blob, spaceDID)
+		log.Infof("adding blob %s to space %s via `/blob/add`", blob, spaceDID)
 
 		var opts []client.BlobAddOption
 		if blob.Digest() != nil && blob.Size() != 0 {
@@ -284,21 +284,21 @@ func (a API) addBlob(ctx context.Context, blob model.Blob, spaceDID did.DID) err
 		}
 
 		if err := blob.BlobAdded(addedBlob); err != nil {
-			return fmt.Errorf("failed to record `space/blob/add` for blob %s: %w", blob, err)
+			return fmt.Errorf("failed to record `/blob/add` for blob %s: %w", blob, err)
 		}
 	} else {
 		// If we have a location, the blob has been uploaded. If we called this function,
 		// the blob record is probably not marked as BlobStateUploaded like it
 		// should be, so mark it now.
-		log.Infof("blob %s already has location; skipping `space/blob/add` and updating blob record", blob.ID())
+		log.Infof("blob %s already has location; skipping `/blob/add` and updating blob record", blob.ID())
 		if err := blob.BlobAdded(client.AddedBlob{Location: blob.Location(), PDPAccept: blob.PDPAccept(),
 			Digest: blob.Digest(), Size: blob.Size()}); err != nil {
-			return fmt.Errorf("failed to record `space/blob/add` for blob %s: %w", blob, err)
+			return fmt.Errorf("failed to record `/blob/add` for blob %s: %w", blob, err)
 		}
 	}
 
 	if err := a.updateBlob(ctx, blob); err != nil {
-		return fmt.Errorf("failed to update blob %s after `space/blob/add`: %w", blob, err)
+		return fmt.Errorf("failed to update blob %s after `/blob/add`: %w", blob, err)
 	}
 	return nil
 }
