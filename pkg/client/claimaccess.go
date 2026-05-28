@@ -32,6 +32,21 @@ func (c *Client) ClaimAccess(ctx context.Context) ([]ucan.Delegation, error) {
 		return nil, fmt.Errorf("executing claim invocation: %w", err)
 	}
 
+	// Persist the service-issued attestations alongside the delegations.
+	// Delegations from did:mailto accounts use a non-standard signature
+	// (the account can't actually sign — it's an absentee signer), so
+	// every subsequent invocation that uses such a delegation as a proof
+	// must also present an `/ucan/attest/proof` invocation from the
+	// service. ProofAttestations later looks these up from the token
+	// store; if we don't persist them here, that lookup fails with
+	// "no attestation found for proof signed by did:mailto:..." the
+	// first time the agent tries to act on the account's behalf.
+	if invs := meta.Invocations(); len(invs) > 0 {
+		if err := c.tokenStore.AddInvocations(ctx, invs...); err != nil {
+			return nil, fmt.Errorf("storing attestations: %w", err)
+		}
+	}
+
 	var dlgs []ucan.Delegation
 	for _, d := range meta.Delegations() {
 		if slices.Contains(claimOK.Delegations, d.Link()) {

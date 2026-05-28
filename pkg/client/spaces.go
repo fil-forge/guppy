@@ -125,6 +125,16 @@ func (c *Client) Spaces() ([]Space, error) {
 		if !sub.Defined() || sub == agent {
 			continue
 		}
+		// Skip account-root delegations. Sprue's access/confirm issues
+		// a root delegation from the account to the agent with
+		// subject == account.DID() (a did:mailto), required by the UCAN
+		// spec — see ucantone/validator/validator.go's "root delegation
+		// subject is null" check. That delegation represents access to
+		// the account itself, not to a space, so it shouldn't be listed
+		// here. Spaces always use did:key subjects.
+		if sub.Method() == "mailto" {
+			continue
+		}
 		if _, ok := proofs[sub]; !ok {
 			order = append(order, sub)
 		}

@@ -65,6 +65,12 @@ func (c *Client) IndexAdd(ctx context.Context, indexCID cid.Cid, space did.DID) 
 		execution.WithDelegations(proofs...),
 		execution.WithInvocations(attestations...),
 		execution.WithDelegations(retrievalProofs...),
+		// The leaf delegation (guppy → upload) granting /content/retrieve
+		// on this space must travel with the request — metadata.retrievalAuth
+		// above only carries CID links, so without this the upload service
+		// can't reassemble the chain that sprue's PublishIndexClaim needs to
+		// re-delegate to the indexer.
+		execution.WithDelegations(retrievalAuth),
 		execution.WithInvocations(retrievalAttestations...),
 	)
 	if err != nil {
