@@ -1,82 +1,56 @@
 package client_test
 
 import (
-	"fmt"
 	"io"
 	"net/url"
 	"testing"
 
-	"github.com/fil-forge/go-libstoracha/blobindex"
-	assertcap "github.com/fil-forge/go-libstoracha/capabilities/assert"
-	captypes "github.com/fil-forge/go-libstoracha/capabilities/types"
-	"github.com/fil-forge/go-libstoracha/digestutil"
-	rclient "github.com/fil-forge/go-ucanto/client/retrieval"
-	"github.com/fil-forge/go-ucanto/core/delegation"
-	ed25519signer "github.com/fil-forge/go-ucanto/principal/ed25519/signer"
-	"github.com/fil-forge/go-ucanto/ucan"
-	"github.com/fil-forge/guppy/pkg/client"
-	"github.com/fil-forge/guppy/pkg/client/locator"
-	"github.com/fil-forge/guppy/pkg/client/testutil"
+	"github.com/fil-forge/libforge/blobindex"
+	"github.com/fil-forge/libforge/commands"
+	contentcmds "github.com/fil-forge/libforge/commands/content"
+	"github.com/fil-forge/libforge/digestutil"
+	"github.com/fil-forge/libforge/testutil"
+	"github.com/fil-forge/libforge/ucan/retrieval"
 	"github.com/multiformats/go-multihash"
 	"github.com/stretchr/testify/require"
+
+	"github.com/fil-forge/guppy/pkg/client"
+	"github.com/fil-forge/guppy/pkg/client/locator"
+	ctestutil "github.com/fil-forge/guppy/pkg/client/testutil"
 )
 
 func TestRetrieve(t *testing.T) {
 	t.Run("successfully retrieves content", func(t *testing.T) {
-		// Setup test data
 		testData := []byte("Hello, world! This is test data for retrieval.")
 		dataHash, err := multihash.Sum(testData, multihash.SHA2_256, -1)
 		require.NoError(t, err)
 
-		// Create space and storage provider
-		space, err := ed25519signer.Generate()
-		require.NoError(t, err)
+		space := testutil.RandomSigner(t)
+		storageProvider := testutil.RandomSigner(t)
 
-		storageProvider, err := ed25519signer.Generate()
-		require.NoError(t, err)
+		// In-process retrieval server that serves testData.
+		httpClient := ctestutil.NewRetrievalClient(t, storageProvider, testData)
 
-		// Create in-process retrieval server with custom HTTP client
-		httpClient := testutil.NewRetrievalClient(t, storageProvider, testData)
+		serverURL := testutil.Must(url.Parse("https://storage1.example.com/blob/" + digestutil.Format(dataHash)))(t)
 
-		// Use URL with hash in path
-		serverURL, err := url.Parse(fmt.Sprintf("https://storage1.example.com/blob/%s", digestutil.Format(dataHash)))
-		require.NoError(t, err)
+		c := testutil.Must(ctestutil.Client(t,
+			ctestutil.WithClientOptions(client.WithRetrievalOptions(retrieval.WithHTTPClient(httpClient))),
+		))(t)
 
-		// Create location commitment
-		locationCommitment := ucan.NewCapability(
-			assertcap.Location.Can(),
-			storageProvider.DID().String(),
-			assertcap.LocationCaveats{
-				Space:   space.DID(),
-				Content: captypes.FromHash(dataHash),
-				Range: &assertcap.Range{
-					Offset: 0,
-					Length: testutil.Ptr(uint64(len(testData))),
-				},
-				Location: []url.URL{*serverURL},
-			},
-		)
-
-		// Create client with space delegation
-		c, err := testutil.Client(testutil.WithClientOptions(client.WithRetrievalOptions(rclient.WithClient(httpClient))))
-		require.NoError(t, err)
-
-		cap := ucan.NewCapability("*", space.DID().String(), ucan.NoCaveats{})
-		proof, err := delegation.Delegate(space, c.Issuer(), []ucan.Capability[ucan.NoCaveats]{cap}, delegation.WithNoExpiration())
-		require.NoError(t, err)
-		err = c.AddProofs(proof)
-		require.NoError(t, err)
+		proof := testutil.Must(contentcmds.Retrieve.Delegate(space, c.Issuer().DID(), space.DID()))(t)
+		require.NoError(t, c.AddProofs(t.Context(), proof))
 
 		location := locator.Location{
-			Commitment: locationCommitment,
-			Position: blobindex.Position{
-				Offset: 0,
-				Length: uint64(len(testData)),
+			Commitment: locator.Commitment{
+				Node:     storageProvider.DID(),
+				Space:    space.DID(),
+				Content:  dataHash,
+				Location: []commands.CborURL{commands.CborURL(*serverURL)},
 			},
+			Range: blobindex.Range{Start: 0, End: int64(len(testData)) - 1},
 		}
 
-		// Retrieve the content using the custom HTTP client
-		dataReader, err := c.Retrieve(testContext(t), location)
+		dataReader, err := c.Retrieve(t.Context(), location)
 		require.NoError(t, err)
 		data, err := io.ReadAll(dataReader)
 		require.NoError(t, err)
@@ -84,105 +58,33 @@ func TestRetrieve(t *testing.T) {
 		require.Equal(t, testData, data)
 	})
 
-	t.Run("handles invalid storage provider DID", func(t *testing.T) {
-		// Create space
-		space, err := ed25519signer.Generate()
-		require.NoError(t, err)
-
-		testData := []byte("test data")
-		dataHash, err := multihash.Sum(testData, multihash.SHA2_256, -1)
-		require.NoError(t, err)
-
-		// Create location commitment with invalid DID
-		locationCommitment := ucan.NewCapability(
-			assertcap.Location.Can(),
-			"not-a-valid-did",
-			assertcap.LocationCaveats{
-				Space:   space.DID(),
-				Content: captypes.FromHash(dataHash),
-				Range: &assertcap.Range{
-					Offset: 0,
-					Length: testutil.Ptr(uint64(len(testData))),
-				},
-				Location: testutil.Urls("https://example.com"),
-			},
-		)
-
-		// Create client
-		c, err := testutil.Client()
-		require.NoError(t, err)
-
-		cap := ucan.NewCapability("*", space.DID().String(), ucan.NoCaveats{})
-		proof, err := delegation.Delegate(space, c.Issuer(), []ucan.Capability[ucan.NoCaveats]{cap}, delegation.WithNoExpiration())
-		require.NoError(t, err)
-		err = c.AddProofs(proof)
-		require.NoError(t, err)
-
-		location := locator.Location{
-			Commitment: locationCommitment,
-			Position: blobindex.Position{
-				Offset: 0,
-				Length: uint64(len(testData)),
-			},
-		}
-
-		// Retrieve should fail due to invalid DID (no HTTP client needed since it fails before connection)
-		_, err = c.Retrieve(testContext(t), location)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "parsing DID")
-	})
-
 	t.Run("handles connection errors", func(t *testing.T) {
-		// Create space and storage provider
-		space, err := ed25519signer.Generate()
-		require.NoError(t, err)
-
-		storageProvider, err := ed25519signer.Generate()
-		require.NoError(t, err)
-
-		// Use an invalid URL that will fail to connect
-		badURL, err := url.Parse("http://localhost:99999")
-		require.NoError(t, err)
-
 		testData := []byte("test data")
 		dataHash, err := multihash.Sum(testData, multihash.SHA2_256, -1)
 		require.NoError(t, err)
 
-		// Create location commitment with bad URL
-		locationCommitment := ucan.NewCapability(
-			assertcap.Location.Can(),
-			storageProvider.DID().String(),
-			assertcap.LocationCaveats{
-				Space:   space.DID(),
-				Content: captypes.FromHash(dataHash),
-				Range: &assertcap.Range{
-					Offset: 0,
-					Length: testutil.Ptr(uint64(len(testData))),
-				},
-				Location: []url.URL{*badURL},
-			},
-		)
+		space := testutil.RandomSigner(t)
+		storageProvider := testutil.RandomSigner(t)
 
-		// Create client
-		c, err := testutil.Client()
-		require.NoError(t, err)
+		// A URL that will fail to connect (default HTTP client, no in-process server).
+		badURL := testutil.Must(url.Parse("http://localhost:99999"))(t)
 
-		cap := ucan.NewCapability("*", space.DID().String(), ucan.NoCaveats{})
-		proof, err := delegation.Delegate(space, c.Issuer(), []ucan.Capability[ucan.NoCaveats]{cap}, delegation.WithNoExpiration())
-		require.NoError(t, err)
-		err = c.AddProofs(proof)
-		require.NoError(t, err)
+		c := testutil.Must(ctestutil.Client(t))(t)
+
+		proof := testutil.Must(contentcmds.Retrieve.Delegate(space, c.Issuer().DID(), space.DID()))(t)
+		require.NoError(t, c.AddProofs(t.Context(), proof))
 
 		location := locator.Location{
-			Commitment: locationCommitment,
-			Position: blobindex.Position{
-				Offset: 0,
-				Length: uint64(len(testData)),
+			Commitment: locator.Commitment{
+				Node:     storageProvider.DID(),
+				Space:    space.DID(),
+				Content:  dataHash,
+				Location: []commands.CborURL{commands.CborURL(*badURL)},
 			},
+			Range: blobindex.Range{Start: 0, End: int64(len(testData)) - 1},
 		}
 
-		// Retrieve should fail due to connection error (use default HTTP client which will fail to connect)
-		_, err = c.Retrieve(testContext(t), location)
+		_, err = c.Retrieve(t.Context(), location)
 		require.Error(t, err)
 	})
 }

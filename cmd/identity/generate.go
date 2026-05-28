@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/fil-forge/guppy/pkg/identity"
+	"github.com/fil-forge/libforge/identity"
 	"github.com/fil-forge/ucantone/principal/ed25519"
 	"github.com/spf13/cobra"
 )

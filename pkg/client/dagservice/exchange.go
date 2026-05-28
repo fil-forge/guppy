@@ -10,10 +10,10 @@ import (
 	"slices"
 	"sync"
 
-	"github.com/fil-forge/go-libstoracha/blobindex"
-	"github.com/fil-forge/go-libstoracha/digestutil"
-	"github.com/fil-forge/go-ucanto/did"
 	"github.com/fil-forge/guppy/pkg/client/locator"
+	"github.com/fil-forge/libforge/blobindex"
+	"github.com/fil-forge/libforge/digestutil"
+	"github.com/fil-forge/ucantone/did"
 	"github.com/ipfs/boxo/exchange"
 	blocks "github.com/ipfs/go-block-format"
 	"github.com/ipfs/go-cid"
@@ -123,21 +123,17 @@ func makeBlock(data []byte, c cid.Cid) (blocks.Block, error) {
 }
 
 type coalescedLocation struct {
-	location locator.Location
+	location *locator.Location
 	slices   []slice
 }
 
-func (cl coalescedLocation) isEmpty() bool {
-	return cl.location == (locator.Location{})
-}
-
 type slice struct {
-	cid      cid.Cid
-	position blobindex.Position
+	cid       cid.Cid
+	byteRange blobindex.Range
 }
 
 func sameShard(a, b locator.Location) bool {
-	return bytes.Equal(a.Commitment.Nb().Content.Hash(), b.Commitment.Nb().Content.Hash())
+	return bytes.Equal(a.Commitment.Content, b.Commitment.Content)
 }
 
 // withinGap checks if location b is within maxGap bytes after the end of
@@ -148,12 +144,13 @@ func withinGap(a, b locator.Location, maxGap uint64) bool {
 		return false
 	}
 
-	endOfA := a.Position.Offset + a.Position.Length
-
-	if b.Position.Offset >= endOfA && b.Position.Offset <= endOfA+maxGap {
+	// Range.End is inclusive (the last byte index), so the number of bytes
+	// strictly between a and b is (b.Start - a.End - 1). Exactly-contiguous
+	// slices (b.Start == a.End+1) therefore have a gap of 0.
+	if b.Range.Start > a.Range.End && b.Range.Start <= a.Range.End+int64(maxGap)+1 {
 		return true
 	} else {
-		log.Debugf("Locations not within gap: a ends at %d, b starts at %d; gap is %d, maxGap is %d", endOfA, b.Position.Offset, b.Position.Offset-endOfA, maxGap)
+		log.Debugf("Locations not within gap: a ends at %d, b starts at %d; gap is %d, maxGap is %d", a.Range.End, b.Range.Start, b.Range.Start-a.Range.End-1, maxGap)
 		return false
 	}
 }
@@ -189,7 +186,7 @@ func (se *storachaExchange) GetBlocks(ctx context.Context, cids []cid.Cid) (<-ch
 			return 0
 		}
 
-		return cmp.Compare(locsA[0].Position.Offset, locsB[0].Position.Offset)
+		return cmp.Compare(locsA[0].Range.Start, locsB[0].Range.Start)
 	})
 
 	var coalescedLocations []coalescedLocation
@@ -201,16 +198,16 @@ func (se *storachaExchange) GetBlocks(ctx context.Context, cids []cid.Cid) (<-ch
 		}
 
 		// If we don't have a current location, make one
-		if currentLocation.isEmpty() {
+		if currentLocation.location == nil {
 			loc := locs[rand.Intn(len(locs))]
 			currentLocation = coalescedLocation{
-				location: loc,
+				location: &loc,
 				slices: []slice{
 					{
 						cid: cid,
-						position: blobindex.Position{
-							Offset: loc.Position.Offset,
-							Length: loc.Position.Length,
+						byteRange: blobindex.Range{
+							Start: loc.Range.Start,
+							End:   loc.Range.End,
 						},
 					},
 				},
@@ -219,16 +216,16 @@ func (se *storachaExchange) GetBlocks(ctx context.Context, cids []cid.Cid) (<-ch
 			// See if any of the locations for this block are within the max gap of
 			// the current location.
 			found := false
-			if !currentLocation.isEmpty() {
+			if currentLocation.location != nil {
 				for _, loc := range locs {
-					if withinGap(currentLocation.location, loc, se.maxGap) {
+					if withinGap(*currentLocation.location, loc, se.maxGap) {
 						// Extend the coalesced location to include the gap and this block
-						currentLocation.location.Position.Length = loc.Position.Offset + loc.Position.Length - currentLocation.location.Position.Offset
+						currentLocation.location.Range.End = loc.Range.End
 						currentLocation.slices = append(currentLocation.slices, slice{
 							cid: cid,
-							position: blobindex.Position{
-								Offset: loc.Position.Offset,
-								Length: loc.Position.Length,
+							byteRange: blobindex.Range{
+								Start: loc.Range.Start,
+								End:   loc.Range.End,
 							},
 						})
 						found = true
@@ -243,13 +240,13 @@ func (se *storachaExchange) GetBlocks(ctx context.Context, cids []cid.Cid) (<-ch
 				coalescedLocations = append(coalescedLocations, currentLocation)
 				loc := locs[rand.Intn(len(locs))]
 				currentLocation = coalescedLocation{
-					location: loc,
+					location: &loc,
 					slices: []slice{
 						{
 							cid: cid,
-							position: blobindex.Position{
-								Offset: loc.Position.Offset,
-								Length: loc.Position.Length,
+							byteRange: blobindex.Range{
+								Start: loc.Range.Start,
+								End:   loc.Range.End,
 							},
 						},
 					},
@@ -258,48 +255,48 @@ func (se *storachaExchange) GetBlocks(ctx context.Context, cids []cid.Cid) (<-ch
 		}
 	}
 
-	if !currentLocation.isEmpty() {
+	if currentLocation.location != nil {
 		coalescedLocations = append(coalescedLocations, currentLocation)
 	}
 
 	var wg sync.WaitGroup
 	for _, cloc := range coalescedLocations {
-		log.Infof("Fetching %d coalesced blocks at offset %d with length %d", len(cloc.slices), cloc.location.Position.Offset, cloc.location.Position.Length)
+		log.Infof("Fetching %d coalesced blocks at offset %d with length %d", len(cloc.slices), cloc.location.Range.Start, cloc.location.Range.End-cloc.location.Range.Start+1)
 		wg.Add(1)
 		go func(cloc coalescedLocation) {
 			defer wg.Done()
-			blockReader, err := se.retriever.Retrieve(ctx, cloc.location)
+			blockReader, err := se.retriever.Retrieve(ctx, *cloc.location)
 			if err != nil {
-				log.Errorf("retrieving blocks starting at offset %d: %v", cloc.location.Position.Offset, err)
+				log.Errorf("retrieving blocks starting at offset %d: %v", cloc.location.Range.Start, err)
 				return
 			}
 			defer blockReader.Close()
 
 			// Slices appear in order, and cannot overlap, so we can slice up the data
 			// as we read it.
-			pos := cloc.location.Position.Offset
+			pos := cloc.location.Range.Start
 			for _, slice := range cloc.slices {
 				// Skip to slice offset
-				skipped, err := io.CopyN(io.Discard, blockReader, int64(slice.position.Offset-pos))
-				pos += uint64(skipped)
+				skipped, err := io.CopyN(io.Discard, blockReader, int64(slice.byteRange.Start-pos))
+				pos += skipped
 				if err != nil {
-					log.Errorf("skipping to block %s at %d-%d: expected to skip %d bytes, skipped %d: %v", slice.cid.String(), slice.position.Offset, slice.position.Offset+slice.position.Length, slice.position.Offset-pos, skipped, err)
+					log.Errorf("skipping to block %s at %d-%d: expected to skip %d bytes, skipped %d: %v", slice.cid.String(), slice.byteRange.Start, slice.byteRange.End, slice.byteRange.Start-pos, skipped, err)
 					return
 				}
 
 				// Read slice data
-				sliceBytes := make([]byte, slice.position.Length)
+				sliceBytes := make([]byte, slice.byteRange.End-slice.byteRange.Start+1)
 				read, err := io.ReadFull(blockReader, sliceBytes)
-				pos += uint64(read)
+				pos += int64(read)
 				if err != nil {
-					log.Errorf("reading block %s at %d-%d: expected %d bytes, got %d: %v", slice.cid.String(), slice.position.Offset, slice.position.Offset+slice.position.Length, slice.position.Length, read, err)
+					log.Errorf("reading block %s at %d-%d: expected %d bytes, got %d: %v", slice.cid.String(), slice.byteRange.Start, slice.byteRange.End, slice.byteRange.End-slice.byteRange.Start+1, read, err)
 					return
 				}
 
 				// Create block
 				blk, err := makeBlock(sliceBytes, slice.cid)
 				if err != nil {
-					log.Errorf("creating block %s at %d-%d: %v", slice.cid.String(), slice.position.Offset, slice.position.Offset+slice.position.Length, err)
+					log.Errorf("creating block %s at %d-%d: %v", slice.cid.String(), slice.byteRange.Start, slice.byteRange.End, err)
 					return
 				}
 

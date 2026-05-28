@@ -1,18 +1,15 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"io/fs"
 	"os"
-	"time"
 
-	contentcap "github.com/fil-forge/go-libstoracha/capabilities/space/content"
-	"github.com/fil-forge/go-libstoracha/principalresolver"
-	"github.com/fil-forge/go-ucanto/core/delegation"
-	"github.com/fil-forge/go-ucanto/did"
-	"github.com/fil-forge/go-ucanto/ucan"
-	"github.com/fil-forge/go-ucanto/validator"
+	contentcmds "github.com/fil-forge/libforge/commands/content"
+	"github.com/fil-forge/ucantone/did"
+	"github.com/fil-forge/ucantone/ucan"
 	"github.com/mitchellh/go-wordwrap"
 	"github.com/spf13/cobra"
 	"go.opentelemetry.io/otel/attribute"
@@ -20,7 +17,6 @@ import (
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/fil-forge/guppy/internal/cmdutil"
-	"github.com/fil-forge/guppy/pkg/agentstore"
 	"github.com/fil-forge/guppy/pkg/client/dagservice"
 	"github.com/fil-forge/guppy/pkg/client/locator"
 	"github.com/fil-forge/guppy/pkg/config"
@@ -49,7 +45,7 @@ var retrieveCmd = &cobra.Command{
 		}
 
 		c := cmdutil.MustGetClient(cfg)
-		space, err := cmdutil.ResolveSpace(c, args[0])
+		space, err := cmdutil.ResolveSpace(cmd.Context(), c, args[0])
 		if err != nil {
 			return err
 		}
@@ -65,10 +61,10 @@ var retrieveCmd = &cobra.Command{
 
 		outputPath := args[2]
 
-		indexer, indexerPrincipal := cmdutil.MustGetIndexClient(cfg.Network)
+		indexer, indexerID := cmdutil.MustGetIndexClient(cfg.Network)
 
 		ctx, span := tracer.Start(ctx, "retrieve", trace.WithAttributes(
-			attribute.String("retrieval.space", space.DID().String()),
+			attribute.String("retrieval.space", space.String()),
 			attribute.String("retrieval.cid", pathCID.String()),
 			attribute.String("retrieval.subpath", subpath),
 			attribute.String("retrieval.output_path", outputPath),
@@ -81,49 +77,21 @@ var retrieveCmd = &cobra.Command{
 			}
 		}()
 
-		network := cmdutil.MustGetNetworkConfig(cfg.Network, "")
-		var resolverOpts []principalresolver.Option
-		if network.InsecureDIDResolution {
-			resolverOpts = append(resolverOpts, principalresolver.InsecureResolution())
-		}
-		uploadServiceVerifier, err := cmdutil.ResolveDIDWebAndWrap(ctx, network.UploadID, resolverOpts...)
-		if err != nil {
-			return err
-		}
-
-		locator := locator.NewIndexLocator(indexer, func(spaces []did.DID) (delegation.Delegation, error) {
-			queries := make([]agentstore.CapabilityQuery, 0, len(spaces))
-			for _, space := range spaces {
-				queries = append(queries, agentstore.CapabilityQuery{
-					Can:  contentcap.Retrieve.Can(),
-					With: space.String(),
-				})
-			}
-
-			var pfs []delegation.Proof
-			res, err := c.Proofs(queries...)
+		// Authorize the indexing service to retrieve content from the space on the
+		// agent's behalf.
+		loc := locator.NewIndexLocator(indexer, func(ctx context.Context, _ []did.DID) ([]ucan.Delegation, error) {
+			dlg, err := contentcmds.Retrieve.Delegate(c.Issuer(), indexerID, space)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("delegating content retrieve: %w", err)
 			}
-			for _, del := range res {
-				pfs = append(pfs, delegation.FromDelegation(del))
+			proofs, _, err := c.ProofChain(ctx, c.Issuer().DID(), contentcmds.Retrieve.Command, space)
+			if err != nil {
+				return nil, fmt.Errorf("retrieving proof chain: %w", err)
 			}
-
-			// Allow the indexing service to retrieve indexes. Enable proof pruning to avoid
-			// exceeding the max header size in authorized retrievals.
-			pruner := validator.NewProofPruner(uploadServiceVerifier, contentcap.Retrieve)
-			return delegation.Delegate(
-				c.Issuer(),
-				indexerPrincipal,
-				[]ucan.Capability[ucan.NoCaveats]{
-					ucan.NewCapability(contentcap.Retrieve.Can(), space.DID().String(), ucan.NoCaveats{}),
-				},
-				delegation.WithProof(pfs...),
-				delegation.WithProofPruning(pruner),
-				delegation.WithExpiration(int(time.Now().Add(30*time.Second).Unix())),
-			)
+			return append(proofs, dlg), nil
 		})
-		ds := dagservice.NewDAGService(locator, c, []did.DID{space})
+
+		ds := dagservice.NewDAGService(loc, c, []did.DID{space})
 		retrievedFs := dagfs.New(ctx, ds, pathCID)
 
 		file, err := retrievedFs.Open(subpath)
@@ -132,33 +100,24 @@ var retrieveCmd = &cobra.Command{
 		}
 		defer file.Close()
 
-		// If it's a directory, copy the whole directory. If it's a file, copy the
-		// file.
+		// If it's a directory, copy the whole directory. If it's a file, copy the file.
 		if _, ok := file.(fs.ReadDirFile); ok {
-			span.SetAttributes(
-				attribute.Bool("retrieval.directory", true),
-			)
+			span.SetAttributes(attribute.Bool("retrieval.directory", true))
 			pathedFs, err := fs.Sub(retrievedFs, subpath)
 			if err != nil {
 				return fmt.Errorf("sub filesystem: %w", err)
 			}
-
-			err = os.CopyFS(outputPath, pathedFs)
-			if err != nil {
+			if err := os.CopyFS(outputPath, pathedFs); err != nil {
 				return fmt.Errorf("copying retrieved filesystem: %w", err)
 			}
 		} else {
-			span.SetAttributes(
-				attribute.Bool("retrieval.directory", false),
-			)
+			span.SetAttributes(attribute.Bool("retrieval.directory", false))
 			outFile, err := os.Create(outputPath)
 			if err != nil {
 				return fmt.Errorf("creating output file: %w", err)
 			}
 			defer outFile.Close()
-
-			_, err = io.Copy(outFile, file)
-			if err != nil {
+			if _, err := io.Copy(outFile, file); err != nil {
 				return fmt.Errorf("writing to output file: %w", err)
 			}
 		}

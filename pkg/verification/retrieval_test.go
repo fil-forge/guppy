@@ -8,13 +8,13 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/fil-forge/go-libstoracha/blobindex"
-	assertcap "github.com/fil-forge/go-libstoracha/capabilities/assert"
-	captypes "github.com/fil-forge/go-libstoracha/capabilities/types"
-	"github.com/fil-forge/go-libstoracha/digestutil"
-	"github.com/fil-forge/go-libstoracha/testutil"
-	ed25519signer "github.com/fil-forge/go-ucanto/principal/ed25519/signer"
 	"github.com/fil-forge/guppy/pkg/verification"
+	"github.com/fil-forge/libforge/blobindex"
+	"github.com/fil-forge/libforge/commands"
+	assertcmds "github.com/fil-forge/libforge/commands/assert"
+	"github.com/fil-forge/libforge/digestutil"
+	"github.com/fil-forge/libforge/testutil"
+	"github.com/fil-forge/ucantone/principal/ed25519"
 	"github.com/ipfs/go-cid"
 	"github.com/multiformats/go-multihash"
 	"github.com/stretchr/testify/require"
@@ -36,8 +36,8 @@ func TestStatBlocks(t *testing.T) {
 
 		shard1Hash := testutil.RandomMultihash(t)
 		shard2Hash := testutil.RandomMultihash(t)
-		position1 := blobindex.Position{Offset: 0, Length: uint64(len(block1Data))}
-		position2 := blobindex.Position{Offset: 0, Length: uint64(len(block2Data))}
+		position1 := blobindex.Range{Start: 0, End: int64(len(block1Data)) - 1}
+		position2 := blobindex.Range{Start: 0, End: int64(len(block2Data)) - 1}
 
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// Return different data based on Range header to distinguish blocks
@@ -107,8 +107,8 @@ func TestStatBlocks(t *testing.T) {
 
 		shard1Hash := testutil.RandomMultihash(t)
 		shard2Hash := testutil.RandomMultihash(t)
-		position1 := blobindex.Position{Offset: 0, Length: uint64(len(block1Data))}
-		position2 := blobindex.Position{Offset: 0, Length: uint64(len(block2Data))}
+		position1 := blobindex.Range{Start: 0, End: int64(len(block1Data)) - 1}
+		position2 := blobindex.Range{Start: 0, End: int64(len(block2Data)) - 1}
 
 		server1 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Write(block1Data)
@@ -168,7 +168,7 @@ func TestStatBlocks(t *testing.T) {
 		block2CID := cid.NewCidV1(cid.Raw, block2Hash)
 
 		shard1Hash := testutil.RandomMultihash(t)
-		position1 := blobindex.Position{Offset: 0, Length: uint64(len(block1Data))}
+		position1 := blobindex.Range{Start: 0, End: int64(len(block1Data)) - 1}
 
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Write(block1Data)
@@ -220,8 +220,8 @@ func TestStatBlocks(t *testing.T) {
 
 		shard1Hash := testutil.RandomMultihash(t)
 		shard2Hash := testutil.RandomMultihash(t)
-		position1 := blobindex.Position{Offset: 0, Length: uint64(len(block1Data))}
-		position2 := blobindex.Position{Offset: 0, Length: uint64(len(block2Data))}
+		position1 := blobindex.Range{Start: 0, End: int64(len(block1Data)) - 1}
+		position2 := blobindex.Range{Start: 0, End: int64(len(block2Data)) - 1}
 
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Write(block1Data)
@@ -267,7 +267,7 @@ func TestVerifyDAGRetrieval(t *testing.T) {
 		rootCID := cid.NewCidV1(cid.Raw, blockHash)
 
 		shardHash := testutil.RandomMultihash(t)
-		position := blobindex.Position{Offset: 0, Length: uint64(len(blockData))}
+		position := blobindex.Range{Start: 0, End: int64(len(blockData)) - 1}
 
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Write(blockData)
@@ -321,7 +321,7 @@ func TestVerifyDAGRetrieval(t *testing.T) {
 
 type shardInfo struct {
 	shard    multihash.Multihash
-	position blobindex.Position
+	position blobindex.Range
 }
 
 type stubShardFinder struct {
@@ -329,10 +329,10 @@ type stubShardFinder struct {
 	locations map[string][]verification.Location
 }
 
-func (s *stubShardFinder) FindShard(ctx context.Context, slice multihash.Multihash) (multihash.Multihash, blobindex.Position, error) {
+func (s *stubShardFinder) FindShard(ctx context.Context, slice multihash.Multihash) (multihash.Multihash, blobindex.Range, error) {
 	info, ok := s.shards[string(slice)]
 	if !ok {
-		return nil, blobindex.Position{}, fmt.Errorf("shard not found for slice")
+		return nil, blobindex.Range{}, fmt.Errorf("shard not found for slice")
 	}
 	return info.shard, info.position, nil
 }
@@ -348,35 +348,24 @@ func (s *stubShardFinder) FindLocations(ctx context.Context, shard multihash.Mul
 func createTestLocation(t *testing.T, shardHash multihash.Multihash, storageURL url.URL) verification.Location {
 	t.Helper()
 
-	provider := testutil.Must(ed25519signer.Generate())(t)
-	space := testutil.Must(ed25519signer.Generate())(t)
+	provider := testutil.Must(ed25519.Generate())(t)
+	space := testutil.Must(ed25519.Generate())(t)
 
-	caveats := assertcap.LocationCaveats{
-		Space:   space.DID(),
-		Content: captypes.FromHash(shardHash),
-		Range: &assertcap.Range{
-			Offset: 0,
-			Length: ptr(uint64(1000)),
+	commitment := testutil.Must(assertcmds.Location.Invoke(
+		provider,
+		provider.DID(),
+		&assertcmds.LocationArguments{
+			Space:    space.DID(),
+			Content:  shardHash,
+			Location: []commands.CborURL{commands.CborURL(storageURL)},
 		},
-		Location: []url.URL{storageURL},
-	}
-
-	dlg := testutil.Must(assertcap.Location.Delegate(
-		provider,
-		provider,
-		provider.DID().String(),
-		caveats,
 	))(t)
 
-	// Use the LocationCache to properly parse the delegation into a Location
+	// Use the LocationCache to properly parse the commitment into a Location.
 	cache := verification.NewLocationCache()
-	cache.Add(dlg)
+	cache.Add(commitment)
 
 	locations := cache.LocationsForShard(shardHash)
 	require.Len(t, locations, 1)
 	return locations[0]
-}
-
-func ptr[T any](v T) *T {
-	return &v
 }

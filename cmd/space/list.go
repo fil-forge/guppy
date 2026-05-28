@@ -34,7 +34,7 @@ var listCmd = &cobra.Command{
 		}
 		c := cmdutil.MustGetClient(cfg)
 
-		spaces, err := c.Spaces()
+		spaces, err := c.Spaces(cmd.Context())
 		if err != nil {
 			return fmt.Errorf("retrieving spaces: %w", err)
 		}
