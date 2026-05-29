@@ -26,7 +26,7 @@ var createFlags struct {
 func init() {
 	createCmd.Flags().StringArrayVarP(&createFlags.cmds, "cmd", "c", nil, "One or more commands to delegate, e.g. /blob/add.")
 	createCmd.Flags().IntVarP(&createFlags.expiration, "expiration", "e", 0, "Unix timestamp when the delegation is no longer valid. Zero indicates no expiration.")
-	createCmd.Flags().StringVarP(&createFlags.output, "output", "o", "", "Path to write the delegation container to. If not specified, outputs to stdout.")
+	createCmd.Flags().StringVar(&createFlags.output, "out", "", "Path to write the delegation container to. If not specified, outputs to stdout.")
 }
 
 var createCmd = &cobra.Command{

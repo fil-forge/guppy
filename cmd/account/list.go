@@ -1,22 +1,19 @@
 package account
 
 import (
-	"encoding/json"
 	"fmt"
+	"io"
 
 	"github.com/mitchellh/go-wordwrap"
 	"github.com/spf13/cobra"
 
 	"github.com/fil-forge/guppy/internal/cmdutil"
+	"github.com/fil-forge/guppy/internal/output"
 	"github.com/fil-forge/guppy/pkg/config"
 )
 
-var listFlags struct {
-	jsonOutput bool
-}
-
-func init() {
-	listCmd.Flags().BoolVar(&listFlags.jsonOutput, "json", false, "Output in JSON format")
+type accountItem struct {
+	ID string `json:"id"`
 }
 
 var listCmd = &cobra.Command{
@@ -38,26 +35,15 @@ var listCmd = &cobra.Command{
 			return err
 		}
 
-		if listFlags.jsonOutput {
-			// Build JSON array of account DIDs
-			output := make([]map[string]string, 0, len(accounts))
-			for _, account := range accounts {
-				output = append(output, map[string]string{
-					"id": account.String(),
-				})
-			}
-
-			jsonBytes, err := json.Marshal(output)
-			if err != nil {
-				return fmt.Errorf("marshaling output: %w", err)
-			}
-			fmt.Println(string(jsonBytes))
-		} else {
-			for _, account := range accounts {
-				fmt.Println(account.String())
-			}
+		items := make([]accountItem, 0, len(accounts))
+		for _, account := range accounts {
+			items = append(items, accountItem{ID: account.String()})
 		}
 
-		return nil
+		return output.Emit(cmd, items, func(w io.Writer) {
+			for _, item := range items {
+				fmt.Fprintln(w, item.ID)
+			}
+		})
 	},
 }

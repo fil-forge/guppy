@@ -1,13 +1,20 @@
 package cmd
 
 import (
+	"fmt"
+	"io"
 	"os"
 
 	"github.com/spf13/cobra"
 
+	"github.com/fil-forge/guppy/internal/output"
 	"github.com/fil-forge/guppy/pkg/config"
 	"github.com/fil-forge/libforge/identity"
 )
+
+type whoamiResult struct {
+	DID string `json:"did"`
+}
 
 var whoamiCmd = &cobra.Command{
 	Use:   "whoami",
@@ -27,7 +34,8 @@ var whoamiCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		cmd.Println(id.DID())
-		return nil
+		return output.Emit(cmd, whoamiResult{DID: id.DID().String()}, func(w io.Writer) {
+			fmt.Fprintln(w, id.DID())
+		})
 	},
 }

@@ -3,6 +3,7 @@ package upload
 import (
 	"errors"
 	"fmt"
+	"io"
 	"path/filepath"
 	"time"
 
@@ -16,6 +17,7 @@ import (
 	"github.com/fil-forge/guppy/cmd/upload/check"
 	"github.com/fil-forge/guppy/cmd/upload/source"
 	"github.com/fil-forge/guppy/internal/cmdutil"
+	"github.com/fil-forge/guppy/internal/output"
 	"github.com/fil-forge/guppy/pkg/bus"
 	"github.com/fil-forge/guppy/pkg/config"
 	"github.com/fil-forge/guppy/pkg/preparation"
@@ -25,6 +27,25 @@ import (
 )
 
 var log = logging.Logger("cmd/upload")
+
+type uploadCompletedItem struct {
+	RootCID  string `json:"root_cid"`
+	UploadID string `json:"upload_id"`
+	SourceID string `json:"source_id"`
+	Attempts int    `json:"attempts"`
+}
+
+type uploadFailedItem struct {
+	UploadID string `json:"upload_id"`
+	SourceID string `json:"source_id"`
+	Error    string `json:"error"`
+	Attempts int    `json:"attempts"`
+}
+
+type uploadResultOutput struct {
+	Completed []uploadCompletedItem `json:"completed"`
+	Failed    []uploadFailedItem    `json:"failed"`
+}
 
 var rootFlags struct {
 	all                    bool
@@ -115,7 +136,7 @@ var Cmd = &cobra.Command{
 		}
 
 		if len(allUploads) == 0 {
-			fmt.Printf("No sources found for space. Add a source first with:\n\n$ %s %s <path>\n\n",
+			cmd.PrintErrf("No sources found for space. Add a source first with:\n\n$ %s %s <path>\n\n",
 				source.AddCmd.CommandPath(),
 				spaceDID)
 			return cmdutil.NewHandledCliError(fmt.Errorf("no uploads found for space %s", spaceDID))
@@ -155,7 +176,9 @@ var Cmd = &cobra.Command{
 			}
 		}
 
-		if useUI {
+		// The TUI draws to stdout; JSON output reserves stdout for the result
+		// document, so force the non-UI path in JSON mode.
+		if useUI && !output.IsJSON(cmd) {
 			return ui.RunUploadUI(ctx, repo, api, uploadsToRun, rootFlags.retry, eb)
 		}
 		// UI disabled, log at info level
@@ -228,15 +251,42 @@ var Cmd = &cobra.Command{
 			log.Infow("Completed upload", "upload", u.ID(), "cid", uploadCID.String(), "duration", time.Since(start), "attempts", attempt)
 		}
 
+		result := uploadResultOutput{
+			Completed: make([]uploadCompletedItem, 0, len(completedUploads)),
+			Failed:    make([]uploadFailedItem, 0, len(failedUploads)),
+		}
 		for _, u := range completedUploads {
-			cmd.Printf("Upload completed successfully: %s\n", u.cid.String())
+			result.Completed = append(result.Completed, uploadCompletedItem{
+				RootCID:  u.cid.String(),
+				UploadID: u.upload.ID().String(),
+				SourceID: u.upload.SourceID().String(),
+				Attempts: u.attempts,
+			})
+		}
+		for _, u := range failedUploads {
+			result.Failed = append(result.Failed, uploadFailedItem{
+				UploadID: u.upload.ID().String(),
+				SourceID: u.upload.SourceID().String(),
+				Error:    u.err.Error(),
+				Attempts: u.attempts,
+			})
+		}
+
+		if err := output.Emit(cmd, result, func(w io.Writer) {
+			for _, u := range result.Completed {
+				fmt.Fprintf(w, "Upload completed successfully: %s\n", u.RootCID)
+			}
+			if len(result.Failed) > 0 {
+				fmt.Fprintln(w, "Uploads failed:")
+				for _, u := range result.Failed {
+					fmt.Fprintf(w, "- %s: %s\n", u.UploadID, u.Error)
+				}
+			}
+		}); err != nil {
+			return err
 		}
 
 		if len(failedUploads) > 0 {
-			cmd.Println("Uploads failed:")
-			for _, u := range failedUploads {
-				cmd.Printf("- %s: %v\n", u.upload.ID(), u.err)
-			}
 			return cmdutil.NewHandledCliError(fmt.Errorf("%d upload(s) failed", len(failedUploads)))
 		}
 		return nil

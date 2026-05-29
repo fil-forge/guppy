@@ -9,10 +9,19 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/fil-forge/guppy/internal/cmdutil"
+	"github.com/fil-forge/guppy/internal/output"
 	"github.com/fil-forge/guppy/pkg/config"
 	"github.com/fil-forge/guppy/pkg/preparation"
 	"github.com/fil-forge/guppy/pkg/preparation/spaces/model"
 )
+
+type sourceAddResult struct {
+	OK       bool   `json:"ok"`
+	Space    string `json:"space"`
+	SourceID string `json:"source_id"`
+	Name     string `json:"name"`
+	Path     string `json:"path"`
+}
 
 var addFlags struct {
 	shardSize string
@@ -105,6 +114,13 @@ var AddCmd = &cobra.Command{
 			return fmt.Errorf("command failed to add source to space: %w", err)
 		}
 
-		return nil
+		// Silent on success in text mode (unchanged); a JSON result in json mode.
+		return output.Emit(cmd, sourceAddResult{
+			OK:       true,
+			Space:    spaceDID.String(),
+			SourceID: source.ID().String(),
+			Name:     name,
+			Path:     path,
+		}, nil)
 	},
 }

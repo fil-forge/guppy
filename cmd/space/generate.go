@@ -4,12 +4,14 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"io"
 	"slices"
 
 	"github.com/mitchellh/go-wordwrap"
 	"github.com/spf13/cobra"
 
 	"github.com/fil-forge/guppy/internal/cmdutil"
+	"github.com/fil-forge/guppy/internal/output"
 	"github.com/fil-forge/guppy/pkg/client"
 	"github.com/fil-forge/guppy/pkg/config"
 	"github.com/fil-forge/guppy/pkg/didmailto"
@@ -18,6 +20,10 @@ import (
 	"github.com/fil-forge/ucantone/ucan/command"
 	"github.com/fil-forge/ucantone/ucan/delegation"
 )
+
+type spaceGenerateResult struct {
+	DID string `json:"did"`
+}
 
 var generateFlags struct {
 	name        string
@@ -51,7 +57,13 @@ var generateCmd = &cobra.Command{
 		if generateFlags.outputKey {
 			cmd.PrintErrln("\nWARNING: This is your space private key. Keep it secret and secure!")
 			cmd.PrintErrln("Space Key (base64):")
-			fmt.Println(base64.StdEncoding.EncodeToString(space.Raw()))
+			// Never write the secret to stdout in JSON mode — stdout must stay a
+			// clean JSON document.
+			if output.IsJSON(cmd) {
+				cmd.PrintErrln(base64.StdEncoding.EncodeToString(space.Raw()))
+			} else {
+				fmt.Println(base64.StdEncoding.EncodeToString(space.Raw()))
+			}
 			cmd.PrintErrln()
 		}
 
@@ -86,11 +98,13 @@ var generateCmd = &cobra.Command{
 		}
 
 		cmd.PrintErr("Generated space: ")
-		// all other output is on stderr; only the space DID goes to stdout, allowing:
-		// export SPACE=$(guppy space generate)
-		cmd.Print(space.DID().String())
+		// all other output is on stderr; only the space DID (text) or a single
+		// JSON document goes to stdout, allowing: export SPACE=$(guppy space generate)
+		err = output.Emit(cmd, spaceGenerateResult{DID: space.DID().String()}, func(w io.Writer) {
+			fmt.Fprint(w, space.DID().String())
+		})
 		cmd.PrintErr("\n\n")
-		return nil
+		return err
 	},
 }
 

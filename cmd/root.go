@@ -11,6 +11,7 @@ import (
 
 	"github.com/fil-forge/guppy/cmd/blob"
 	"github.com/fil-forge/guppy/cmd/unixfs"
+	"github.com/fil-forge/guppy/internal/output"
 	"github.com/fil-forge/guppy/pkg/presets"
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/spf13/cobra"
@@ -43,9 +44,14 @@ var cfgFile string
 var rootCmd = &cobra.Command{
 	Use:   "guppy",
 	Short: "Interact with the Storacha Network",
-	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		if err := output.Validate(cmd); err != nil {
+			cmd.SilenceUsage = false
+			return err
+		}
 		span := trace.SpanFromContext(cmd.Context())
 		setSpanAttributes(cmd, span)
+		return nil
 	},
 	// We handle errors ourselves when they're returned from ExecuteContext.
 	SilenceErrors: true,
@@ -76,6 +82,8 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "Config file path. Attempts to load from user config directory if not set e.g. ~/.config/"+configFilePath)
 
 	rootCmd.PersistentFlags().Bool("ui", false, "Use the guppy UI")
+
+	rootCmd.PersistentFlags().StringP(output.FlagName, "o", output.FormatText, "Output format: text or json")
 
 	// Network configuration flags
 	rootCmd.PersistentFlags().StringP("network", "n", "", "Network preset name (forge, forge-test, hot, warm-staging)")

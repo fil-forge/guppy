@@ -1,23 +1,21 @@
 package space
 
 import (
-	"encoding/json"
 	"fmt"
+	"io"
 	"strings"
 
 	"github.com/mitchellh/go-wordwrap"
 	"github.com/spf13/cobra"
 
 	"github.com/fil-forge/guppy/internal/cmdutil"
+	"github.com/fil-forge/guppy/internal/output"
 	"github.com/fil-forge/guppy/pkg/config"
 )
 
-var listFlags struct {
-	jsonOutput bool
-}
-
-func init() {
-	listCmd.Flags().BoolVar(&listFlags.jsonOutput, "json", false, "Output in JSON format")
+type spaceItem struct {
+	ID    string   `json:"id"`
+	Names []string `json:"names,omitempty"`
 }
 
 var listCmd = &cobra.Command{
@@ -39,42 +37,26 @@ var listCmd = &cobra.Command{
 			return fmt.Errorf("retrieving spaces: %w", err)
 		}
 
-		if listFlags.jsonOutput {
-			type spaceOutput struct {
-				ID    string   `json:"id"`
-				Names []string `json:"names,omitempty"`
-			}
-			output := make([]spaceOutput, 0, len(spaces))
-			for _, space := range spaces {
-				output = append(output, spaceOutput{
-					ID:    space.DID().String(),
-					Names: space.Names(),
-				})
-			}
-
-			jsonBytes, err := json.Marshal(output)
-			if err != nil {
-				return fmt.Errorf("marshaling output: %w", err)
-			}
-			fmt.Println(string(jsonBytes))
-		} else {
-			for i, space := range spaces {
-				if i == 0 {
-					fmt.Printf("%-60s %s\n", "SPACE", "NAME")
-				}
-				names := space.Names()
-				if len(names) > 0 {
-					quoted := make([]string, len(names))
-					for i, n := range names {
-						quoted[i] = fmt.Sprintf("%q", n)
-					}
-					fmt.Printf("%-60s %s\n", space.DID().String(), strings.Join(quoted, ", "))
-				} else {
-					fmt.Println(space.DID().String())
-				}
-			}
+		items := make([]spaceItem, 0, len(spaces))
+		for _, space := range spaces {
+			items = append(items, spaceItem{ID: space.DID().String(), Names: space.Names()})
 		}
 
-		return nil
+		return output.Emit(cmd, items, func(w io.Writer) {
+			for i, item := range items {
+				if i == 0 {
+					fmt.Fprintf(w, "%-60s %s\n", "SPACE", "NAME")
+				}
+				if len(item.Names) > 0 {
+					quoted := make([]string, len(item.Names))
+					for j, n := range item.Names {
+						quoted[j] = fmt.Sprintf("%q", n)
+					}
+					fmt.Fprintf(w, "%-60s %s\n", item.ID, strings.Join(quoted, ", "))
+				} else {
+					fmt.Fprintln(w, item.ID)
+				}
+			}
+		})
 	},
 }
