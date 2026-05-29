@@ -19,6 +19,8 @@ type Store interface {
 	AddReceipts(ctx context.Context, receipts ...ucan.Receipt) error
 	// ListDelegations returns a sequence of delegations matching the given criteria.
 	ListDelegations(ctx context.Context, aud did.DID, cmd ucan.Command, sub did.DID) iter.Seq2[ucan.Delegation, error]
+	// Delegations returns all delegations held by the store.
+	Delegations(ctx context.Context) ([]ucan.Delegation, error)
 	// Reset clears all data in the store.
 	Reset(ctx context.Context) error
 }

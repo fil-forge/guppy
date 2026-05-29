@@ -5,12 +5,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/fil-forge/go-libstoracha/testutil"
 	"github.com/fil-forge/guppy/pkg/preparation/dags/model"
 	"github.com/fil-forge/guppy/pkg/preparation/internal/testdb"
 	scanmodel "github.com/fil-forge/guppy/pkg/preparation/scans/model"
 	"github.com/fil-forge/guppy/pkg/preparation/sqlrepo"
 	"github.com/fil-forge/guppy/pkg/preparation/types/id"
+	"github.com/fil-forge/libforge/testutil"
 	"github.com/ipfs/go-cid"
 	"github.com/stretchr/testify/require"
 )

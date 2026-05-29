@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/fil-forge/go-ucanto/core/invocation"
+	"github.com/fil-forge/ucantone/ucan"
 	"github.com/ipfs/go-cid"
 	"github.com/multiformats/go-multihash"
 
@@ -47,8 +47,8 @@ type ShardView struct {
 	Digest    multihash.Multihash
 	PieceCID  cid.Cid
 	State     model.BlobState
-	Location  invocation.Invocation
-	PDPAccept invocation.Invocation
+	Location  ucan.Invocation
+	PDPAccept ucan.Invocation
 }
 
 type DAGScanView struct {

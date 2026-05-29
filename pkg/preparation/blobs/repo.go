@@ -5,12 +5,12 @@ import (
 	"io"
 	"iter"
 
-	"github.com/fil-forge/go-ucanto/did"
 	"github.com/fil-forge/guppy/pkg/preparation/blobs/model"
 	dagsmodel "github.com/fil-forge/guppy/pkg/preparation/dags/model"
 	spacesmodel "github.com/fil-forge/guppy/pkg/preparation/spaces/model"
 	"github.com/fil-forge/guppy/pkg/preparation/types/id"
 	uploadsmodel "github.com/fil-forge/guppy/pkg/preparation/uploads/model"
+	"github.com/fil-forge/ucantone/did"
 	"github.com/ipfs/go-cid"
 	"github.com/multiformats/go-multihash"
 )

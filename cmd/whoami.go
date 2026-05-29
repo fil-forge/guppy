@@ -1,10 +1,12 @@
 package cmd
 
 import (
+	"os"
+
 	"github.com/spf13/cobra"
 
-	"github.com/fil-forge/guppy/internal/cmdutil"
 	"github.com/fil-forge/guppy/pkg/config"
+	"github.com/fil-forge/libforge/identity"
 )
 
 var whoamiCmd = &cobra.Command{
@@ -17,8 +19,15 @@ var whoamiCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		c := cmdutil.MustGetClient(cfg.Repo.Dir, cfg.Network)
-		cmd.Println(c.DID())
+		pem, err := os.ReadFile(cfg.Identity.KeyFile)
+		if err != nil {
+			return err
+		}
+		id, err := identity.DecodeEd25519SignerFromPEM(pem)
+		if err != nil {
+			return err
+		}
+		cmd.Println(id.DID())
 		return nil
 	},
 }

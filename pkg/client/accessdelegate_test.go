@@ -1,261 +1,134 @@
 package client_test
 
 import (
-	"context"
 	"fmt"
 	"testing"
 
-	"github.com/fil-forge/go-libstoracha/capabilities/access"
-	"github.com/fil-forge/go-libstoracha/testutil"
-	"github.com/fil-forge/go-ucanto/core/delegation"
-	"github.com/fil-forge/go-ucanto/core/invocation"
-	"github.com/fil-forge/go-ucanto/core/receipt/fx"
-	"github.com/fil-forge/go-ucanto/core/result"
-	"github.com/fil-forge/go-ucanto/core/result/failure"
-	"github.com/fil-forge/go-ucanto/did"
-	"github.com/fil-forge/go-ucanto/principal/ed25519/signer"
-	"github.com/fil-forge/go-ucanto/server"
-	"github.com/fil-forge/go-ucanto/ucan"
-	"github.com/fil-forge/guppy/pkg/client"
-	ctestutil "github.com/fil-forge/guppy/pkg/client/testutil"
+	accesscmds "github.com/fil-forge/libforge/commands/access"
+	uploadcmds "github.com/fil-forge/libforge/commands/upload"
+	"github.com/fil-forge/libforge/testutil"
+	"github.com/fil-forge/ucantone/binding"
+	"github.com/fil-forge/ucantone/did"
+	"github.com/fil-forge/ucantone/server"
+	"github.com/ipfs/go-cid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	ctestutil "github.com/fil-forge/guppy/pkg/client/testutil"
 )
 
 func TestAccessDelegate(t *testing.T) {
 	t.Run("stores delegations via access/delegate", func(t *testing.T) {
-		space := testutil.Must(signer.Generate())(t)
-		var receivedDelegations access.DelegationLinksModel
-		var c *client.Client
+		ctx := t.Context()
+		space := testutil.RandomSigner(t)
+		var receivedSubject did.DID
+		var receivedDelegations []cid.Cid
 
-		connection := ctestutil.NewTestServerConnection(
-			server.WithServiceMethod(
-				access.DelegateAbility,
-				server.Provide(
-					access.Delegate,
-					func(
-						ctx context.Context,
-						cap ucan.Capability[access.DelegateCaveats],
-						inv invocation.Invocation,
-						context server.InvocationContext,
-					) (result.Result[access.DelegateOk, failure.IPLDBuilderFailure], fx.Effects, error) {
-						assert.Equal(t, space.DID().String(), cap.With(), "expected access/delegate to be invoked with the space DID")
-						receivedDelegations = cap.Nb().Delegations
-						return result.Ok[access.DelegateOk, failure.IPLDBuilderFailure](access.DelegateOk{}), nil, nil
-					},
-				),
-			),
-		)
-
-		c = testutil.Must(client.NewClient(
-			client.WithConnection(connection),
+		c := testutil.Must(ctestutil.Client(t,
+			ctestutil.WithServerRoutes(func(deps ctestutil.RouteDeps) server.Route {
+				return accesscmds.Delegate.Route(func(req *binding.Request[*accesscmds.DelegateArguments], res *binding.Response[*accesscmds.DelegateOK]) error {
+					receivedSubject = req.Invocation().Subject()
+					receivedDelegations = req.Task().Arguments().Delegations
+					return res.SetSuccess(&accesscmds.DelegateOK{})
+				})
+			}),
 		))(t)
 
-		// Create a proof that allows the client to invoke access/delegate on the space
-		accessDelegateProof := testutil.Must(delegation.Delegate(
-			space,
-			c.Issuer(),
-			[]ucan.Capability[ucan.NoCaveats]{
-				ucan.NewCapability("access/delegate", space.DID().String(), ucan.NoCaveats{}),
-			},
-			delegation.WithNoExpiration(),
-		))(t)
-		require.NoError(t, c.AddProofs(accessDelegateProof))
+		proof := testutil.Must(accesscmds.Delegate.Delegate(space, c.Issuer().DID(), space.DID()))(t)
+		require.NoError(t, c.AddProofs(ctx, proof))
 
-		// Create a delegation from space to some account
 		account := testutil.Must(did.Parse("did:mailto:example.com:alice"))(t)
-		del := testutil.Must(delegation.Delegate(
-			space,
-			account,
-			[]ucan.Capability[ucan.NoCaveats]{
-				ucan.NewCapability("store/add", space.DID().String(), ucan.NoCaveats{}),
-			},
-			delegation.WithNoExpiration(),
-		))(t)
+		del := testutil.Must(uploadcmds.Add.Delegate(space, account, space.DID()))(t)
 
-		_, err := c.AccessDelegate(testContext(t), space.DID(), del)
-
+		_, err := c.AccessDelegate(ctx, space.DID(), del)
 		require.NoError(t, err)
-		require.NotNil(t, receivedDelegations.Values, "expected delegations to be sent")
-		require.Len(t, receivedDelegations.Values, 1, "expected exactly one delegation")
-		assert.Contains(t, receivedDelegations.Values, del.Link().String(), "expected the delegation link to be present")
-		assert.Equal(t, del.Link(), receivedDelegations.Values[del.Link().String()], "expected the delegation link to match")
+		require.Equal(t, space.DID(), receivedSubject, "expected access/delegate to be invoked on the space")
+		require.Len(t, receivedDelegations, 1, "expected exactly one delegation")
+		require.Contains(t, receivedDelegations, del.Link(), "expected the delegation link to be present")
 	})
 
 	t.Run("handles multiple delegations", func(t *testing.T) {
-		space := testutil.Must(signer.Generate())(t)
-		var receivedDelegations access.DelegationLinksModel
-		var c *client.Client
+		ctx := t.Context()
+		space := testutil.RandomSigner(t)
+		var receivedDelegations []cid.Cid
 
-		connection := ctestutil.NewTestServerConnection(
-			server.WithServiceMethod(
-				access.DelegateAbility,
-				server.Provide(
-					access.Delegate,
-					func(
-						ctx context.Context,
-						cap ucan.Capability[access.DelegateCaveats],
-						inv invocation.Invocation,
-						context server.InvocationContext,
-					) (result.Result[access.DelegateOk, failure.IPLDBuilderFailure], fx.Effects, error) {
-						receivedDelegations = cap.Nb().Delegations
-						return result.Ok[access.DelegateOk, failure.IPLDBuilderFailure](access.DelegateOk{}), nil, nil
-					},
-				),
-			),
-		)
-
-		c = testutil.Must(client.NewClient(
-			client.WithConnection(connection),
+		c := testutil.Must(ctestutil.Client(t,
+			ctestutil.WithServerRoutes(func(deps ctestutil.RouteDeps) server.Route {
+				return accesscmds.Delegate.Route(func(req *binding.Request[*accesscmds.DelegateArguments], res *binding.Response[*accesscmds.DelegateOK]) error {
+					receivedDelegations = req.Task().Arguments().Delegations
+					return res.SetSuccess(&accesscmds.DelegateOK{})
+				})
+			}),
 		))(t)
 
-		// Add proof for access/delegate
-		accessDelegateProof := testutil.Must(delegation.Delegate(
-			space,
-			c.Issuer(),
-			[]ucan.Capability[ucan.NoCaveats]{
-				ucan.NewCapability("access/delegate", space.DID().String(), ucan.NoCaveats{}),
-			},
-			delegation.WithNoExpiration(),
-		))(t)
-		require.NoError(t, c.AddProofs(accessDelegateProof))
+		proof := testutil.Must(accesscmds.Delegate.Delegate(space, c.Issuer().DID(), space.DID()))(t)
+		require.NoError(t, c.AddProofs(ctx, proof))
 
-		// Create multiple delegations
 		account1 := testutil.Must(did.Parse("did:mailto:example.com:alice"))(t)
-		del1 := testutil.Must(delegation.Delegate(
-			space,
-			account1,
-			[]ucan.Capability[ucan.NoCaveats]{
-				ucan.NewCapability("store/add", space.DID().String(), ucan.NoCaveats{}),
-			},
-			delegation.WithNoExpiration(),
-		))(t)
-
+		del1 := testutil.Must(uploadcmds.Add.Delegate(space, account1, space.DID()))(t)
 		account2 := testutil.Must(did.Parse("did:mailto:example.com:bob"))(t)
-		del2 := testutil.Must(delegation.Delegate(
-			space,
-			account2,
-			[]ucan.Capability[ucan.NoCaveats]{
-				ucan.NewCapability("upload/add", space.DID().String(), ucan.NoCaveats{}),
-			},
-			delegation.WithNoExpiration(),
-		))(t)
+		del2 := testutil.Must(uploadcmds.Add.Delegate(space, account2, space.DID()))(t)
 
-		_, err := c.AccessDelegate(testContext(t), space.DID(), del1, del2)
-
+		_, err := c.AccessDelegate(ctx, space.DID(), del1, del2)
 		require.NoError(t, err)
-		require.NotNil(t, receivedDelegations.Values, "expected delegations to be sent")
-		require.Len(t, receivedDelegations.Values, 2, "expected exactly two delegations")
-		assert.Contains(t, receivedDelegations.Values, del1.Link().String())
-		assert.Contains(t, receivedDelegations.Values, del2.Link().String())
+		require.Len(t, receivedDelegations, 2, "expected exactly two delegations")
+		require.Contains(t, receivedDelegations, del1.Link())
+		require.Contains(t, receivedDelegations, del2.Link())
 	})
 
 	t.Run("includes delegations as proofs in the invocation", func(t *testing.T) {
-		space := testutil.Must(signer.Generate())(t)
-		var receivedProofLinks []ucan.Link
-		var c *client.Client
+		ctx := t.Context()
+		space := testutil.RandomSigner(t)
+		var receivedProofLinks []cid.Cid
 
-		connection := ctestutil.NewTestServerConnection(
-			server.WithServiceMethod(
-				access.DelegateAbility,
-				server.Provide(
-					access.Delegate,
-					func(
-						ctx context.Context,
-						cap ucan.Capability[access.DelegateCaveats],
-						inv invocation.Invocation,
-						context server.InvocationContext,
-					) (result.Result[access.DelegateOk, failure.IPLDBuilderFailure], fx.Effects, error) {
-						// Capture the proof links from the invocation
-						receivedProofLinks = inv.Proofs()
-						return result.Ok[access.DelegateOk, failure.IPLDBuilderFailure](access.DelegateOk{}), nil, nil
-					},
-				),
-			),
-		)
-
-		c = testutil.Must(client.NewClient(
-			client.WithConnection(connection),
+		c := testutil.Must(ctestutil.Client(t,
+			ctestutil.WithServerRoutes(func(deps ctestutil.RouteDeps) server.Route {
+				return accesscmds.Delegate.Route(func(req *binding.Request[*accesscmds.DelegateArguments], res *binding.Response[*accesscmds.DelegateOK]) error {
+					receivedProofLinks = req.Invocation().Proofs()
+					return res.SetSuccess(&accesscmds.DelegateOK{})
+				})
+			}),
 		))(t)
 
-		// Add proof for access/delegate
-		accessDelegateProof := testutil.Must(delegation.Delegate(
-			space,
-			c.Issuer(),
-			[]ucan.Capability[ucan.NoCaveats]{
-				ucan.NewCapability("access/delegate", space.DID().String(), ucan.NoCaveats{}),
-			},
-			delegation.WithNoExpiration(),
-		))(t)
-		require.NoError(t, c.AddProofs(accessDelegateProof))
+		proof := testutil.Must(accesscmds.Delegate.Delegate(space, c.Issuer().DID(), space.DID()))(t)
+		require.NoError(t, c.AddProofs(ctx, proof))
 
 		account := testutil.Must(did.Parse("did:mailto:example.com:alice"))(t)
-		del := testutil.Must(delegation.Delegate(
-			space,
-			account,
-			[]ucan.Capability[ucan.NoCaveats]{
-				ucan.NewCapability("*", space.DID().String(), ucan.NoCaveats{}),
-			},
-			delegation.WithNoExpiration(),
-		))(t)
+		del := testutil.Must(uploadcmds.Add.Delegate(space, account, space.DID()))(t)
 
-		_, err := c.AccessDelegate(testContext(t), space.DID(), del)
-
+		_, err := c.AccessDelegate(ctx, space.DID(), del)
 		require.NoError(t, err)
 		require.NotEmpty(t, receivedProofLinks, "expected proofs to be included in the invocation")
 
-		// The delegations should be included as proofs - either the access/delegate proof or the delegation being stored
-		// We should at least have the access/delegate proof
-		foundAccessDelegateProof := false
-		for _, proofLink := range receivedProofLinks {
-			if proofLink.String() == accessDelegateProof.Link().String() {
-				foundAccessDelegateProof = true
+		foundProof := false
+		for _, link := range receivedProofLinks {
+			if link == proof.Link() {
+				foundProof = true
 				break
 			}
 		}
-		assert.True(t, foundAccessDelegateProof, "expected the access/delegate authorization proof to be included")
+		assert.True(t, foundProof, "expected the access/delegate authorization proof to be included")
 	})
 
 	t.Run("returns error on failure", func(t *testing.T) {
-		space := testutil.Must(signer.Generate())(t)
-		var c *client.Client
+		ctx := t.Context()
+		space := testutil.RandomSigner(t)
 
-		connection := ctestutil.NewTestServerConnection(
-			server.WithServiceMethod(
-				access.DelegateAbility,
-				server.Provide(
-					access.Delegate,
-					func(
-						ctx context.Context,
-						cap ucan.Capability[access.DelegateCaveats],
-						inv invocation.Invocation,
-						context server.InvocationContext,
-					) (result.Result[access.DelegateOk, failure.IPLDBuilderFailure], fx.Effects, error) {
-						return result.Error[access.DelegateOk](
-							failure.FromError(fmt.Errorf("test error")),
-						), nil, nil
-					},
-				),
-			),
-		)
-
-		c = testutil.Must(client.NewClient(
-			client.WithConnection(connection),
+		c := testutil.Must(ctestutil.Client(t,
+			ctestutil.WithServerRoutes(func(deps ctestutil.RouteDeps) server.Route {
+				return accesscmds.Delegate.Route(func(req *binding.Request[*accesscmds.DelegateArguments], res *binding.Response[*accesscmds.DelegateOK]) error {
+					return res.SetFailure(fmt.Errorf("test error"))
+				})
+			}),
 		))(t)
+
+		proof := testutil.Must(accesscmds.Delegate.Delegate(space, c.Issuer().DID(), space.DID()))(t)
+		require.NoError(t, c.AddProofs(ctx, proof))
 
 		account := testutil.Must(did.Parse("did:mailto:example.com:alice"))(t)
-		del := testutil.Must(delegation.Delegate(
-			space,
-			account,
-			[]ucan.Capability[ucan.NoCaveats]{
-				ucan.NewCapability("store/add", space.DID().String(), ucan.NoCaveats{}),
-			},
-			delegation.WithNoExpiration(),
-		))(t)
+		del := testutil.Must(uploadcmds.Add.Delegate(space, account, space.DID()))(t)
 
-		_, err := c.AccessDelegate(testContext(t), space.DID(), del)
-
+		_, err := c.AccessDelegate(ctx, space.DID(), del)
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "access/delegate")
 	})
 }

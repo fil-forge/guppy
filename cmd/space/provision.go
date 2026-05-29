@@ -34,16 +34,16 @@ var provisionCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		c := cmdutil.MustGetClient(cfg.Repo.Dir, cfg.Network)
+		c := cmdutil.MustGetClient(cfg)
 
-		spaceDID, err := cmdutil.ResolveSpace(c, args[0])
+		spaceDID, err := cmdutil.ResolveSpace(cmd.Context(), c, args[0])
 		if err != nil {
 			return err
 		}
 
 		fmt.Printf("Provisioning space %s with customer %s...\n", spaceDID, customerEmail)
 
-		_, err = c.ProviderAdd(cmd.Context(), customerDID, c.Connection().ID().DID(), spaceDID)
+		_, err = c.ProviderAdd(cmd.Context(), customerDID, c.ServiceID(), spaceDID)
 		if err != nil {
 			return fmt.Errorf("provisioning space: %w", err)
 		}

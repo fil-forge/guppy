@@ -11,36 +11,34 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/fil-forge/go-libstoracha/principalresolver"
-	uclient "github.com/fil-forge/go-ucanto/client"
-	"github.com/fil-forge/go-ucanto/core/delegation"
-	"github.com/fil-forge/go-ucanto/did"
-	"github.com/fil-forge/go-ucanto/principal"
-	"github.com/fil-forge/go-ucanto/principal/ed25519/signer"
-	edverifier "github.com/fil-forge/go-ucanto/principal/ed25519/verifier"
-	"github.com/fil-forge/go-ucanto/principal/verifier"
-	"github.com/fil-forge/go-ucanto/transport/car"
-	uhttp "github.com/fil-forge/go-ucanto/transport/http"
-	"github.com/fil-forge/go-ucanto/ucan"
-	"github.com/fil-forge/guppy/pkg/agentstore"
 	"github.com/fil-forge/guppy/pkg/client"
 	"github.com/fil-forge/guppy/pkg/config"
-	cdg "github.com/fil-forge/guppy/pkg/delegation"
 	"github.com/fil-forge/guppy/pkg/presets"
-	receiptclient "github.com/fil-forge/guppy/pkg/receipt"
+	"github.com/fil-forge/guppy/pkg/tokenstore"
 	indexclient "github.com/fil-forge/indexing-service/pkg/client"
+	"github.com/fil-forge/libforge/identity"
+	receiptclient "github.com/fil-forge/libforge/receipt"
+	utclient "github.com/fil-forge/ucantone/client"
+	"github.com/fil-forge/ucantone/did"
+	utd25519 "github.com/fil-forge/ucantone/principal/ed25519"
+	utucan "github.com/fil-forge/ucantone/ucan"
+	"github.com/fil-forge/ucantone/ucan/container"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
-// envSigner returns a principal.Signer from the environment variable
-// GUPPY_PRIVATE_KEY, if any.
-func envSigner() (principal.Signer, error) {
+// envSigner returns a signer from the environment variable GUPPY_PRIVATE_KEY,
+// if any.
+func envSigner() (utucan.Signer, error) {
 	str := os.Getenv("GUPPY_PRIVATE_KEY") // use env var preferably
 	if str == "" {
 		return nil, nil // no signer in the environment
 	}
 
-	return signer.Parse(str)
+	s, err := utd25519.Parse(str)
+	if err != nil {
+		return nil, err
+	}
+	return s, nil
 }
 
 // TracedHTTPClient is an HTTP client with OpenTelemetry tracing and a guppy
@@ -52,48 +50,48 @@ var TracedHTTPClient = &http.Client{
 // MustGetClient creates a new client suitable for the CLI, using stored data,
 // if any. The storePath should be a directory path where agent data will be stored.
 // The networkCfg contains network settings from the config file.
-func MustGetClient(storePath string, networkCfg config.NetworkConfig, options ...client.Option) *client.Client {
-	return MustGetClientForNetwork(storePath, networkCfg, "", options...)
+func MustGetClient(cfg config.Config, options ...client.Option) *client.Client {
+	return MustGetClientForNetwork(cfg, "", options...)
 }
 
 // MustGetClientForNetwork is like MustGetClient but allows specifying a network
 // configuration by name (which may be empty). The networkCfg contains network
 // settings from the config file, and flagName is the network name from CLI flag
 // (takes precedence over config).
-func MustGetClientForNetwork(storePath string, networkCfg config.NetworkConfig, flagName string, options ...client.Option) *client.Client {
-	store, err := agentstore.NewFs(storePath)
+func MustGetClientForNetwork(cfg config.Config, flagName string, options ...client.Option) *client.Client {
+	pem, err := os.ReadFile(cfg.Identity.KeyFile)
 	if err != nil {
-		log.Fatalf("creating agent store: %s", err)
+		log.Fatalf("reading key file: %s", err)
+	}
+	var agent utucan.Signer
+	agent, err = identity.DecodeEd25519SignerFromPEM(pem)
+	if err != nil {
+		log.Fatalf("parsing key file: %s", err)
 	}
 
-	// Override principal if env var is set
+	// Override the signer if the env var is set.
 	if s, err := envSigner(); err != nil {
 		log.Fatalf("parsing GUPPY_PRIVATE_KEY: %s", err)
 	} else if s != nil {
-		if err := store.SetPrincipal(s); err != nil {
-			log.Fatalf("setting principal: %s", err)
-		}
+		agent = s
 	}
 
-	network := MustGetNetworkConfig(networkCfg, flagName)
-
-	conn, err := uclient.NewConnection(
-		network.UploadID,
-		uhttp.NewChannel(&network.UploadURL, uhttp.WithClient(TracedHTTPClient)),
-		uclient.WithOutboundCodec(car.NewOutboundCodec()),
-	)
+	store, err := tokenstore.NewFsStore(cfg.Repo.Dir)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("creating token store: %s", err)
 	}
 
-	c, err := client.NewClient(
+	network := MustGetNetworkConfig(cfg.Network, flagName)
+
+	c, err := client.New(
+		agent,
+		network.UploadID,
+		network.UploadURL,
 		append(
-			[]client.Option{client.WithStore(store)},
-			append(
-				options,
-				client.WithConnection(conn),
-				client.WithReceiptsClient(receiptclient.New(&network.ReceiptsURL, receiptclient.WithHTTPClient(TracedHTTPClient))),
-			)...,
+			options,
+			client.WithTokenStore(store),
+			client.WithReceiptsClient(receiptclient.NewClient(&network.ReceiptsURL, receiptclient.WithHTTPClient(TracedHTTPClient))),
+			client.WithUCANClientOptions(utclient.WithHTTPClient(TracedHTTPClient)),
 		)...,
 	)
 	if err != nil {
@@ -125,13 +123,13 @@ func MustGetNetworkConfig(networkCfg config.NetworkConfig, flagName string) pres
 }
 
 // MustGetIndexClient creates a new indexer client using the network configuration.
-func MustGetIndexClient(networkCfg config.NetworkConfig) (*indexclient.Client, ucan.Principal) {
+func MustGetIndexClient(networkCfg config.NetworkConfig) (*indexclient.Client, did.DID) {
 	return MustGetIndexClientForNetwork(networkCfg, "")
 }
 
 // MustGetIndexClientForNetwork creates a new indexer client, allowing a CLI flag
 // to override the network preset name.
-func MustGetIndexClientForNetwork(networkCfg config.NetworkConfig, flagName string) (*indexclient.Client, ucan.Principal) {
+func MustGetIndexClientForNetwork(networkCfg config.NetworkConfig, flagName string) (*indexclient.Client, did.DID) {
 	network := MustGetNetworkConfig(networkCfg, flagName)
 
 	client, err := indexclient.New(network.IndexerID, network.IndexerURL, indexclient.WithHTTPClient(TracedHTTPClient))
@@ -142,17 +140,21 @@ func MustGetIndexClientForNetwork(networkCfg config.NetworkConfig, flagName stri
 	return client, network.IndexerID
 }
 
-func MustGetProof(path string) delegation.Delegation {
+// AddProofsFromFile decodes a UCAN delegation container from the given path and
+// adds its delegations to the client's token store.
+func AddProofsFromFile(ctx context.Context, c *client.Client, path string) error {
 	b, err := os.ReadFile(path)
 	if err != nil {
-		log.Fatalf("reading proof file: %s", err)
+		return fmt.Errorf("reading proof file %q: %w", path, err)
 	}
-
-	proof, err := cdg.ExtractProof(b)
+	ct, err := container.Decode(b)
 	if err != nil {
-		log.Fatalf("extracting proof: %s", err)
+		return fmt.Errorf("decoding proof container %q: %w", path, err)
 	}
-	return proof
+	if err := c.AddProofs(ctx, ct.Delegations()...); err != nil {
+		return fmt.Errorf("adding proofs: %w", err)
+	}
+	return nil
 }
 
 // ParseSize parses a data size string with optional suffix (B, K, M, G).
@@ -220,7 +222,7 @@ func (e HandledCliError) Unwrap() error {
 // If the identifier is a valid DID, it returns that DID directly.
 // Otherwise, it looks up the space by name using the provided client.
 // Returns an error if the name matches no spaces or multiple spaces.
-func ResolveSpace(c *client.Client, identifier string) (did.DID, error) {
+func ResolveSpace(ctx context.Context, c *client.Client, identifier string) (did.DID, error) {
 	// First, try to parse as a DID
 	spaceDID, err := did.Parse(identifier)
 	if err == nil {
@@ -228,7 +230,7 @@ func ResolveSpace(c *client.Client, identifier string) (did.DID, error) {
 	}
 
 	// Not a valid DID, try to look up by name
-	space, err := c.SpaceNamed(identifier)
+	space, err := c.SpaceNamed(ctx, identifier)
 	if err != nil {
 		var notFoundErr client.SpaceNotFoundError
 		if errors.As(err, &notFoundErr) {
@@ -242,23 +244,4 @@ func ResolveSpace(c *client.Client, identifier string) (did.DID, error) {
 	}
 
 	return space.DID(), nil
-}
-
-func ResolveDIDWebAndWrap(ctx context.Context, didWeb did.DID, opts ...principalresolver.Option) (principal.Verifier, error) {
-	resolver, err := principalresolver.NewHTTPResolver([]did.DID{didWeb}, opts...)
-	if err != nil {
-		return nil, fmt.Errorf("creating principal resolver: %w", err)
-	}
-
-	resolvedKeyDID, unresolvedErr := resolver.ResolveDIDKey(ctx, didWeb)
-	if unresolvedErr != nil {
-		return nil, fmt.Errorf("resolving DID key: %w", unresolvedErr)
-	}
-
-	keyVerifier, err := edverifier.Parse(resolvedKeyDID.String())
-	if err != nil {
-		return nil, fmt.Errorf("parsing resolved key DID: %w", err)
-	}
-
-	return verifier.Wrap(keyVerifier, didWeb)
 }

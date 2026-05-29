@@ -6,14 +6,13 @@ import (
 	"fmt"
 
 	"github.com/cenkalti/backoff/v5"
-	"github.com/fil-forge/go-libstoracha/blobindex"
-	"github.com/fil-forge/go-libstoracha/capabilities/assert"
-	contentcap "github.com/fil-forge/go-libstoracha/capabilities/space/content"
-	"github.com/fil-forge/go-libstoracha/digestutil"
-	"github.com/fil-forge/go-ucanto/core/dag/blockstore"
-	"github.com/fil-forge/go-ucanto/core/delegation"
-	"github.com/fil-forge/go-ucanto/did"
 	"github.com/fil-forge/indexing-service/pkg/types"
+	"github.com/fil-forge/libforge/blobindex"
+	assertcmds "github.com/fil-forge/libforge/commands/assert"
+	"github.com/fil-forge/libforge/digestutil"
+	"github.com/fil-forge/ucantone/did"
+	"github.com/fil-forge/ucantone/ucan/invocation"
+	"github.com/ipfs/go-cid"
 	"github.com/multiformats/go-multihash"
 )
 
@@ -30,8 +29,7 @@ type Indexer struct {
 }
 
 // NewIndexer creates a new Indexer with the given indexing service client and
-// authorization function. Note: the authorize function can be nil, in which
-// case no authorization will be sent for indexer queries.
+// authorization function.
 func NewIndexer(client IndexingServiceClient, authorize AuthorizeIndexerRetrievalFunc) *Indexer {
 	return &Indexer{
 		client:        client,
@@ -45,26 +43,16 @@ func NewIndexer(client IndexingServiceClient, authorize AuthorizeIndexerRetrieva
 func (i *Indexer) doQuery(ctx context.Context, digest multihash.Multihash) error {
 	result, err := backoff.Retry(ctx, func() (types.QueryResult, error) {
 		q := types.Query{Hashes: []multihash.Multihash{digest}}
-		if i.authorize != nil {
-			auth, err := i.authorize()
-			if err != nil {
-				return nil, fmt.Errorf("authorizing indexer retrieval: %w", err)
-			}
-
-			spaces := []did.DID{}
-			for _, c := range auth.Capabilities() {
-				if c.Can() == contentcap.RetrieveAbility {
-					s, err := did.Parse(c.With())
-					if err != nil {
-						return nil, fmt.Errorf("parsing space DID from authorized capability: %w", err)
-					}
-					spaces = append(spaces, s)
-				}
-			}
-
-			q.Match = types.Match{Subject: spaces}
-			q.Delegations = []delegation.Delegation{auth}
+		auth, err := i.authorize()
+		if err != nil {
+			return nil, fmt.Errorf("authorizing indexer retrieval: %w", err)
 		}
+		if len(auth) == 0 {
+			return nil, fmt.Errorf("no authorization provided for indexer retrieval")
+		}
+
+		q.Match = types.Match{Subject: []did.DID{auth[0].Subject()}}
+		q.Delegations = auth
 
 		return i.client.QueryClaims(ctx, q)
 	}, backoff.WithMaxTries(3))
@@ -72,55 +60,55 @@ func (i *Indexer) doQuery(ctx context.Context, digest multihash.Multihash) error
 		return fmt.Errorf("querying indexer for slice %s: %w", digestutil.Format(digest), err)
 	}
 
-	bs, err := blockstore.NewBlockStore(blockstore.WithBlocksIterator(result.Blocks()))
-	if err != nil {
-		return fmt.Errorf("creating blockstore from query result: %w", err)
+	blocks := map[cid.Cid][]byte{}
+	for _, b := range result.Blocks() {
+		blocks[b.Link] = b.Data
 	}
 
 	for _, root := range result.Indexes() {
-		b, ok, err := bs.Get(root)
-		if err != nil {
-			log.Warnw("getting index block", "root", root, "error", err)
-			continue
-		}
+		indexBytes, ok := blocks[root]
 		if !ok {
-			log.Warnf("index block %s not found in result blocks", root)
+			log.Warnw("index block not found in response", "index", root)
 			continue
 		}
-		index, err := blobindex.Extract(bytes.NewReader(b.Bytes()))
+		index, err := blobindex.Extract(bytes.NewReader(indexBytes))
 		if err != nil {
-			log.Warnw("extracting blob index", "error", err)
-			continue
+			return fmt.Errorf("extracting index: %w", err)
 		}
-		i.indexCache.Add(toCID(root), index)
+		i.indexCache.Add(root, index)
 	}
 
 	for _, root := range result.Claims() {
-		dlg, err := delegation.NewDelegationView(root, bs)
+		b, ok := blocks[root]
+		if !ok {
+			log.Warnw("claim block not found in response", "root", root)
+			continue
+		}
+		claim, err := invocation.Decode(b)
 		if err != nil {
-			log.Warnw("extracting claim", "error", err)
+			log.Warnw("failed to decode claim", "root", root, "error", err)
 			continue
 		}
-		if len(dlg.Capabilities()) < 1 || dlg.Capabilities()[0].Can() != assert.LocationAbility {
+		if claim.Command() != assertcmds.Location.Command {
 			continue
 		}
-		i.locationCache.Add(dlg)
+		i.locationCache.Add(claim)
 	}
 
 	return nil
 }
 
 // FindShard finds the shard and its position for the given slice.
-func (i *Indexer) FindShard(ctx context.Context, slice multihash.Multihash) (multihash.Multihash, blobindex.Position, error) {
+func (i *Indexer) FindShard(ctx context.Context, slice multihash.Multihash) (multihash.Multihash, blobindex.Range, error) {
 	index, ok := i.indexCache.IndexForSlice(slice)
 	if !ok {
 		err := i.doQuery(ctx, slice)
 		if err != nil {
-			return nil, blobindex.Position{}, err
+			return nil, blobindex.Range{}, err
 		}
 		idx, ok := i.indexCache.IndexForSlice(slice)
 		if !ok {
-			return nil, blobindex.Position{}, fmt.Errorf("index for slice not found: %s", digestutil.Format(slice))
+			return nil, blobindex.Range{}, fmt.Errorf("index for slice not found: %s", digestutil.Format(slice))
 		}
 		index = idx
 	}
@@ -132,7 +120,7 @@ func (i *Indexer) FindShard(ctx context.Context, slice multihash.Multihash) (mul
 			}
 		}
 	}
-	return nil, blobindex.Position{}, fmt.Errorf("slice not found in index: %s", digestutil.Format(slice))
+	return nil, blobindex.Range{}, fmt.Errorf("slice not found in index: %s", digestutil.Format(slice))
 }
 
 // FindLocations finds at least 1 location for the given shard or returns an

@@ -7,8 +7,6 @@ import (
 	"time"
 
 	"github.com/briandowns/spinner"
-	"github.com/fil-forge/go-ucanto/core/delegation"
-	"github.com/fil-forge/go-ucanto/core/result"
 	"github.com/mitchellh/go-wordwrap"
 	"github.com/spf13/cobra"
 
@@ -48,9 +46,9 @@ var loginCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		c := cmdutil.MustGetClient(cfg.Repo.Dir, cfg.Network)
+		c := cmdutil.MustGetClient(cfg)
 
-		authOk, err := c.RequestAccess(ctx, accountDid.String())
+		authOk, err := c.RequestAccess(ctx, accountDid)
 		if err != nil {
 			return fmt.Errorf("requesting access: %w", err)
 		}
@@ -60,10 +58,9 @@ var loginCmd = &cobra.Command{
 		s.Start()
 		defer s.Stop()
 
-		var claimedDels []delegation.Delegation
 		resultChan := c.PollClaim(ctx, authOk)
 		res := <-resultChan
-		claimedDels, err = result.Unwrap(res)
+		claim, err := res.Unpack()
 		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) || ctx.Err() != nil {
 			cmd.Println("\nlogin canceled")
 			return nil
@@ -73,8 +70,25 @@ var loginCmd = &cobra.Command{
 		}
 
 		fmt.Printf("\nSuccessfully logged in as %s!\n", email)
-		if err := c.AddProofs(claimedDels...); err != nil {
+		if err := c.AddProofs(ctx, claim.Delegations...); err != nil {
 			return fmt.Errorf("adding proofs: %w", err)
+		}
+		if err := c.AddAttestations(ctx, claim.Attestations...); err != nil {
+			return fmt.Errorf("adding attestations: %w", err)
+		}
+
+		// Now we should have a proof that allows us to claim delegations for the
+		// account we just logged in as. These can then be used to access any spaces
+		// the account has access to.
+		accountDelegations, _, err := c.ClaimAccess(ctx, accountDid)
+		if err != nil {
+			return fmt.Errorf("claiming account delegations: %w", err)
+		}
+		if len(accountDelegations) > 0 {
+			log.Infof("Claimed %d delegations for account %s", len(accountDelegations), email)
+			if err := c.AddProofs(ctx, accountDelegations...); err != nil {
+				return fmt.Errorf("adding proofs: %w", err)
+			}
 		}
 
 		return nil

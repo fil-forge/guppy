@@ -5,9 +5,9 @@ import (
 	"encoding/binary"
 	"io/fs"
 
-	"github.com/fil-forge/go-ucanto/did"
 	"github.com/fil-forge/guppy/pkg/preparation/scans/model"
 	"github.com/fil-forge/guppy/pkg/preparation/types/id"
+	"github.com/fil-forge/ucantone/did"
 )
 
 func FileChecksum(path string, info fs.FileInfo, sourceID id.SourceID, spaceDID did.DID) []byte {
@@ -22,7 +22,7 @@ func FileChecksum(path string, info fs.FileInfo, sourceID id.SourceID, spaceDID 
 	binary.LittleEndian.PutUint64(sizeBytes, uint64(info.Size()))
 	hasher.Write(sizeBytes)
 	hasher.Write(sourceID[:])
-	hasher.Write(spaceDID.Bytes())
+	hasher.Write([]byte(spaceDID.String()))
 	return hasher.Sum(nil)
 }
 
@@ -38,6 +38,6 @@ func DirChecksum(path string, info fs.FileInfo, sourceID id.SourceID, spaceDID d
 		hasher.Write(child.Checksum())
 	}
 	hasher.Write(sourceID[:])
-	hasher.Write(spaceDID.Bytes())
+	hasher.Write([]byte(spaceDID.String()))
 	return hasher.Sum(nil)
 }

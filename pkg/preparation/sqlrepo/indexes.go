@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"iter"
 
-	"github.com/fil-forge/go-ucanto/core/invocation"
 	"github.com/fil-forge/guppy/pkg/preparation/blobs"
 	"github.com/fil-forge/guppy/pkg/preparation/blobs/model"
 	"github.com/fil-forge/guppy/pkg/preparation/sqlrepo/util"
 	"github.com/fil-forge/guppy/pkg/preparation/types/id"
+	"github.com/fil-forge/ucantone/ucan"
 	"github.com/ipfs/go-cid"
 	"github.com/multiformats/go-multihash"
 )
@@ -67,8 +67,8 @@ func (r *Repo) CreateIndex(ctx context.Context, uploadID id.UploadID) (*model.In
 		digest multihash.Multihash,
 		pieceCID cid.Cid,
 		state model.BlobState,
-		location invocation.Invocation,
-		pdpAccept invocation.Invocation,
+		location ucan.Invocation,
+		pdpAccept ucan.Invocation,
 	) error {
 		stmt, err := r.prepareStmt(ctx, `
 			INSERT INTO indexes (
@@ -137,8 +137,8 @@ func (r *Repo) IndexesForUpload(ctx context.Context, uploadID id.UploadID) ([]*m
 			digest *multihash.Multihash,
 			pieceCID *cid.Cid,
 			state *model.BlobState,
-			location *invocation.Invocation,
-			pdpAccept *invocation.Invocation,
+			location *ucan.Invocation,
+			pdpAccept *ucan.Invocation,
 		) error {
 			return rows.Scan(id, uploadID, size, sliceCount, util.DbBytes(digest), util.DbCID(pieceCID), state, util.DbInvocation(location), util.DbInvocation(pdpAccept))
 		})
@@ -194,8 +194,8 @@ func (r *Repo) IndexesForUploadByState(ctx context.Context, uploadID id.UploadID
 			digest *multihash.Multihash,
 			pieceCID *cid.Cid,
 			state *model.BlobState,
-			location *invocation.Invocation,
-			pdpAccept *invocation.Invocation,
+			location *ucan.Invocation,
+			pdpAccept *ucan.Invocation,
 		) error {
 			return rows.Scan(id, uploadID, size, sliceCount, util.DbBytes(digest), util.DbCID(pieceCID), state, util.DbInvocation(location), util.DbInvocation(pdpAccept))
 		})
@@ -244,8 +244,8 @@ func (r *Repo) GetIndexByID(ctx context.Context, indexID id.IndexID) (*model.Ind
 		digest *multihash.Multihash,
 		pieceCID *cid.Cid,
 		state *model.BlobState,
-		location *invocation.Invocation,
-		pdpAccept *invocation.Invocation,
+		location *ucan.Invocation,
+		pdpAccept *ucan.Invocation,
 	) error {
 		return row.Scan(id, uploadID, util.DbBytes(digest), util.DbCID(pieceCID), size, sliceCount, state, util.DbInvocation(location), util.DbInvocation(pdpAccept))
 	})
@@ -265,8 +265,8 @@ func (r *Repo) UpdateIndex(ctx context.Context, index *model.Index) error {
 		digest multihash.Multihash,
 		pieceCID cid.Cid,
 		state model.BlobState,
-		location invocation.Invocation,
-		pdpAccept invocation.Invocation,
+		location ucan.Invocation,
+		pdpAccept ucan.Invocation,
 	) error {
 		stmt, err := r.prepareStmt(ctx, `
 			UPDATE indexes
@@ -373,8 +373,8 @@ func (r *Repo) ShardsForIndex(ctx context.Context, indexID id.IndexID) ([]*model
 			digestState *[]byte,
 			pieceCIDState *[]byte,
 			state *model.BlobState,
-			location *invocation.Invocation,
-			pdpAccept *invocation.Invocation,
+			location *ucan.Invocation,
+			pdpAccept *ucan.Invocation,
 		) error {
 			return rows.Scan(
 				id,

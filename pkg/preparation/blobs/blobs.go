@@ -1,6 +1,7 @@
 package blobs
 
 import (
+	"bytes"
 	"context"
 	"encoding/binary"
 	"fmt"
@@ -8,14 +9,12 @@ import (
 	"runtime"
 	"sync"
 
-	"github.com/fil-forge/go-libstoracha/blobindex"
-	"github.com/fil-forge/go-ucanto/did"
+	"github.com/fil-forge/libforge/blobindex"
+	"github.com/fil-forge/ucantone/did"
 	"github.com/ipfs/go-cid"
 	logging "github.com/ipfs/go-log/v2"
-	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 
 	"github.com/fil-forge/guppy/internal/ctxutil"
-	"github.com/fil-forge/guppy/pkg/internal/util"
 	"github.com/fil-forge/guppy/pkg/preparation/blobs/model"
 	dagsmodel "github.com/fil-forge/guppy/pkg/preparation/dags/model"
 	"github.com/fil-forge/guppy/pkg/preparation/dags/nodereader"
@@ -495,11 +494,7 @@ func lengthVarint(size uint64) []byte {
 
 func (a API) ReaderForIndex(ctx context.Context, indexID id.IndexID) (io.ReadCloser, error) {
 	// Build the index by reading shards from the database
-
-	// Use a placeholder for the root because it doesn't matter what it is, and we
-	// don't want to wait for it to be known. It shouldn't really be something the
-	// index knows at all.
-	indexView := blobindex.NewShardedDagIndexView(cidlink.Link{Cid: util.PlaceholderCID}, -1)
+	index := blobindex.NewShardedDagIndex(-1)
 
 	// Query all nodes across all shards in this index in a single batch query
 	nodeCount := 0
@@ -512,16 +507,19 @@ func (a API) ReaderForIndex(ctx context.Context, indexID id.IndexID) (io.ReadClo
 		if nodeCount%10000 == 0 {
 			log.Infow("building index", "index", indexID, "nodes", nodeCount)
 		}
-		indexView.SetSlice(nii.ShardDigest, nii.NodeCID.Hash(), blobindex.Position{Offset: nii.ShardOffset, Length: nii.NodeSize})
+		start := int64(nii.ShardOffset)
+		end := start + int64(nii.NodeSize) - 1
+		index.SetSlice(nii.ShardDigest, nii.NodeCID.Hash(), blobindex.Range{Start: start, End: end})
 	}
 	log.Infow("built index", "index", indexID, "nodes", nodeCount)
 
-	archReader, err := blobindex.Archive(indexView)
+	var buf bytes.Buffer
+	err := blobindex.Archive(index, &buf)
 	if err != nil {
 		return nil, fmt.Errorf("archiving index %s: %w", indexID, err)
 	}
 
-	return io.NopCloser(archReader), nil
+	return io.NopCloser(&buf), nil
 }
 
 func (a API) roomInIndex(index *model.Index, shard *model.Shard) (bool, error) {

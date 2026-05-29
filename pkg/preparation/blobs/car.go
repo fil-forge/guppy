@@ -10,7 +10,6 @@ import (
 	cbor "github.com/ipfs/go-ipld-cbor"
 	ipldcar "github.com/ipld/go-car"
 	"github.com/ipld/go-car/util"
-	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/multiformats/go-varint"
 )
 
@@ -90,7 +89,7 @@ func (c *CAREncoder) HeaderEncodingLength() uint64 {
 func (c CAREncoder) NodeEncodingLength(node model.Node) uint64 {
 	cid := node.CID()
 	blockSize := node.Size()
-	pllen := uint64(len(cidlink.Link{Cid: cid}.Binary())) + blockSize
+	pllen := uint64(len(cid.Bytes())) + blockSize
 	vilen := uint64(varint.UvarintSize(uint64(pllen)))
 	return pllen + vilen
 }

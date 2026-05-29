@@ -4,40 +4,47 @@ import (
 	"context"
 	"fmt"
 
-	uploadcap "github.com/fil-forge/go-libstoracha/capabilities/upload"
-	"github.com/fil-forge/go-ucanto/core/result"
-	"github.com/fil-forge/go-ucanto/did"
+	uploadcmds "github.com/fil-forge/libforge/commands/upload"
+	"github.com/fil-forge/ucantone/did"
+	"github.com/fil-forge/ucantone/execution"
+	"github.com/fil-forge/ucantone/ucan/invocation"
 )
 
 // UploadList returns a paginated list of uploads in a space.
 //
-// Required delegated capability proofs: `upload/list`
+// Required delegated capability proofs: `/upload/list`
 //
 // The `space` is the resource the invocation applies to. It is typically the
 // DID of a space.
-//
-// The `params` are caveats required to perform an `upload/list` invocation.
-//
-// The `proofs` are delegation proofs to use in addition to those in the client.
-// They won't be saved in the client, only used for this invocation.
-func (c *Client) UploadList(ctx context.Context, space did.DID, params uploadcap.ListCaveats) (uploadcap.ListOk, error) {
-	res, _, err := invokeAndExecute[uploadcap.ListCaveats, uploadcap.ListOk](
-		ctx,
-		c,
-		uploadcap.List,
-		space.String(),
-		params,
-		uploadcap.ListOkType(),
-	)
-
+func (c *Client) UploadList(ctx context.Context, space did.DID, args uploadcmds.ListArguments) (*uploadcmds.ListOK, error) {
+	proofs, proofLinks, err := c.ProofChain(ctx, c.signer.DID(), uploadcmds.Add.Command, space)
 	if err != nil {
-		return uploadcap.ListOk{}, fmt.Errorf("invoking and executing %q: %w", uploadcap.ListAbility, err)
+		return nil, fmt.Errorf("building proof chain: %w", err)
+	}
+	attestations, err := c.ProofAttestations(ctx, proofs, c.serviceID)
+	if err != nil {
+		return nil, fmt.Errorf("fetching proof attestations: %w", err)
+	}
+	inv, err := uploadcmds.List.Invoke(
+		c.signer,
+		space,
+		&args,
+		invocation.WithAudience(c.serviceID),
+		invocation.WithProofs(proofLinks...),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("creating invocation: %w", err)
 	}
 
-	listOk, failErr := result.Unwrap(res)
-	if failErr != nil {
-		return uploadcap.ListOk{}, fmt.Errorf("%q failed: %w", uploadcap.ListAbility, failErr)
+	listOK, _, _, err := Execute[*uploadcmds.ListOK](
+		ctx,
+		c.ucanClient,
+		inv,
+		execution.WithDelegations(proofs...),
+		execution.WithInvocations(attestations...),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("executing invocation: %w", err)
 	}
-
-	return listOk, nil
+	return listOK, nil
 }
