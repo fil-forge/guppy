@@ -4,9 +4,9 @@ import (
 	"context"
 	"io"
 
-	"github.com/fil-forge/go-ucanto/did"
 	"github.com/fil-forge/guppy/pkg/client"
 	"github.com/fil-forge/guppy/pkg/client/locator"
+	"github.com/fil-forge/ucantone/did"
 	"github.com/ipfs/boxo/blockservice"
 	"github.com/ipfs/boxo/blockstore"
 	"github.com/ipfs/boxo/ipld/merkledag"

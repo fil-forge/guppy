@@ -1,17 +1,27 @@
 package client
 
 import (
+	"bytes"
+	"context"
 	"fmt"
+	"maps"
 	"slices"
+	"strings"
 
-	"github.com/fil-forge/go-ucanto/core/dag/blockstore"
-	"github.com/fil-forge/go-ucanto/core/delegation"
-	"github.com/fil-forge/go-ucanto/did"
-	"github.com/ipld/go-ipld-prime/datamodel"
-	basicnode "github.com/ipld/go-ipld-prime/node/basic"
-
-	"github.com/fil-forge/guppy/pkg/agentstore"
+	"github.com/fil-forge/guppy/pkg/tokenstore"
+	"github.com/fil-forge/ucantone/did"
+	"github.com/fil-forge/ucantone/ipld/datamodel"
+	"github.com/fil-forge/ucantone/ucan"
+	"github.com/ipfs/go-cid"
 )
+
+// SpaceNameMetaKey is the delegation-metadata key under which a space's name is
+// recorded when access to a space is granted (see the `space generate` command).
+const SpaceNameMetaKey = "name"
+
+// attestCommand identifies ucan/attest session proofs, which attest to other
+// proofs rather than granting access to a space.
+const attestCommand = "/ucan/attest"
 
 // SpaceNotFoundError is returned when no space is found with a given name.
 type SpaceNotFoundError struct {
@@ -35,7 +45,7 @@ func (e MultipleSpacesFoundError) Error() string {
 // Space represents a space we can act as, along with the proofs that grant access.
 type Space struct {
 	did          did.DID
-	accessProofs []delegation.Delegation
+	accessProofs []ucan.Delegation
 }
 
 // DID returns the DID of this space.
@@ -44,71 +54,142 @@ func (s Space) DID() did.DID {
 }
 
 // AccessProofs returns the delegations that grant access to this space.
-func (s Space) AccessProofs() []delegation.Delegation {
+func (s Space) AccessProofs() []ucan.Delegation {
 	return s.accessProofs
 }
 
-// Names returns the names found in the facts of this space's access proofs.
-// Typically, a space has only one name, but multiple names are possible if
-// there are multiple delegations providing access to the space.
+// Names returns the names recorded in the metadata of this space's access
+// proofs. Typically a space has a single name, but multiple are possible when
+// several delegations (each with their own name) grant access to it.
 func (s Space) Names() []string {
 	var names []string
 	seen := map[string]struct{}{}
 	for _, proof := range s.accessProofs {
-		for _, fact := range proof.Facts() {
-			nameValue, ok := fact["name"]
-			if !ok {
-				continue
-			}
-			nameNode, ok := nameValue.(datamodel.Node)
-			if !ok {
-				continue
-			}
-			name, err := nameNode.AsString()
-			if err != nil {
-				continue
-			}
-			if _, exists := seen[name]; exists {
-				continue
-			}
-			seen[name] = struct{}{}
-			names = append(names, name)
+		mb := proof.MetadataBytes()
+		if len(mb) == 0 {
+			continue
 		}
+		var meta datamodel.Map
+		if err := meta.UnmarshalCBOR(bytes.NewReader(mb)); err != nil {
+			continue
+		}
+		v, ok := meta[SpaceNameMetaKey]
+		if !ok {
+			continue
+		}
+		name, ok := v.(string)
+		if !ok || name == "" {
+			continue
+		}
+		if _, dup := seen[name]; dup {
+			continue
+		}
+		seen[name] = struct{}{}
+		names = append(names, name)
 	}
 	return names
 }
 
-// SpaceNameFact is a UCAN fact that gives a space a name.
-type SpaceNameFact struct {
-	name string
+// SpaceNameMetadata returns delegation metadata that records a space's name. It
+// is attached when granting access to a space so that [Space.Names] can later
+// recover the name.
+func SpaceNameMetadata(name string) datamodel.Map {
+	return datamodel.Map{SpaceNameMetaKey: name}
 }
 
-// NewSpaceNameFact creates a new SpaceNameFact with the given name.
-func NewSpaceNameFact(name string) SpaceNameFact {
-	return SpaceNameFact{name: name}
-}
-
-// ToIPLD implements ucan.FactBuilder.
-func (sf SpaceNameFact) ToIPLD() (map[string]datamodel.Node, error) {
-	nb := basicnode.Prototype.String.NewBuilder()
-	nb.AssignString(sf.name)
-	return map[string]datamodel.Node{
-		"name": nb.Build(),
-	}, nil
-}
-
-// Spaces returns all spaces we can act as.
-func (c *Client) Spaces() ([]Space, error) {
-	res, err := c.Proofs(agentstore.CapabilityQuery{Can: "space/*"})
+// Spaces returns all spaces we can act as, derived from the delegations held by
+// the token store: each distinct subject of a (valid, non-attestation)
+// delegation addressed to this agent is a space.
+func (c *Client) Spaces(ctx context.Context) ([]Space, error) {
+	// Get direct delegations to the agent
+	dlgs, err := delegationsForAudience(ctx, c.tokenStore, c.signer.DID())
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("getting delegations for agent: %w", err)
 	}
-	return spacesFromDelegations(res)
+
+	accs, err := c.Accounts(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("getting accounts: %w", err)
+	}
+
+	// Get delegations to the agent's accounts
+	for _, acc := range accs {
+		accDlgs, err := delegationsForAudience(ctx, c.tokenStore, acc)
+		if err != nil {
+			return nil, fmt.Errorf("getting delegations for account %s: %w", acc, err)
+		}
+		dlgs = append(dlgs, accDlgs...)
+	}
+
+	// Group delegations by subject (space DID)
+	proofs := map[did.DID]map[cid.Cid]ucan.Delegation{}
+	for _, d := range dlgs {
+		sub := d.Subject()
+		dlgs, ok := proofs[sub]
+		if !ok {
+			dlgs = map[cid.Cid]ucan.Delegation{}
+			proofs[sub] = dlgs
+		}
+		dlgs[d.Link()] = d
+	}
+
+	spaces := make([]Space, 0, len(proofs))
+	for space, dlgs := range proofs {
+		spaces = append(spaces, Space{
+			did:          space,
+			accessProofs: slices.Collect(maps.Values(dlgs)),
+		})
+	}
+	slices.SortFunc(spaces, func(a, b Space) int {
+		return strings.Compare(a.DID().String(), b.DID().String())
+	})
+	return spaces, nil
+}
+
+func delegationsForAudience(ctx context.Context, store tokenstore.Store, aud did.DID) ([]ucan.Delegation, error) {
+	dels, err := store.Delegations(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("listing delegations: %w", err)
+	}
+
+	now := ucan.Now()
+	var proofs []ucan.Delegation
+	for _, d := range dels {
+		if d.Audience() != aud {
+			continue
+		}
+		if d.Command().String() == attestCommand {
+			continue
+		}
+		if exp := d.Expiration(); exp != nil && *exp < now {
+			continue
+		}
+		if nb := d.NotBefore(); nb != nil && *nb > now {
+			continue
+		}
+		sub := d.Subject()
+		if !sub.Defined() || sub == aud {
+			continue
+		}
+		// Skip account-root delegations. Sprue's access/confirm issues
+		// a root delegation from the account to the agent with
+		// subject == account.DID() (a did:mailto), required by the UCAN
+		// spec — see ucantone/validator/validator.go's "root delegation
+		// subject is null" check. That delegation represents access to
+		// the account itself, not to a space, so it shouldn't be listed
+		// here. Spaces always use did:key subjects.
+		if sub.Method() == "mailto" {
+			continue
+		}
+		proofs = append(proofs, d)
+	}
+
+	return proofs, nil
 }
 
 // SpacesNamed returns all spaces with the given name.
-func (c *Client) SpacesNamed(name string) ([]Space, error) {
-	spaces, err := c.Spaces()
+func (c *Client) SpacesNamed(ctx context.Context, name string) ([]Space, error) {
+	spaces, err := c.Spaces(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -125,8 +206,8 @@ func (c *Client) SpacesNamed(name string) ([]Space, error) {
 // SpaceNamed returns the single space with the given name. Returns
 // [SpaceNotFoundError] if no space is found. Returns [MultipleSpacesFoundError]
 // if multiple spaces have the same name.
-func (c *Client) SpaceNamed(name string) (Space, error) {
-	spaces, err := c.SpacesNamed(name)
+func (c *Client) SpaceNamed(ctx context.Context, name string) (Space, error) {
+	spaces, err := c.SpacesNamed(ctx, name)
 	if err != nil {
 		return Space{}, err
 	}
@@ -138,79 +219,4 @@ func (c *Client) SpaceNamed(name string) (Space, error) {
 		return Space{}, MultipleSpacesFoundError{Name: name, Spaces: spaces}
 	}
 	return spaces[0], nil
-}
-
-func spacesFromDelegations(dels []delegation.Delegation) ([]Space, error) {
-	// Map from space DID to the delegations that grant access to it
-	spaceProofs := map[string][]delegation.Delegation{}
-	spaceDIDs := map[string]did.DID{}
-
-	for _, d := range dels {
-		for _, cap := range d.Capabilities() {
-			if cap.Can() == "ucan/attest" {
-				continue
-			} else if cap.With() == "ucan:*" {
-				proofDels := make([]delegation.Delegation, 0, len(d.Proofs()))
-				bs, err := blockstore.NewBlockReader(blockstore.WithBlocksIterator(d.Blocks()))
-				if err != nil {
-					return nil, fmt.Errorf("creating blockstore reader: %w", err)
-				}
-				for _, plink := range d.Proofs() {
-					proofDel, err := delegation.NewDelegationView(plink, bs)
-					if err != nil {
-						return nil, fmt.Errorf("opening proof delegation %s: %w", plink, err)
-					}
-					proofDels = append(proofDels, proofDel)
-				}
-				spacesFromProofs, err := spacesFromDelegations(proofDels)
-				if err != nil {
-					return nil, fmt.Errorf("getting spaces from proofs: %w", err)
-				}
-				// For ucan:* delegations, collect proofs from nested delegations
-				// and also add the current delegation as a proof
-				for _, s := range spacesFromProofs {
-					didStr := s.DID().String()
-					spaceDIDs[didStr] = s.DID()
-					// Add all proofs from the nested space, plus the current delegation
-					spaceProofs[didStr] = append(spaceProofs[didStr], s.AccessProofs()...)
-					spaceProofs[didStr] = append(spaceProofs[didStr], d)
-				}
-			} else {
-				spaceDID, err := did.Parse(cap.With())
-				if err != nil {
-					return nil, fmt.Errorf("parsing space DID %s: %w", cap.With(), err)
-				}
-				didStr := spaceDID.String()
-				spaceDIDs[didStr] = spaceDID
-				spaceProofs[didStr] = append(spaceProofs[didStr], d)
-			}
-		}
-	}
-
-	// Convert map to slice of Space structs
-	spaces := make([]Space, 0, len(spaceDIDs))
-	for didStr, spaceDID := range spaceDIDs {
-		// Deduplicate proofs by CID
-		proofs := deduplicateDelegations(spaceProofs[didStr])
-		spaces = append(spaces, Space{
-			did:          spaceDID,
-			accessProofs: proofs,
-		})
-	}
-
-	return spaces, nil
-}
-
-// deduplicateDelegations removes duplicate delegations by CID.
-func deduplicateDelegations(dels []delegation.Delegation) []delegation.Delegation {
-	seen := make(map[string]struct{})
-	result := make([]delegation.Delegation, 0, len(dels))
-	for _, d := range dels {
-		cidStr := d.Link().String()
-		if _, exists := seen[cidStr]; !exists {
-			seen[cidStr] = struct{}{}
-			result = append(result, d)
-		}
-	}
-	return slices.Clip(result)
 }

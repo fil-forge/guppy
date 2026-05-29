@@ -7,15 +7,22 @@ import (
 )
 
 type Config struct {
-	Repo    RepoConfig    `mapstructure:"repo" toml:"repo"`
-	Gateway GatewayConfig `mapstructure:"gateway" toml:"gateway"`
-	Network NetworkConfig `mapstructure:"network" toml:"network"`
-	Upload  UploadConfig  `mapstructure:"upload" toml:"upload"`
+	Identity IdentityConfig `mapstructure:"identity" toml:"identity"`
+	Repo     RepoConfig     `mapstructure:"repo" toml:"repo"`
+	Gateway  GatewayConfig  `mapstructure:"gateway" toml:"gateway"`
+	Network  NetworkConfig  `mapstructure:"network" toml:"network"`
+	Upload   UploadConfig   `mapstructure:"upload" toml:"upload"`
 }
 
 func (c Config) Validate() error {
 	err := validateConfig(c)
 	if err != nil {
+		return err
+	}
+	if err := c.Identity.Validate(); err != nil {
+		return err
+	}
+	if err := c.Repo.Validate(); err != nil {
 		return err
 	}
 	if err := c.Gateway.Validate(); err != nil {

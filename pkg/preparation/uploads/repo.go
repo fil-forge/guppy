@@ -3,10 +3,10 @@ package uploads
 import (
 	"context"
 
-	"github.com/fil-forge/go-ucanto/did"
 	dagmodel "github.com/fil-forge/guppy/pkg/preparation/dags/model"
 	"github.com/fil-forge/guppy/pkg/preparation/types/id"
 	uploadmodel "github.com/fil-forge/guppy/pkg/preparation/uploads/model"
+	"github.com/fil-forge/ucantone/did"
 	"github.com/ipfs/go-cid"
 )
 

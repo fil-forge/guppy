@@ -32,9 +32,9 @@ var infoCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		c := cmdutil.MustGetClient(cfg.Repo.Dir, cfg.Network)
+		c := cmdutil.MustGetClient(cfg)
 
-		spaceDID, err := cmdutil.ResolveSpace(c, args[0])
+		spaceDID, err := cmdutil.ResolveSpace(cmd.Context(), c, args[0])
 		if err != nil {
 			return err
 		}
@@ -51,7 +51,7 @@ var infoCmd = &cobra.Command{
 			}
 			fmt.Println(string(jsonBytes))
 		} else {
-			fmt.Printf("Space: %s\n", result.Did)
+			fmt.Printf("Space: %s\n", spaceDID)
 			if len(result.Providers) > 0 {
 				fmt.Printf("Providers:\n")
 				for _, provider := range result.Providers {

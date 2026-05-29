@@ -36,7 +36,7 @@ var ListCmd = &cobra.Command{
 			return fmt.Errorf("space cannot be empty")
 		}
 
-		spaceDID, err := cmdutil.ResolveSpace(cmdutil.MustGetClient(cfg.Repo.Dir, cfg.Network), spaceArg)
+		spaceDID, err := cmdutil.ResolveSpace(cmd.Context(), cmdutil.MustGetClient(cfg), spaceArg)
 		if err != nil {
 			return err
 		}

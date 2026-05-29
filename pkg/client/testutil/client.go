@@ -4,22 +4,41 @@ import (
 	"context"
 	"io"
 	"net/http"
+	"net/url"
+	"testing"
 
-	"github.com/fil-forge/go-ucanto/did"
-	"github.com/fil-forge/go-ucanto/server"
 	"github.com/fil-forge/guppy/pkg/client"
 	"github.com/fil-forge/guppy/pkg/preparation/storacha"
+	"github.com/fil-forge/libforge/testutil"
+	uclient "github.com/fil-forge/ucantone/client"
+	"github.com/fil-forge/ucantone/did"
+	"github.com/fil-forge/ucantone/principal/ed25519"
+	"github.com/fil-forge/ucantone/server"
+	"github.com/fil-forge/ucantone/ucan"
 )
 
 type clientServerConfig struct {
-	serverOptions []server.Option
+	serverRoutes  []RouteBuilderFunc
+	serverOptions []server.HTTPOption
 	clientOptions []client.Option
 }
 
+type RouteDeps struct {
+	ServiceID ucan.Signer
+}
+
+type RouteBuilderFunc func(RouteDeps) server.Route
+
 type Option func(*clientServerConfig)
 
+func WithServerRoutes(routes ...RouteBuilderFunc) Option {
+	return func(c *clientServerConfig) {
+		c.serverRoutes = append(c.serverRoutes, routes...)
+	}
+}
+
 // WithServerOptions appends options to the server configuration.
-func WithServerOptions(opts ...server.Option) Option {
+func WithServerOptions(opts ...server.HTTPOption) Option {
 	return func(c *clientServerConfig) {
 		c.serverOptions = append(c.serverOptions, opts...)
 	}
@@ -34,14 +53,30 @@ func WithClientOptions(opts ...client.Option) Option {
 
 // Client creates an entire [client.Client] with a connection to an in-process
 // server, each configured with the given options.
-func Client(options ...Option) (*client.Client, error) {
+func Client(t *testing.T, options ...Option) (*client.Client, error) {
 	config := &clientServerConfig{}
 	for _, opt := range options {
 		opt(config)
 	}
-	connection := NewTestServerConnection(config.serverOptions...)
-	config.clientOptions = append(config.clientOptions, client.WithConnection(connection))
-	return client.NewClient(config.clientOptions...)
+
+	signer := testutil.Must(ed25519.Generate())(t)
+
+	serviceID, srv := NewTestServer(t, config.serverOptions...)
+	deps := RouteDeps{ServiceID: signer}
+	for _, routeBuilder := range config.serverRoutes {
+		route := routeBuilder(deps)
+		srv.Handle(route.Command, route.Handler)
+	}
+	// placeholder - client is attached directly via HTTP transport
+	serviceURL := testutil.Must(url.Parse("http://localhost"))(t)
+
+	config.clientOptions = append(
+		config.clientOptions,
+		client.WithUCANClientOptions(
+			uclient.WithHTTPClient(&http.Client{Transport: srv}),
+		),
+	)
+	return client.New(signer, serviceID, *serviceURL, config.clientOptions...)
 }
 
 // ComposeOptions combines multiple options into one. It's written generically
@@ -64,8 +99,8 @@ type ClientWithCustomPut struct {
 
 var _ storacha.Client = (*ClientWithCustomPut)(nil)
 
-func (c *ClientWithCustomPut) SpaceBlobAdd(ctx context.Context, content io.Reader, space did.DID, options ...client.SpaceBlobAddOption) (client.AddedBlob, error) {
-	return c.Client.SpaceBlobAdd(ctx, content, space, append(options, client.WithPutClient(c.PutClient))...)
+func (c *ClientWithCustomPut) BlobAdd(ctx context.Context, content io.Reader, space did.DID, options ...client.BlobAddOption) (client.AddedBlob, error) {
+	return c.Client.BlobAdd(ctx, content, space, append(options, client.WithPutClient(c.PutClient))...)
 }
 
 // Ptr returns a pointer to the given value.

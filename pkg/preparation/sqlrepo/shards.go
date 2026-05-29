@@ -6,14 +6,14 @@ import (
 	"fmt"
 	"iter"
 
-	"github.com/fil-forge/go-ucanto/core/invocation"
-	"github.com/fil-forge/go-ucanto/did"
 	"github.com/fil-forge/guppy/pkg/bus/events"
 	"github.com/fil-forge/guppy/pkg/preparation/blobs"
 	"github.com/fil-forge/guppy/pkg/preparation/blobs/model"
 	dagsmodel "github.com/fil-forge/guppy/pkg/preparation/dags/model"
 	"github.com/fil-forge/guppy/pkg/preparation/sqlrepo/util"
 	"github.com/fil-forge/guppy/pkg/preparation/types/id"
+	"github.com/fil-forge/ucantone/did"
+	"github.com/fil-forge/ucantone/ucan"
 	"github.com/ipfs/go-cid"
 	"github.com/multiformats/go-multihash"
 )
@@ -37,8 +37,8 @@ func (r *Repo) CreateShard(ctx context.Context, uploadID id.UploadID, size uint6
 		digestState []byte,
 		pieceCIDState []byte,
 		state model.BlobState,
-		location invocation.Invocation,
-		pdpAccept invocation.Invocation,
+		location ucan.Invocation,
+		pdpAccept ucan.Invocation,
 	) error {
 		stmt, err := r.prepareStmt(ctx, `
 			INSERT INTO shards (
@@ -131,8 +131,8 @@ func (r *Repo) ShardsForUpload(ctx context.Context, uploadID id.UploadID) ([]*mo
 			digestState *[]byte,
 			pieceCIDState *[]byte,
 			state *model.BlobState,
-			location *invocation.Invocation,
-			pdpAccept *invocation.Invocation,
+			location *ucan.Invocation,
+			pdpAccept *ucan.Invocation,
 		) error {
 			return rows.Scan(id, uploadID, size, sliceCount, util.DbBytes(digest), util.DbCID(pieceCID), digestStateUpTo, util.DbBytes(digestState), util.DbBytes(pieceCIDState), state, util.DbInvocation(location), util.DbInvocation(pdpAccept))
 		})
@@ -189,8 +189,8 @@ func (r *Repo) ShardsForUploadByState(ctx context.Context, uploadID id.UploadID,
 			digestState *[]byte,
 			pieceCIDState *[]byte,
 			state *model.BlobState,
-			location *invocation.Invocation,
-			pdpAccept *invocation.Invocation,
+			location *ucan.Invocation,
+			pdpAccept *ucan.Invocation,
 		) error {
 			return rows.Scan(id, uploadID, size, sliceCount, util.DbBytes(digest), util.DbCID(pieceCID), digestStateUpTo, util.DbBytes(digestState), util.DbBytes(pieceCIDState), state, util.DbInvocation(location), util.DbInvocation(pdpAccept))
 		})
@@ -239,8 +239,8 @@ func (r *Repo) GetShardByID(ctx context.Context, shardID id.ShardID) (*model.Sha
 		digestState *[]byte,
 		pieceCIDState *[]byte,
 		state *model.BlobState,
-		location *invocation.Invocation,
-		pdpAccept *invocation.Invocation,
+		location *ucan.Invocation,
+		pdpAccept *ucan.Invocation,
 	) error {
 		return row.Scan(id, uploadID, size, sliceCount, util.DbBytes(digest), util.DbCID(pieceCID), digestStateUpTo, util.DbBytes(digestState), util.DbBytes(pieceCIDState), state, util.DbInvocation(location), util.DbInvocation(pdpAccept))
 	})
@@ -423,8 +423,8 @@ func (r *Repo) UpdateShard(ctx context.Context, shard *model.Shard) error {
 		digestState []byte,
 		pieceCIDState []byte,
 		state model.BlobState,
-		location invocation.Invocation,
-		pdpAccept invocation.Invocation,
+		location ucan.Invocation,
+		pdpAccept ucan.Invocation,
 	) error {
 		stmt, err := r.prepareStmt(ctx, `
 			UPDATE shards

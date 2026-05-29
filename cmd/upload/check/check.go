@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/fil-forge/go-ucanto/did"
+	"github.com/fil-forge/ucantone/did"
 	"github.com/mitchellh/go-wordwrap"
 	"github.com/spf13/cobra"
 
@@ -63,7 +63,7 @@ Specify both space and source to check a specific upload.`,
 		}
 		defer repo.Close()
 
-		client := cmdutil.MustGetClient(cfg.Repo.Dir, cfg.Network)
+		client := cmdutil.MustGetClient(cfg)
 
 		// Determine which uploads to check
 		var uploadsToCheck []uploadInfo
@@ -83,7 +83,7 @@ Specify both space and source to check a specific upload.`,
 		case 1:
 			// Check uploads for specified space
 			spaceArg := args[0]
-			spaceDID, err := cmdutil.ResolveSpace(client, spaceArg)
+			spaceDID, err := cmdutil.ResolveSpace(cmd.Context(), client, spaceArg)
 			if err != nil {
 				return err
 			}
@@ -101,7 +101,7 @@ Specify both space and source to check a specific upload.`,
 			// Check specific upload for space and source
 			spaceArg := args[0]
 			sourceArg := args[1]
-			spaceDID, err := cmdutil.ResolveSpace(client, spaceArg)
+			spaceDID, err := cmdutil.ResolveSpace(cmd.Context(), client, spaceArg)
 			if err != nil {
 				return err
 			}

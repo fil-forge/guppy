@@ -19,7 +19,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/dustin/go-humanize"
-	"github.com/fil-forge/go-libstoracha/digestutil"
+	"github.com/fil-forge/libforge/digestutil"
 	"github.com/ipfs/go-cid"
 	"github.com/mattn/go-isatty"
 	"github.com/muesli/termenv"

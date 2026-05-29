@@ -2,24 +2,20 @@ package mockclient
 
 import (
 	"context"
-	"fmt"
 	"io"
+	"net/url"
 	"testing"
 
-	filecoincap "github.com/fil-forge/go-libstoracha/capabilities/filecoin"
-	pdpcap "github.com/fil-forge/go-libstoracha/capabilities/pdp"
-	spaceblobcap "github.com/fil-forge/go-libstoracha/capabilities/space/blob"
-	"github.com/fil-forge/go-libstoracha/capabilities/types"
-	"github.com/fil-forge/go-libstoracha/capabilities/upload"
-	"github.com/fil-forge/go-libstoracha/testutil"
-	"github.com/fil-forge/go-ucanto/core/delegation"
-	"github.com/fil-forge/go-ucanto/core/invocation"
-	"github.com/fil-forge/go-ucanto/core/receipt/fx"
-	"github.com/fil-forge/go-ucanto/did"
-	ed25519signer "github.com/fil-forge/go-ucanto/principal/ed25519/signer"
+	"github.com/fil-forge/libforge/commands"
+	assertcmds "github.com/fil-forge/libforge/commands/assert"
+	pdpcmds "github.com/fil-forge/libforge/commands/pdp"
+	uploadcmds "github.com/fil-forge/libforge/commands/upload"
+	"github.com/fil-forge/libforge/digestutil"
+	"github.com/fil-forge/libforge/testutil"
+	"github.com/fil-forge/ucantone/did"
+	"github.com/fil-forge/ucantone/principal/ed25519"
+	"github.com/fil-forge/ucantone/ucan"
 	"github.com/ipfs/go-cid"
-	"github.com/ipld/go-ipld-prime"
-	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/multiformats/go-multihash"
 	"github.com/stretchr/testify/require"
 	_ "modernc.org/sqlite"
@@ -33,94 +29,96 @@ type MockClient struct {
 
 	// If set, these errors will be immediately returned by the corresponding
 	// methods, to simulate failure. These may be set and removed between calls.
-	SpaceBlobAddError       error
-	SpaceIndexAddError      error
-	SpaceBlobReplicateError error
-	FilecoinOfferError      error
-	UploadAddError          error
+	BlobAddError  error
+	IndexAddError error
+	// SpaceBlobReplicateError error
+	FilecoinOfferError error
+	UploadAddError     error
 
 	// Output
-	SpaceBlobAddInvocations       []spaceBlobAddInvocation
-	SpaceIndexAddInvocations      []spaceIndexAddInvocation
-	SpaceBlobReplicateInvocations []spaceBlobReplicateInvocation
-	FilecoinOfferInvocations      []filecoinOfferInvocation
-	UploadAddInvocations          []uploadAddInvocation
+	BlobAddInvocations  []blobAddInvocation
+	IndexAddInvocations []indexAddInvocation
+	// SpaceBlobReplicateInvocations []spaceBlobReplicateInvocation
+	UploadAddInvocations []uploadAddInvocation
 }
 
-type spaceBlobAddInvocation struct {
+type blobAddInvocation struct {
 	Space     did.DID
 	BlobAdded []byte
 
-	ReturnedPDPAccept invocation.Invocation
-	ReturnedLocation  delegation.Delegation
+	ReturnedPDPAccept ucan.Invocation
+	ReturnedLocation  ucan.Invocation
 }
 
-type spaceIndexAddInvocation struct {
-	Space     did.DID
-	IndexCID  cid.Cid
-	IndexSize uint64
-	RootCID   cid.Cid
+type indexAddInvocation struct {
+	Space    did.DID
+	IndexCID cid.Cid
 }
 
-type spaceBlobReplicateInvocation struct {
-	Space              did.DID
-	Blob               types.Blob
-	ReplicaCount       uint
-	LocationCommitment delegation.Delegation
-}
-
-type filecoinOfferInvocation struct {
-	Space   did.DID
-	Content ipld.Link
-	Piece   ipld.Link
-	Options *client.FilecoinOfferOptions
-}
+// type blobReplicateInvocation struct {
+// 	Space              did.DID
+// 	Blob               blobcmds.Blob
+// 	ReplicaCount       uint
+// 	LocationCommitment ucan.Invocation
+// }
 
 type uploadAddInvocation struct {
 	Space  did.DID
-	Root   ipld.Link
-	Shards []ipld.Link
+	Root   cid.Cid
+	Shards []cid.Cid
+	Index  *cid.Cid
 }
 
 var _ storacha.Client = (*MockClient)(nil)
 
-func (m *MockClient) SpaceBlobAdd(ctx context.Context, content io.Reader, space did.DID, options ...client.SpaceBlobAddOption) (client.AddedBlob, error) {
-	cfg := client.NewSpaceBlobAddConfig(options...)
+func (m *MockClient) BlobAdd(ctx context.Context, content io.Reader, space did.DID, options ...client.BlobAddOption) (client.AddedBlob, error) {
+	cfg := client.NewBlobAddConfig(options...)
 
 	contentBytes, err := io.ReadAll(content)
-	require.NoError(m.T, err, "reading content for SpaceBlobAdd")
+	require.NoError(m.T, err, "reading content for BlobAdd")
 
-	if m.SpaceBlobAddError != nil {
-		m.SpaceBlobAddInvocations = append(m.SpaceBlobAddInvocations, spaceBlobAddInvocation{
+	if m.BlobAddError != nil {
+		m.BlobAddInvocations = append(m.BlobAddInvocations, blobAddInvocation{
 			Space:             space,
 			BlobAdded:         contentBytes,
 			ReturnedPDPAccept: nil,
 			ReturnedLocation:  nil,
 		})
-		return client.AddedBlob{}, m.SpaceBlobAddError
+		return client.AddedBlob{}, m.BlobAddError
 	}
 
-	location := testutil.RandomLocationDelegation(m.T)
-
-	digest := cfg.PrecomputedDigest()
+	digest := cfg.PrecomputedDigest
 	if len(digest) == 0 {
 		digest, err = multihash.Sum(contentBytes, multihash.SHA2_256, -1)
-		require.NoError(m.T, err, "summing digest for SpaceBlobAdd")
+		require.NoError(m.T, err, "summing digest for BlobAdd")
 	}
 
-	dummyPrincipal, err := ed25519signer.Generate()
+	blobURL, err := url.Parse("https://test.example/blob/" + digestutil.Format(digest))
+	require.NoError(m.T, err, "parsing blob URL for BlobAdd")
+
+	location, err := assertcmds.Location.Invoke(
+		testutil.Service,
+		testutil.Service.DID(),
+		&assertcmds.LocationArguments{
+			Space:    space,
+			Content:  digest,
+			Location: []commands.CborURL{commands.CborURL(*blobURL)},
+		},
+	)
+	require.NoError(m.T, err, "invoking Location command for BlobAdd")
+
+	dummyPrincipal, err := ed25519.Generate()
 	require.NoError(m.T, err)
 
-	pdpAcceptInv, err := pdpcap.Accept.Invoke(
+	pdpAcceptInv, err := pdpcmds.Accept.Invoke(
 		dummyPrincipal,
 		dummyPrincipal.DID(),
-		space.DID().String(),
-		pdpcap.AcceptCaveats{
+		&pdpcmds.AcceptArguments{
 			Blob: digest,
 		},
 	)
 	require.NoError(m.T, err)
-	m.SpaceBlobAddInvocations = append(m.SpaceBlobAddInvocations, spaceBlobAddInvocation{
+	m.BlobAddInvocations = append(m.BlobAddInvocations, blobAddInvocation{
 		Space:             space,
 		BlobAdded:         contentBytes,
 		ReturnedPDPAccept: pdpAcceptInv,
@@ -135,72 +133,56 @@ func (m *MockClient) SpaceBlobAdd(ctx context.Context, content io.Reader, space 
 	}, nil
 }
 
-func (m *MockClient) SpaceIndexAdd(ctx context.Context, indexCID cid.Cid, indexSize uint64, rootCID cid.Cid, space did.DID) error {
-	m.SpaceIndexAddInvocations = append(m.SpaceIndexAddInvocations, spaceIndexAddInvocation{
-		Space:     space,
-		IndexCID:  indexCID,
-		IndexSize: indexSize,
-		RootCID:   rootCID,
+func (m *MockClient) IndexAdd(ctx context.Context, indexCID cid.Cid, space did.DID) error {
+	m.IndexAddInvocations = append(m.IndexAddInvocations, indexAddInvocation{
+		Space:    space,
+		IndexCID: indexCID,
 	})
 
-	if m.SpaceIndexAddError != nil {
-		return m.SpaceIndexAddError
+	if m.IndexAddError != nil {
+		return m.IndexAddError
 	}
 
 	return nil
 }
 
-func (m *MockClient) FilecoinOffer(ctx context.Context, space did.DID, content ipld.Link, piece ipld.Link, opts ...client.FilecoinOfferOption) (filecoincap.OfferOk, error) {
-	m.FilecoinOfferInvocations = append(m.FilecoinOfferInvocations, filecoinOfferInvocation{
-		Space:   space,
-		Content: content,
-		Piece:   piece,
-		Options: client.NewFilecoinOfferOptions(opts),
-	})
+// func (m *MockClient) SpaceBlobReplicate(ctx context.Context, space did.DID, blob types.Blob, replicaCount uint, locationCommitment delegation.Delegation) (spaceblobcap.ReplicateOk, fx.Effects, error) {
+// 	m.SpaceBlobReplicateInvocations = append(m.SpaceBlobReplicateInvocations, spaceBlobReplicateInvocation{
+// 		Space:              space,
+// 		Blob:               blob,
+// 		ReplicaCount:       replicaCount,
+// 		LocationCommitment: locationCommitment,
+// 	})
 
-	if m.FilecoinOfferError != nil {
-		return filecoincap.OfferOk{}, m.FilecoinOfferError
-	}
+// 	if m.SpaceBlobReplicateError != nil {
+// 		return spaceblobcap.ReplicateOk{}, nil, m.SpaceBlobReplicateError
+// 	}
 
-	return filecoincap.OfferOk{Piece: piece}, nil
-}
+// 	sitePromises := make([]types.Promise, replicaCount)
+// 	for i := range sitePromises {
+// 		siteDigest, err := multihash.Encode(fmt.Appendf(nil, "test-replicated-site-%d", i), multihash.IDENTITY)
+// 		require.NoError(m.T, err, "encoding site digest")
+// 		sitePromises[i] = types.Promise{
+// 			UcanAwait: types.Await{
+// 				Selector: ".out.ok.site",
+// 				Link:     cidlink.Link{Cid: cid.NewCidV1(cid.Raw, siteDigest)},
+// 			},
+// 		}
+// 	}
+// 	return spaceblobcap.ReplicateOk{Site: sitePromises}, nil, nil
+// }
 
-func (m *MockClient) SpaceBlobReplicate(ctx context.Context, space did.DID, blob types.Blob, replicaCount uint, locationCommitment delegation.Delegation) (spaceblobcap.ReplicateOk, fx.Effects, error) {
-	m.SpaceBlobReplicateInvocations = append(m.SpaceBlobReplicateInvocations, spaceBlobReplicateInvocation{
-		Space:              space,
-		Blob:               blob,
-		ReplicaCount:       replicaCount,
-		LocationCommitment: locationCommitment,
-	})
-
-	if m.SpaceBlobReplicateError != nil {
-		return spaceblobcap.ReplicateOk{}, nil, m.SpaceBlobReplicateError
-	}
-
-	sitePromises := make([]types.Promise, replicaCount)
-	for i := range sitePromises {
-		siteDigest, err := multihash.Encode(fmt.Appendf(nil, "test-replicated-site-%d", i), multihash.IDENTITY)
-		require.NoError(m.T, err, "encoding site digest")
-		sitePromises[i] = types.Promise{
-			UcanAwait: types.Await{
-				Selector: ".out.ok.site",
-				Link:     cidlink.Link{Cid: cid.NewCidV1(cid.Raw, siteDigest)},
-			},
-		}
-	}
-	return spaceblobcap.ReplicateOk{Site: sitePromises}, nil, nil
-}
-
-func (m *MockClient) UploadAdd(ctx context.Context, space did.DID, root ipld.Link, shards []ipld.Link) (upload.AddOk, error) {
+func (m *MockClient) UploadAdd(ctx context.Context, space did.DID, root cid.Cid, shards []cid.Cid, index *cid.Cid) (*uploadcmds.AddOK, error) {
 	m.UploadAddInvocations = append(m.UploadAddInvocations, uploadAddInvocation{
 		Space:  space,
 		Root:   root,
 		Shards: shards,
+		Index:  index,
 	})
 
 	if m.UploadAddError != nil {
-		return upload.AddOk{}, m.UploadAddError
+		return nil, m.UploadAddError
 	}
 
-	return upload.AddOk{Root: root, Shards: shards}, nil
+	return &uploadcmds.AddOK{}, nil
 }

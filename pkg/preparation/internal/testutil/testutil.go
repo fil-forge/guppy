@@ -5,11 +5,6 @@ import (
 	"testing"
 	"time"
 
-	stestutil "github.com/fil-forge/go-libstoracha/testutil"
-	"github.com/fil-forge/go-ucanto/did"
-	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
-	"github.com/stretchr/testify/require"
-
 	"github.com/fil-forge/guppy/pkg/preparation/blobs"
 	blobsmodel "github.com/fil-forge/guppy/pkg/preparation/blobs/model"
 	sourcesmodel "github.com/fil-forge/guppy/pkg/preparation/sources/model"
@@ -17,6 +12,9 @@ import (
 	"github.com/fil-forge/guppy/pkg/preparation/sqlrepo"
 	"github.com/fil-forge/guppy/pkg/preparation/types/id"
 	uploadsmodel "github.com/fil-forge/guppy/pkg/preparation/uploads/model"
+	"github.com/fil-forge/libforge/testutil"
+	"github.com/fil-forge/ucantone/did"
+	"github.com/stretchr/testify/require"
 )
 
 var sourceCounter = 0
@@ -38,14 +36,14 @@ func CreateUpload(t *testing.T, repo *sqlrepo.Repo, spaceDID did.DID, options ..
 func AddNodeToUploadShards(t *testing.T, repo *sqlrepo.Repo, blobsApi blobs.API, uploadID id.UploadID, sourceID id.SourceID, spaceDID did.DID, shardCB func(shard *blobsmodel.Shard) error, size uint64) {
 	t.Helper()
 
-	data := stestutil.RandomBytes(t, int(size))
+	data := testutil.RandomBytes(t, int(size))
 	AddNodeToUploadShardsWithData(t, repo, blobsApi, uploadID, sourceID, spaceDID, shardCB, data)
 }
 
 func AddNodeToUploadShardsWithData(t *testing.T, repo *sqlrepo.Repo, blobsApi blobs.API, uploadID id.UploadID, sourceID id.SourceID, spaceDID did.DID, shardCB func(shard *blobsmodel.Shard) error, data []byte) {
 	t.Helper()
 
-	nodeCID := stestutil.RandomCID(t).(cidlink.Link).Cid
+	nodeCID := testutil.RandomCID(t)
 	path := fmt.Sprintf("some/path/%s", nodeCID.String())
 	_, _, err := repo.FindOrCreateRawNode(t.Context(), nodeCID, uint64(len(data)), spaceDID, uploadID, path, sourceID, 0)
 	require.NoError(t, err)
@@ -65,7 +63,7 @@ type UploadBuilder struct {
 // NewUploadBuilder creates a new UploadBuilder with a basic upload setup.
 func NewUploadBuilder(t *testing.T, repo *sqlrepo.Repo) *UploadBuilder {
 	t.Helper()
-	spaceDID := stestutil.RandomDID(t)
+	spaceDID := testutil.RandomDID(t)
 	upload, source := CreateUpload(t, repo, spaceDID)
 	return &UploadBuilder{
 		t:        t,
@@ -91,7 +89,7 @@ func (b *UploadBuilder) WithRootFSEntry() *UploadBuilder {
 // WithRootCID creates a node and sets it as the upload's root_cid.
 func (b *UploadBuilder) WithRootCID() *UploadBuilder {
 	b.t.Helper()
-	nodeCID := stestutil.RandomCID(b.t).(cidlink.Link).Cid
+	nodeCID := testutil.RandomCID(b.t)
 	_, _, err := b.repo.FindOrCreateRawNode(b.t.Context(), nodeCID, 100, b.spaceDID, b.upload.ID(), "test.txt", b.source.ID(), 0)
 	require.NoError(b.t, err)
 	err = b.upload.SetRootCID(nodeCID)
@@ -114,7 +112,7 @@ func (b *UploadBuilder) WithInvalidRootFSEntry() *UploadBuilder {
 // WithInvalidRootCID sets root_cid to a non-existent CID.
 func (b *UploadBuilder) WithInvalidRootCID() *UploadBuilder {
 	b.t.Helper()
-	randomCID := stestutil.RandomCID(b.t).(cidlink.Link).Cid
+	randomCID := testutil.RandomCID(b.t)
 	err := b.upload.SetRootCID(randomCID) // Random non-existent CID
 	require.NoError(b.t, err)
 	err = b.repo.UpdateUpload(b.t.Context(), b.upload)
@@ -137,7 +135,7 @@ func (b *UploadBuilder) WithFileAndDAGScan(path string, complete bool) *UploadBu
 	require.NoError(b.t, err)
 
 	if complete {
-		nodeCID := stestutil.RandomCID(b.t).(cidlink.Link).Cid
+		nodeCID := testutil.RandomCID(b.t)
 		_, _, err := b.repo.FindOrCreateRawNode(b.t.Context(), nodeCID, 100, b.spaceDID, b.upload.ID(), path, b.source.ID(), 0)
 		require.NoError(b.t, err)
 		err = dagScan.Complete(nodeCID)
@@ -158,7 +156,7 @@ func (b *UploadBuilder) WithFileAndDAGScan(path string, complete bool) *UploadBu
 func (b *UploadBuilder) WithUnshardedNodes(count int) *UploadBuilder {
 	b.t.Helper()
 	for i := range count {
-		nodeCID := stestutil.RandomCID(b.t).(cidlink.Link).Cid
+		nodeCID := testutil.RandomCID(b.t)
 		path := fmt.Sprintf("unsharded/file%d.txt", i)
 		_, _, err := b.repo.FindOrCreateRawNode(b.t.Context(), nodeCID, 100, b.spaceDID, b.upload.ID(), path, b.source.ID(), 0)
 		require.NoError(b.t, err)

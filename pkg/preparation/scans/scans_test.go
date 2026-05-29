@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/fil-forge/go-libstoracha/testutil"
 	"github.com/fil-forge/guppy/pkg/preparation/internal/testdb"
 	"github.com/fil-forge/guppy/pkg/preparation/scans"
 	"github.com/fil-forge/guppy/pkg/preparation/scans/model"
@@ -16,6 +15,7 @@ import (
 	"github.com/fil-forge/guppy/pkg/preparation/types"
 	"github.com/fil-forge/guppy/pkg/preparation/types/id"
 	uploadmodel "github.com/fil-forge/guppy/pkg/preparation/uploads/model"
+	"github.com/fil-forge/libforge/testutil"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

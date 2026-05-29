@@ -8,11 +8,11 @@ import (
 	"io/fs"
 	"time"
 
-	"github.com/fil-forge/go-ucanto/did"
 	"github.com/fil-forge/guppy/pkg/bus/events"
 	scanmodel "github.com/fil-forge/guppy/pkg/preparation/scans/model"
 	"github.com/fil-forge/guppy/pkg/preparation/sqlrepo/util"
 	"github.com/fil-forge/guppy/pkg/preparation/types"
+	"github.com/fil-forge/ucantone/did"
 
 	"github.com/fil-forge/guppy/pkg/preparation/types/id"
 )

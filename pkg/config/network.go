@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"net/url"
 
-	"github.com/fil-forge/go-ucanto/did"
 	"github.com/fil-forge/guppy/pkg/presets"
+	"github.com/fil-forge/ucantone/did"
 )
 
 // NetworkConfig holds network-related configuration that can be specified in

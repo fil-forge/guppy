@@ -1,5 +1,6 @@
 package client
 
+/*
 import (
 	"context"
 	"fmt"
@@ -9,7 +10,7 @@ import (
 	"github.com/fil-forge/go-ucanto/core/delegation"
 	"github.com/fil-forge/go-ucanto/core/receipt/fx"
 	"github.com/fil-forge/go-ucanto/core/result"
-	"github.com/fil-forge/go-ucanto/did"
+	"github.com/fil-forge/ucantone/did"
 )
 
 func (c *Client) SpaceBlobReplicate(ctx context.Context, space did.DID, blob types.Blob, replicaCount uint, locationCommitment delegation.Delegation) (spaceblobcap.ReplicateOk, fx.Effects, error) {
@@ -53,3 +54,4 @@ func (c *Client) SpaceBlobReplicate(ctx context.Context, space did.DID, blob typ
 
 	return replicateOk, fx, nil
 }
+*/

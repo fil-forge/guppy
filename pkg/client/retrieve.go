@@ -6,105 +6,66 @@ import (
 	"io"
 	"math/rand"
 
-	contentcap "github.com/fil-forge/go-libstoracha/capabilities/space/content"
-	captypes "github.com/fil-forge/go-libstoracha/capabilities/types"
-	"github.com/fil-forge/go-libstoracha/failure"
-	rclient "github.com/fil-forge/go-ucanto/client/retrieval"
-	"github.com/fil-forge/go-ucanto/core/dag/blockstore"
-	"github.com/fil-forge/go-ucanto/core/delegation"
-	"github.com/fil-forge/go-ucanto/core/receipt"
-	"github.com/fil-forge/go-ucanto/core/result"
-	"github.com/fil-forge/go-ucanto/did"
-
 	"github.com/fil-forge/guppy/internal/ctxutil"
-	"github.com/fil-forge/guppy/pkg/agentstore"
 	"github.com/fil-forge/guppy/pkg/client/locator"
+	contentcmds "github.com/fil-forge/libforge/commands/content"
+	"github.com/fil-forge/libforge/ucan/retrieval"
+	"github.com/fil-forge/ucantone/execution"
+	"github.com/fil-forge/ucantone/ucan/invocation"
 )
 
 func (c *Client) Retrieve(ctx context.Context, location locator.Location) (io.ReadCloser, error) {
-	locationCommitment := location.Commitment
-
-	space := locationCommitment.Nb().Space
-
-	nodeID, err := did.Parse(locationCommitment.With())
-	if err != nil {
-		return nil, fmt.Errorf("parsing DID of storage provider node `%s`: %w", locationCommitment.With(), err)
-	}
-
-	urls := locationCommitment.Nb().Location
+	space := location.Commitment.Space
+	urls := location.Commitment.Location
 	url := urls[rand.Intn(len(urls))]
 
-	storageProvider, err := did.Parse(locationCommitment.With())
+	proofs, proofLinks, err := c.ProofChain(ctx, c.signer.DID(), contentcmds.Retrieve.Command, space)
 	if err != nil {
-		return nil, fmt.Errorf("parsing DID of storage provider `%s`: %w", locationCommitment.With(), err)
+		return nil, fmt.Errorf("building proof chain: %w", err)
 	}
-
-	delegations, err := c.Proofs(agentstore.CapabilityQuery{
-		Can:  contentcap.Retrieve.Can(),
-		With: space.String(),
-	})
+	attestations, err := c.ProofAttestations(ctx, proofs, c.serviceID)
 	if err != nil {
-		return nil, err
-	}
-	prfs := make([]delegation.Proof, 0, len(delegations))
-	for _, del := range delegations {
-		prfs = append(prfs, delegation.FromDelegation(del))
+		return nil, fmt.Errorf("fetching proof attestations: %w", err)
 	}
 
-	start := location.Position.Offset
-	end := start + location.Position.Length - 1
-
-	inv, err := contentcap.Retrieve.Invoke(
+	inv, err := contentcmds.Retrieve.Invoke(
 		c.Issuer(),
-		storageProvider,
-		space.String(),
-		contentcap.RetrieveCaveats{
-			Blob: contentcap.BlobDigest{Digest: locationCommitment.Nb().Content.Hash()},
-			Range: contentcap.Range{
-				Start: start,
-				End:   end,
+		space,
+		&contentcmds.RetrieveArguments{
+			Blob: contentcmds.Blob{Digest: location.Commitment.Content},
+			Range: contentcmds.Range{
+				Start: uint64(location.Range.Start),
+				End:   uint64(location.Range.End),
 			},
 		},
-		delegation.WithProof(prfs...),
+		invocation.WithAudience(location.Commitment.Node),
+		invocation.WithProofs(proofLinks...),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("invoking `space/content/retrieve`: %w", err)
 	}
 
-	conn, err := rclient.NewConnection(nodeID, &url, c.retrievalOpts...)
+	client, err := retrieval.NewClient(url.URL(), c.retrievalOpts...)
 	if err != nil {
-		return nil, fmt.Errorf("creating connection: %w", err)
+		return nil, fmt.Errorf("creating retrieval client: %w", err)
 	}
 
-	xres, hres, err := rclient.Execute(ctx, inv, conn)
+	_, _, meta, err := Execute[*contentcmds.RetrieveOK](
+		ctx,
+		client,
+		inv,
+		execution.WithDelegations(proofs...),
+		execution.WithInvocations(attestations...),
+	)
 	if err != nil {
-		return nil, fmt.Errorf("executing `space/content/retrieve` invocation: %w", ctxutil.EnrichWithCause(err, ctx))
+		return nil, fmt.Errorf("executing invocation: %w", ctxutil.EnrichWithCause(err, ctx))
 	}
 
-	rcptLink, ok := xres.Get(inv.Link())
+	hcRes, ok := meta.(*retrieval.HTTPHeaderResponseContainer)
 	if !ok {
-		return nil, fmt.Errorf("execution response did not contain receipt for invocation")
+		return nil, fmt.Errorf("unexpected metadata type: %T", meta)
 	}
+	log.Debugw("retrieved content", "status", hcRes.StatusCode, "headers", hcRes.Header)
 
-	bs, err := blockstore.NewBlockReader(blockstore.WithBlocksIterator(xres.Blocks()))
-	if err != nil {
-		return nil, fmt.Errorf("adding blocks to reader: %w", err)
-	}
-
-	anyRcpt, err := receipt.NewAnyReceipt(rcptLink, bs)
-	if err != nil {
-		return nil, fmt.Errorf("creating receipt: %w", err)
-	}
-
-	rcpt, err := receipt.Rebind[contentcap.RetrieveOk, failure.FailureModel](anyRcpt, contentcap.RetrieveOkType(), failure.FailureType(), captypes.Converters...)
-	if err != nil {
-		return nil, fmt.Errorf("binding receipt to types: %w", err)
-	}
-
-	_, err = result.Unwrap(result.MapError(rcpt.Out(), failure.FromFailureModel))
-	if err != nil {
-		return nil, fmt.Errorf("execution failure: %w", err)
-	}
-
-	return hres.Body(), nil
+	return hcRes.Body, nil
 }

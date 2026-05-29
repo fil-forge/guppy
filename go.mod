@@ -1,6 +1,6 @@
 module github.com/fil-forge/guppy
 
-go 1.25.3
+go 1.25.7
 
 require (
 	github.com/asaskevich/EventBus v0.0.0-20200907212545-49d423059eef
@@ -11,9 +11,9 @@ require (
 	github.com/charmbracelet/lipgloss v1.1.0
 	github.com/dgraph-io/badger v1.6.2
 	github.com/dustin/go-humanize v1.0.1
-	github.com/fil-forge/go-libstoracha v0.0.0-20260507180245-218ac18ff773
-	github.com/fil-forge/go-ucanto v0.0.0-20260507172450-5cb5d073f8ab
-	github.com/fil-forge/indexing-service v1.13.5-0.20260507185634-41ef1e7915b7
+	github.com/fil-forge/indexing-service v1.13.5-0.20260522094121-1edae9728a14
+	github.com/fil-forge/libforge v0.0.0-20260527182359-ebb22552c348
+	github.com/fil-forge/ucantone v0.0.0-20260522152152-eda937bc2684
 	github.com/filecoin-project/go-data-segment v0.0.1
 	github.com/filecoin-project/go-fil-commcid v0.3.1
 	github.com/filecoin-project/go-fil-commp-hashhash v0.2.0
@@ -24,22 +24,21 @@ require (
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/ipfs/boxo v0.34.0
 	github.com/ipfs/go-block-format v0.2.3
-	github.com/ipfs/go-cid v0.6.0
+	github.com/ipfs/go-cid v0.6.1
 	github.com/ipfs/go-datastore v0.9.1
-	github.com/ipfs/go-ipld-cbor v0.2.0
+	github.com/ipfs/go-ipld-cbor v0.2.1
 	github.com/ipfs/go-ipld-format v0.6.3
 	github.com/ipfs/go-log/v2 v2.9.1
 	github.com/ipfs/go-unixfsnode v1.10.1
 	github.com/ipld/go-car v0.6.2
 	github.com/ipld/go-car/v2 v2.14.3
 	github.com/ipld/go-codec-dagpb v1.7.0
-	github.com/ipld/go-ipld-prime v0.22.0
+	github.com/ipld/go-ipld-prime v0.23.0
 	github.com/jmoiron/sqlx v1.4.0
 	github.com/labstack/echo/v4 v4.15.0
 	github.com/lib/pq v1.11.1
 	github.com/mattn/go-isatty v0.0.20
 	github.com/mitchellh/go-wordwrap v1.0.1
-	github.com/multiformats/go-multibase v0.2.0
 	github.com/multiformats/go-multicodec v0.10.0
 	github.com/multiformats/go-multihash v0.2.3
 	github.com/multiformats/go-varint v0.1.0
@@ -65,6 +64,7 @@ require (
 	github.com/ClickHouse/ch-go v0.67.0 // indirect
 	github.com/ClickHouse/clickhouse-go/v2 v2.40.1 // indirect
 	github.com/Jorropo/jsync v1.0.1 // indirect
+	github.com/alanshaw/dag-json-gen v0.0.5 // indirect
 	github.com/andybalholm/brotli v1.2.0 // indirect
 	github.com/antlr4-go/antlr/v4 v4.13.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
@@ -75,6 +75,8 @@ require (
 	github.com/dgraph-io/ristretto v0.0.2 // indirect
 	github.com/elastic/go-sysinfo v1.15.4 // indirect
 	github.com/elastic/go-windows v1.0.2 // indirect
+	github.com/fil-forge/automobile v0.0.1 // indirect
+	github.com/filecoin-project/go-state-types v0.18.0 // indirect
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.12 // indirect
 	github.com/go-faster/city v1.0.1 // indirect
@@ -107,15 +109,15 @@ require (
 	github.com/libp2p/go-libp2p-record v0.3.1 // indirect
 	github.com/libp2p/go-libp2p-routing-helpers v0.7.5 // indirect
 	github.com/libp2p/go-msgio v0.3.0 // indirect
-	github.com/libp2p/go-netroute v0.3.0 // indirect
+	github.com/libp2p/go-netroute v0.4.0 // indirect
 	github.com/mfridman/interpolate v0.0.2 // indirect
 	github.com/mfridman/xflag v0.1.0 // indirect
 	github.com/microsoft/go-mssqldb v1.9.2 // indirect
 	github.com/miekg/dns v1.1.68 // indirect
 	github.com/multiformats/go-multiaddr-dns v0.4.1 // indirect
+	github.com/multiformats/go-multibase v0.3.0 // indirect
 	github.com/multiformats/go-multistream v0.6.1 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
-	github.com/patrickmn/go-cache v2.1.0+incompatible // indirect
 	github.com/paulmach/orb v0.11.1 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
 	github.com/pierrec/lz4/v4 v4.1.22 // indirect
@@ -140,10 +142,13 @@ require (
 	github.com/ydb-platform/ydb-go-genproto v0.0.0-20241112172322-ea1f63298f77 // indirect
 	github.com/ydb-platform/ydb-go-sdk/v3 v3.108.1 // indirect
 	github.com/ziutek/mymysql v1.5.4 // indirect
+	gitlab.com/yawning/secp256k1-voi v0.0.0-20230925100816-f2616030848b // indirect
+	gitlab.com/yawning/tuplehash v0.0.0-20230713102510-df83abbf9a02 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/time v0.14.0 // indirect
 	gonum.org/v1/gonum v0.16.0 // indirect
 	howett.net/plist v1.0.1 // indirect
+	pitr.ca/jsontokenizer v0.3.0 // indirect
 )
 
 require (
@@ -183,16 +188,16 @@ require (
 	github.com/ipfs/go-merkledag v0.11.0 // indirect
 	github.com/ipfs/go-metrics-interface v0.3.0 // indirect
 	github.com/ipfs/go-verifcid v0.0.3 // indirect
-	github.com/ipni/go-libipni v0.7.5 // indirect
+	github.com/ipni/go-libipni v0.7.8 // indirect
 	github.com/klauspost/cpuid/v2 v2.3.0 // indirect
 	github.com/libp2p/go-buffer-pool v0.1.0 // indirect
-	github.com/libp2p/go-libp2p v0.47.0
+	github.com/libp2p/go-libp2p v0.48.0
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-localereader v0.0.1 // indirect
 	github.com/mattn/go-runewidth v0.0.16 // indirect
 	github.com/minio/sha256-simd v1.0.1
-	github.com/mr-tron/base58 v1.2.0 // indirect
+	github.com/mr-tron/base58 v1.3.0 // indirect
 	github.com/muesli/ansi v0.0.0-20230316100256-276c6243b2f6 // indirect
 	github.com/muesli/cancelreader v0.2.2 // indirect
 	github.com/muesli/termenv v0.16.0
@@ -203,7 +208,6 @@ require (
 	github.com/opentracing/opentracing-go v1.2.0 // indirect
 	github.com/petar/GoLLRB v0.0.0-20210522233825-ae3b015fd3e9 // indirect
 	github.com/pion/rtp v1.8.21 // indirect
-	github.com/pion/sdp/v3 v3.0.15 // indirect
 	github.com/pion/srtp/v3 v3.0.7 // indirect
 	github.com/pion/turn/v4 v4.1.1 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
@@ -216,10 +220,9 @@ require (
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/storacha/go-fil-commp-hashhash v0.0.0-20251204184521-dc48123eb846
 	github.com/stretchr/objx v0.5.2 // indirect
-	github.com/ucan-wg/go-ucan v0.0.0-20240916120445-37f52863156c // indirect
 	github.com/urfave/cli/v2 v2.27.7 // indirect
 	github.com/whyrusleeping/cbor v0.0.0-20171005072247-63513f603b11 // indirect
-	github.com/whyrusleeping/cbor-gen v0.3.1 // indirect
+	github.com/whyrusleeping/cbor-gen v0.3.1
 	github.com/whyrusleeping/chunker v0.0.0-20181014151217-fe64bd25879f // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
 	github.com/xrash/smetrics v0.0.0-20240521201337-686a1a2994c1 // indirect
@@ -231,13 +234,13 @@ require (
 	go.uber.org/mock v0.6.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.27.1
-	golang.org/x/crypto v0.49.0 // indirect
+	golang.org/x/crypto v0.50.0 // indirect
 	golang.org/x/exp v0.0.0-20260312153236-7ab1446f8b90 // indirect
 	golang.org/x/mod v0.34.0 // indirect
 	golang.org/x/net v0.52.0 // indirect
-	golang.org/x/sys v0.42.0 // indirect
-	golang.org/x/term v0.41.0 // indirect
-	golang.org/x/text v0.35.0 // indirect
+	golang.org/x/sys v0.43.0 // indirect
+	golang.org/x/term v0.42.0 // indirect
+	golang.org/x/text v0.36.0 // indirect
 	golang.org/x/tools v0.43.0 // indirect
 	golang.org/x/xerrors v0.0.0-20240903120638-7835f813f4da // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20250825161204-c5933d9347a5 // indirect

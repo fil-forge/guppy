@@ -4,13 +4,12 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
-	"io"
 	"time"
 
-	"github.com/fil-forge/go-ucanto/core/delegation"
-	"github.com/fil-forge/go-ucanto/core/invocation"
-	"github.com/fil-forge/go-ucanto/did"
 	"github.com/fil-forge/guppy/pkg/preparation/types/id"
+	"github.com/fil-forge/ucantone/did"
+	"github.com/fil-forge/ucantone/ucan"
+	"github.com/fil-forge/ucantone/ucan/invocation"
 	"github.com/ipfs/go-cid"
 )
 
@@ -144,7 +143,9 @@ func (dd dbDID) Value() (driver.Value, error) {
 	if dd.did == nil || !dd.did.Defined() {
 		return nil, nil // Return nil for undefined DID
 	}
-	return dd.did.Bytes(), nil
+	// ucantone's did.DID has no byte form; store the DID's string form as bytes
+	// (the DID columns are BLOB, which rejects a TEXT value under strict typing).
+	return []byte(dd.did.String()), nil
 }
 
 func (dd dbDID) Scan(value any) error {
@@ -152,20 +153,24 @@ func (dd dbDID) Scan(value any) error {
 		*dd.did = did.Undef
 		return nil
 	}
+	var s string
 	switch v := value.(type) {
+	case string:
+		s = v
 	case []byte:
-		if len(v) == 0 {
-			*dd.did = did.Undef
-			return nil
-		}
-		d, err := did.Decode(v)
-		if err != nil {
-			return fmt.Errorf("failed to cast to did: %w", err)
-		}
-		*dd.did = d
+		s = string(v)
 	default:
 		return fmt.Errorf("unsupported type for did scanning: %T (%v)", v, v)
 	}
+	if s == "" {
+		*dd.did = did.Undef
+		return nil
+	}
+	d, err := did.Parse(s)
+	if err != nil {
+		return fmt.Errorf("failed to cast to did: %w", err)
+	}
+	*dd.did = d
 	return nil
 }
 
@@ -219,12 +224,12 @@ func (db dbBytes[V]) Scan(value any) error {
 // DbInvocation returns a [sql.Scanner] that scans an invocation from a `[]byte`
 // DB value (a `BLOB`), and a [driver.Valuer] that writes an invocation to the DB
 // as a `[]byte` (a `BLOB`), treating nil invocations as `NULL`, and vice versa.
-func DbInvocation(inv *invocation.Invocation) dbInvocation {
+func DbInvocation(inv *ucan.Invocation) dbInvocation {
 	return dbInvocation{inv: inv}
 }
 
 type dbInvocation struct {
-	inv *invocation.Invocation
+	inv *ucan.Invocation
 }
 
 var _ driver.Valuer = dbInvocation{}
@@ -234,12 +239,13 @@ func (di dbInvocation) Value() (driver.Value, error) {
 	if di.inv == nil || *di.inv == nil {
 		return nil, nil // Return nil for nil invocations
 	}
-	archive := delegation.Archive(*di.inv)
-	bytes, err := io.ReadAll(archive)
+	// ucantone invocations serialize via invocation.Encode (CBOR), replacing the
+	// go-ucanto CAR archive format used previously.
+	b, err := invocation.Encode(*di.inv)
 	if err != nil {
-		return nil, fmt.Errorf("failed to archive invocation: %w", err)
+		return nil, fmt.Errorf("failed to encode invocation: %w", err)
 	}
-	return bytes, nil
+	return b, nil
 }
 
 func (di dbInvocation) Scan(value any) error {
@@ -253,9 +259,9 @@ func (di dbInvocation) Scan(value any) error {
 			*di.inv = nil
 			return nil
 		}
-		inv, err := delegation.Extract(v)
+		inv, err := invocation.Decode(v)
 		if err != nil {
-			return fmt.Errorf("failed to extract invocation: %w", err)
+			return fmt.Errorf("failed to decode invocation: %w", err)
 		}
 		*di.inv = inv
 	default:

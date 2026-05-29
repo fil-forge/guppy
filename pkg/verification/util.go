@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/fil-forge/go-libstoracha/digestutil"
+	"github.com/fil-forge/libforge/digestutil"
 	"github.com/ipfs/go-cid"
 	dagpb "github.com/ipld/go-codec-dagpb"
 	"github.com/ipld/go-ipld-prime"

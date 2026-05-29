@@ -4,10 +4,11 @@ import (
 	"context"
 	"fmt"
 
-	uploadcap "github.com/fil-forge/go-libstoracha/capabilities/upload"
-	"github.com/fil-forge/go-ucanto/core/result"
-	"github.com/fil-forge/go-ucanto/did"
 	"github.com/fil-forge/guppy/pkg/client"
+	"github.com/fil-forge/guppy/pkg/presets"
+	uploadcmds "github.com/fil-forge/libforge/commands/upload"
+	"github.com/fil-forge/ucantone/did"
+	"github.com/fil-forge/ucantone/principal/ed25519"
 )
 
 // Error handling omitted for brevity.
@@ -15,32 +16,45 @@ import (
 func main() {
 	ctx := context.Background()
 
+	agent, _ := ed25519.Generate()
+
 	// space to list uploads from
 	space, _ := did.Parse("did:key:z6MkwDuRThQcyWjqNsK54yKAmzfsiH6BTkASyiucThMtHt1y")
 
 	// the account to log in as, which has access to the space
-	account, _ := did.Parse("mailto:example.com:ucansam")
+	account, _ := did.Parse("did:mailto:example.com:ucansam")
 
-	// Without `client.WithConnection`, uses default connection to the Storacha network
-	// Without `client.WithPrincipal`, the client will generate a new signer.
-	c, _ := client.NewClient()
+	c, _ := client.New(
+		agent,
+		presets.DefaultNetwork.UploadID,
+		presets.DefaultNetwork.UploadURL,
+	)
 
 	// Kick off the login flow
-	authOk, _ := c.RequestAccess(ctx, account.String())
+	requestOK, _ := c.RequestAccess(ctx, account)
 
 	// Start polling to see if the user has authenticated yet
-	resultChan := c.PollClaim(ctx, authOk)
+	resultChan := c.PollClaim(ctx, requestOK)
 	fmt.Println("Please click the link in your email to authenticate...")
 	// Wait for the user to authenticate
-	proofs, _ := result.Unwrap(<-resultChan)
+	proofResult := <-resultChan
+	claim, _ := proofResult.Unpack()
 
 	// Add the proofs to the client
-	c.AddProofs(proofs...)
+	c.AddProofs(context.Background(), claim.Delegations...)
+	c.AddAttestations(context.Background(), claim.Attestations...)
+
+	// Claim any delegations for the account itself, which should include access
+	// to the space.
+	accountDelegations, _, _ := c.ClaimAccess(context.Background(), account)
+	if len(accountDelegations) > 0 {
+		c.AddProofs(context.Background(), accountDelegations...)
+	}
 
 	listOk, _ := c.UploadList(
 		context.Background(),
 		space,
-		uploadcap.ListCaveats{},
+		uploadcmds.ListArguments{},
 	)
 
 	for _, r := range listOk.Results {

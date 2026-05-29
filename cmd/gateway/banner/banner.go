@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/fil-forge/go-ucanto/did"
+	"github.com/fil-forge/ucantone/did"
 )
 
 const gupway = `▄▖           

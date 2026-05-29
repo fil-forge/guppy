@@ -7,11 +7,11 @@ import (
 	"io/fs"
 	"time"
 
-	"github.com/fil-forge/go-ucanto/did"
 	"github.com/fil-forge/guppy/pkg/preparation/scans/checksum"
 	"github.com/fil-forge/guppy/pkg/preparation/scans/model"
 	"github.com/fil-forge/guppy/pkg/preparation/types"
 	"github.com/fil-forge/guppy/pkg/preparation/types/id"
+	"github.com/fil-forge/ucantone/did"
 	logging "github.com/ipfs/go-log/v2"
 )
 

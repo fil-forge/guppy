@@ -4,30 +4,45 @@ import (
 	"context"
 	"fmt"
 
-	spacecap "github.com/fil-forge/go-libstoracha/capabilities/space"
-	"github.com/fil-forge/go-ucanto/core/result"
-	"github.com/fil-forge/go-ucanto/did"
+	spacecmds "github.com/fil-forge/libforge/commands/space"
+	"github.com/fil-forge/ucantone/did"
+	"github.com/fil-forge/ucantone/execution"
+	"github.com/fil-forge/ucantone/ucan/invocation"
 )
 
-// SpaceInfo invokes the space/info capability to get information about a space,
+// SpaceInfo invokes the /space/info capability to get information about a space,
 // including which providers are associated with it.
-func (c *Client) SpaceInfo(ctx context.Context, space did.DID) (spacecap.InfoOk, error) {
-	res, _, err := invokeAndExecute[spacecap.InfoCaveats, spacecap.InfoOk](
-		ctx,
-		c,
-		spacecap.Info,
-		space.String(),
-		spacecap.InfoCaveats{},
-		spacecap.InfoOkType(),
+func (c *Client) SpaceInfo(ctx context.Context, space did.DID) (*spacecmds.InfoOK, error) {
+	proofs, proofLinks, err := c.ProofChain(ctx, c.signer.DID(), spacecmds.Info.Command, space)
+	if err != nil {
+		return nil, fmt.Errorf("building proof chain: %w", err)
+	}
+	attestations, err := c.ProofAttestations(ctx, proofs, c.serviceID)
+	if err != nil {
+		return nil, fmt.Errorf("fetching proof attestations: %w", err)
+	}
+
+	inv, err := spacecmds.Info.Invoke(
+		c.signer,
+		space,
+		&spacecmds.InfoArguments{},
+		invocation.WithAudience(c.serviceID),
+		invocation.WithProofs(proofLinks...),
 	)
 	if err != nil {
-		return spacecap.InfoOk{}, fmt.Errorf("invoking and executing `space/info`: %w", err)
+		return nil, fmt.Errorf("creating invocation: %w", err)
 	}
 
-	infoOk, failErr := result.Unwrap(res)
-	if failErr != nil {
-		return spacecap.InfoOk{}, fmt.Errorf("`space/info` failed: %w", failErr)
+	infoOK, _, _, err := Execute[*spacecmds.InfoOK](
+		ctx,
+		c.ucanClient,
+		inv,
+		execution.WithDelegations(proofs...),
+		execution.WithInvocations(attestations...),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("executing invocation: %w", err)
 	}
 
-	return infoOk, nil
+	return infoOK, nil
 }
