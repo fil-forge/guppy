@@ -22,8 +22,8 @@ import (
 	libtestutil "github.com/fil-forge/libforge/testutil"
 	"github.com/fil-forge/ucantone/binding"
 	"github.com/fil-forge/ucantone/did"
-	"github.com/fil-forge/ucantone/principal/ed25519"
 	"github.com/fil-forge/ucantone/server"
+	"github.com/fil-forge/ucantone/ucan"
 	"github.com/ipfs/boxo/blockservice"
 	"github.com/ipfs/boxo/files"
 	"github.com/ipfs/boxo/ipld/merkledag"
@@ -90,7 +90,7 @@ func (r *recordedInvocations) recordUpload(subject did.DID, args *uploadcmds.Add
 // service that handles blob/add (via the ctestutil harness), index/add, and
 // upload/add. PUTs go through putClient; index/add and upload/add invocations
 // are recorded into rec.
-func prepareTestClient(t *testing.T, space ed25519.Signer, putClient *http.Client, rec *recordedInvocations) *ctestutil.ClientWithCustomPut {
+func prepareTestClient(t *testing.T, space ucan.Issuer, putClient *http.Client, rec *recordedInvocations) *ctestutil.ClientWithCustomPut {
 	t.Helper()
 	c := &ctestutil.ClientWithCustomPut{
 		Client: libtestutil.Must(ctestutil.Client(t,
@@ -140,7 +140,7 @@ func createUpload(t testing.TB, ctx context.Context, sourcePath string, repo *sq
 
 func TestExecuteUpload(t *testing.T) {
 	t.Run("uploads", func(t *testing.T) {
-		space := libtestutil.RandomSigner(t)
+		space := libtestutil.RandomIssuer(t)
 
 		db := testdb.CreateTestDB(t)
 		_, err := db.ExecContext(t.Context(), "PRAGMA foreign_keys = ON;")
@@ -200,7 +200,7 @@ func TestExecuteUpload(t *testing.T) {
 	t.Run("after an error, can be retried safely", func(t *testing.T) {
 		logging.SetLogLevel("preparation/uploads", "dpanic")
 
-		space := libtestutil.RandomSigner(t)
+		space := libtestutil.RandomIssuer(t)
 
 		db := testdb.CreateTestDB(t)
 		_, err := db.ExecContext(t.Context(), "PRAGMA foreign_keys = ON;")

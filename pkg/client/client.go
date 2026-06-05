@@ -15,6 +15,7 @@ import (
 	edm "github.com/fil-forge/ucantone/errors/datamodel"
 	"github.com/fil-forge/ucantone/execution"
 	"github.com/fil-forge/ucantone/ipld/datamodel"
+	"github.com/fil-forge/ucantone/multikey"
 	"github.com/fil-forge/ucantone/ucan"
 	"github.com/ipfs/go-cid"
 	logging "github.com/ipfs/go-log/v2"
@@ -30,7 +31,7 @@ var (
 )
 
 type Client struct {
-	signer         ucan.Signer
+	issuer         multikey.Issuer
 	serviceID      did.DID
 	ucanClient     *client.HTTPClient
 	ucanOpts       []client.HTTPOption
@@ -39,9 +40,9 @@ type Client struct {
 	retrievalOpts  []retrieval.ClientOption
 }
 
-func New(signer ucan.Signer, serviceID did.DID, serviceURL url.URL, options ...Option) (*Client, error) {
+func New(issuer multikey.Issuer, serviceID did.DID, serviceURL url.URL, options ...Option) (*Client, error) {
 	c := Client{
-		signer:         signer,
+		issuer:         issuer,
 		serviceID:      serviceID,
 		receiptsClient: receipt.NewClient(serviceURL.JoinPath("/receipt/")),
 	}
@@ -68,12 +69,12 @@ func New(signer ucan.Signer, serviceID did.DID, serviceURL url.URL, options ...O
 
 // DID returns the DID of the agent.
 func (c *Client) DID() did.DID {
-	return c.signer.DID()
+	return c.issuer.DID()
 }
 
 // Issuer returns the issuing signer of the agent.
-func (c *Client) Issuer() ucan.Signer {
-	return c.signer
+func (c *Client) Issuer() multikey.Issuer {
+	return c.issuer
 }
 
 // ServiceID returns the DID of the upload service this client is connected to.
@@ -89,14 +90,6 @@ func (c *Client) ServiceID() did.DID {
 // of the next Delegation.
 func (c *Client) ProofChain(ctx context.Context, aud did.DID, cmd ucan.Command, sub did.DID) ([]ucan.Delegation, []cid.Cid, error) {
 	return c.tokenStore.ProofChain(ctx, aud, cmd, sub)
-}
-
-// ProofAttestations returns a list of attestations for proofs that need them.
-// i.e. if a proof is signed with a non-standard signature this function will
-// fetch an attestation for it, and fail if it cannot. The authority parameter
-// is the DID of the service we trust to be issuing attestations.
-func (c *Client) ProofAttestations(ctx context.Context, proofs []ucan.Delegation, authority did.DID) ([]ucan.Invocation, error) {
-	return c.tokenStore.ProofAttestations(ctx, proofs, authority)
 }
 
 // AddProofs adds the given delegations to the client's token store.

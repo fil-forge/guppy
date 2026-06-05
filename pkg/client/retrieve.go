@@ -19,13 +19,9 @@ func (c *Client) Retrieve(ctx context.Context, location locator.Location) (io.Re
 	urls := location.Commitment.Location
 	url := urls[rand.Intn(len(urls))]
 
-	proofs, proofLinks, err := c.ProofChain(ctx, c.signer.DID(), contentcmds.Retrieve.Command, space)
+	proofs, proofLinks, err := c.ProofChain(ctx, c.issuer.DID(), contentcmds.Retrieve.Command, space)
 	if err != nil {
 		return nil, fmt.Errorf("building proof chain: %w", err)
-	}
-	attestations, err := c.ProofAttestations(ctx, proofs, c.serviceID)
-	if err != nil {
-		return nil, fmt.Errorf("fetching proof attestations: %w", err)
 	}
 
 	inv, err := contentcmds.Retrieve.Invoke(
@@ -55,7 +51,6 @@ func (c *Client) Retrieve(ctx context.Context, location locator.Location) (io.Re
 		client,
 		inv,
 		execution.WithDelegations(proofs...),
-		execution.WithInvocations(attestations...),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("executing invocation: %w", ctxutil.EnrichWithCause(err, ctx))

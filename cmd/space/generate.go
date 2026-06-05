@@ -14,7 +14,8 @@ import (
 	"github.com/fil-forge/guppy/pkg/config"
 	"github.com/fil-forge/guppy/pkg/didmailto"
 	"github.com/fil-forge/ucantone/did"
-	"github.com/fil-forge/ucantone/principal/ed25519"
+	"github.com/fil-forge/ucantone/multikey/ed25519"
+	"github.com/fil-forge/ucantone/ucan"
 	"github.com/fil-forge/ucantone/ucan/command"
 	"github.com/fil-forge/ucantone/ucan/delegation"
 )
@@ -42,7 +43,7 @@ var generateCmd = &cobra.Command{
 			"local store.",
 		80),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		space, err := ed25519.Generate()
+		space, err := ed25519.GenerateIssuer()
 		if err != nil {
 			cmd.SilenceUsage = false
 			return fmt.Errorf("generating signer for space: %w", err)
@@ -129,7 +130,7 @@ func pickAccount(cmd *cobra.Command, accounts []did.DID, flagValue, flagName str
 // grant delegates full access to the space to both the agent (so it can act on
 // the space locally) and the account (stored on the service via access/delegate),
 // recording the space's name in the delegation metadata.
-func grant(ctx context.Context, c *client.Client, space ed25519.Signer, account did.DID, name string) error {
+func grant(ctx context.Context, c *client.Client, space ucan.Issuer, account did.DID, name string) error {
 	opts := []delegation.Option{delegation.WithNoExpiration()}
 	if name != "" {
 		opts = append(opts, delegation.WithMetadata(client.SpaceNameMetadata(name)))

@@ -12,7 +12,7 @@ import (
 
 	"github.com/fil-forge/guppy/internal/cmdutil"
 	"github.com/fil-forge/guppy/pkg/config"
-	"github.com/fil-forge/guppy/pkg/didmailto"
+	"github.com/fil-forge/libforge/attestation/didmailto"
 )
 
 var loginCmd = &cobra.Command{
@@ -36,7 +36,7 @@ var loginCmd = &cobra.Command{
 		ctx := cmd.Context()
 		email := cmd.Flags().Arg(0)
 
-		accountDid, err := didmailto.FromEmail(email)
+		accountDid, err := didmailto.New(email)
 		if err != nil {
 			cmd.SilenceUsage = false
 			return err

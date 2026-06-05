@@ -20,7 +20,7 @@ import (
 func TestAccessDelegate(t *testing.T) {
 	t.Run("stores delegations via access/delegate", func(t *testing.T) {
 		ctx := t.Context()
-		space := testutil.RandomSigner(t)
+		space := testutil.RandomIssuer(t)
 		var receivedSubject did.DID
 		var receivedDelegations []cid.Cid
 
@@ -49,7 +49,7 @@ func TestAccessDelegate(t *testing.T) {
 
 	t.Run("handles multiple delegations", func(t *testing.T) {
 		ctx := t.Context()
-		space := testutil.RandomSigner(t)
+		space := testutil.RandomIssuer(t)
 		var receivedDelegations []cid.Cid
 
 		c := testutil.Must(ctestutil.Client(t,
@@ -78,7 +78,7 @@ func TestAccessDelegate(t *testing.T) {
 
 	t.Run("includes delegations as proofs in the invocation", func(t *testing.T) {
 		ctx := t.Context()
-		space := testutil.RandomSigner(t)
+		space := testutil.RandomIssuer(t)
 		var receivedProofLinks []cid.Cid
 
 		c := testutil.Must(ctestutil.Client(t,
@@ -112,7 +112,7 @@ func TestAccessDelegate(t *testing.T) {
 
 	t.Run("returns error on failure", func(t *testing.T) {
 		ctx := t.Context()
-		space := testutil.RandomSigner(t)
+		space := testutil.RandomIssuer(t)
 
 		c := testutil.Must(ctestutil.Client(t,
 			ctestutil.WithServerRoutes(func(deps ctestutil.RouteDeps) server.Route {

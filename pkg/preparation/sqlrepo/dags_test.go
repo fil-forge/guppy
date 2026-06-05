@@ -16,11 +16,11 @@ import (
 )
 
 func randomDAGPBCID(t *testing.T) cid.Cid {
-	return cid.NewCidV1(cid.DagProtobuf, testutil.RandomMultihash(t))
+	return cid.NewCidV1(cid.DagProtobuf, testutil.RandomDigest(t))
 }
 
 func randomRawCID(t *testing.T) cid.Cid {
-	return cid.NewCidV1(cid.Raw, testutil.RandomMultihash(t))
+	return cid.NewCidV1(cid.Raw, testutil.RandomDigest(t))
 }
 
 func TestDAGScan(t *testing.T) {

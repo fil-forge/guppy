@@ -12,7 +12,7 @@ import (
 
 func (c *Client) Accounts(ctx context.Context) ([]did.DID, error) {
 	accounts := make(map[did.DID]struct{})
-	for d, err := range c.tokenStore.ListDelegations(ctx, c.signer.DID(), command.Top(), did.Undef) {
+	for d, err := range c.tokenStore.ListDelegations(ctx, c.issuer.DID(), command.Top(), did.Undef) {
 		if err != nil {
 			return nil, err
 		}

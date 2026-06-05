@@ -13,7 +13,6 @@ import (
 	"github.com/fil-forge/libforge/digestutil"
 	"github.com/fil-forge/libforge/testutil"
 	"github.com/fil-forge/ucantone/did"
-	"github.com/fil-forge/ucantone/principal/ed25519"
 	"github.com/fil-forge/ucantone/ucan"
 	"github.com/ipfs/go-cid"
 	"github.com/multiformats/go-multihash"
@@ -107,8 +106,7 @@ func (m *MockClient) BlobAdd(ctx context.Context, content io.Reader, space did.D
 	)
 	require.NoError(m.T, err, "invoking Location command for BlobAdd")
 
-	dummyPrincipal, err := ed25519.Generate()
-	require.NoError(m.T, err)
+	dummyPrincipal := testutil.RandomIssuer(m.T)
 
 	pdpAcceptInv, err := pdpcmds.Accept.Invoke(
 		dummyPrincipal,

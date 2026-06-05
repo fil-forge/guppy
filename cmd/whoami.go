@@ -23,11 +23,11 @@ var whoamiCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		id, err := identity.DecodeEd25519SignerFromPEM(pem)
+		id, err := identity.DecodeSignerFromPEM(pem)
 		if err != nil {
 			return err
 		}
-		cmd.Println(id.DID())
+		cmd.Println(id.KeyDID())
 		return nil
 	},
 }

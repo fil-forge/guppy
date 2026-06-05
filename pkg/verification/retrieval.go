@@ -59,7 +59,7 @@ type ShardFinder interface {
 // in which case no authorization will be sent for retrievals.
 func VerifyDAGRetrieval(
 	ctx context.Context,
-	id ucan.Signer,
+	id ucan.Issuer,
 	getProofs ContentRetrieveProofGetterFunc,
 	indexer ShardFinder,
 	root cid.Cid,
@@ -128,7 +128,7 @@ type Slice struct {
 // indexer. It also performs integrity checks on the retrieved blocks. Note:
 // the getProofs function can be nil, in which case no authorization will be
 // sent for retrievals.
-func StatBlocks(ctx context.Context, id ucan.Signer, getProofs ContentRetrieveProofGetterFunc, indexer ShardFinder, links []cid.Cid) iter.Seq2[BlockStat, error] {
+func StatBlocks(ctx context.Context, id ucan.Issuer, getProofs ContentRetrieveProofGetterFunc, indexer ShardFinder, links []cid.Cid) iter.Seq2[BlockStat, error] {
 	return func(yield func(BlockStat, error) bool) {
 		shardLocations := bytemap.NewByteMap[multihash.Multihash, []Location](0)
 		shardSlices := bytemap.NewByteMap[multihash.Multihash, bytemap.ByteMap[multihash.Multihash, blobindex.Range]](0)
@@ -216,7 +216,7 @@ func StatBlocks(ctx context.Context, id ucan.Signer, getProofs ContentRetrievePr
 
 func batchFetchSlices(
 	ctx context.Context,
-	id ucan.Signer,
+	id ucan.Issuer,
 	getProofs ContentRetrieveProofGetterFunc,
 	shard multihash.Multihash,
 	locations []Location,
@@ -329,7 +329,7 @@ func batchSlices(items bytemap.ByteMap[multihash.Multihash, blobindex.Range]) []
 	return batches
 }
 
-func authorizedFetch(ctx context.Context, id ucan.Signer, getProofs ContentRetrieveProofGetterFunc, shard multihash.Multihash, shardLocation Location, byteRange contentcmds.Range) (io.ReadCloser, error) {
+func authorizedFetch(ctx context.Context, id ucan.Issuer, getProofs ContentRetrieveProofGetterFunc, shard multihash.Multihash, shardLocation Location, byteRange contentcmds.Range) (io.ReadCloser, error) {
 	if shardLocation.Arguments.Space == did.Undef {
 		return nil, fmt.Errorf("missing space DID in location commitment for shard: %s", digestutil.Format(shard))
 	}

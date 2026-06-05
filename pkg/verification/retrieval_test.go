@@ -14,7 +14,6 @@ import (
 	assertcmds "github.com/fil-forge/libforge/commands/assert"
 	"github.com/fil-forge/libforge/digestutil"
 	"github.com/fil-forge/libforge/testutil"
-	"github.com/fil-forge/ucantone/principal/ed25519"
 	"github.com/ipfs/go-cid"
 	"github.com/multiformats/go-multihash"
 	"github.com/stretchr/testify/require"
@@ -34,8 +33,8 @@ func TestStatBlocks(t *testing.T) {
 		require.NoError(t, err)
 		block2CID := cid.NewCidV1(cid.Raw, block2Hash)
 
-		shard1Hash := testutil.RandomMultihash(t)
-		shard2Hash := testutil.RandomMultihash(t)
+		shard1Hash := testutil.RandomDigest(t)
+		shard2Hash := testutil.RandomDigest(t)
 		position1 := blobindex.Range{Start: 0, End: int64(len(block1Data)) - 1}
 		position2 := blobindex.Range{Start: 0, End: int64(len(block2Data)) - 1}
 
@@ -105,8 +104,8 @@ func TestStatBlocks(t *testing.T) {
 
 		tamperedData := []byte("tampered data")
 
-		shard1Hash := testutil.RandomMultihash(t)
-		shard2Hash := testutil.RandomMultihash(t)
+		shard1Hash := testutil.RandomDigest(t)
+		shard2Hash := testutil.RandomDigest(t)
 		position1 := blobindex.Range{Start: 0, End: int64(len(block1Data)) - 1}
 		position2 := blobindex.Range{Start: 0, End: int64(len(block2Data)) - 1}
 
@@ -164,10 +163,10 @@ func TestStatBlocks(t *testing.T) {
 		block1CID := cid.NewCidV1(cid.Raw, block1Hash)
 
 		// Second block: shard not found
-		block2Hash := testutil.RandomMultihash(t)
+		block2Hash := testutil.RandomDigest(t)
 		block2CID := cid.NewCidV1(cid.Raw, block2Hash)
 
-		shard1Hash := testutil.RandomMultihash(t)
+		shard1Hash := testutil.RandomDigest(t)
 		position1 := blobindex.Range{Start: 0, End: int64(len(block1Data)) - 1}
 
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -218,8 +217,8 @@ func TestStatBlocks(t *testing.T) {
 		require.NoError(t, err)
 		block2CID := cid.NewCidV1(cid.Raw, block2Hash)
 
-		shard1Hash := testutil.RandomMultihash(t)
-		shard2Hash := testutil.RandomMultihash(t)
+		shard1Hash := testutil.RandomDigest(t)
+		shard2Hash := testutil.RandomDigest(t)
 		position1 := blobindex.Range{Start: 0, End: int64(len(block1Data)) - 1}
 		position2 := blobindex.Range{Start: 0, End: int64(len(block2Data)) - 1}
 
@@ -266,7 +265,7 @@ func TestVerifyDAGRetrieval(t *testing.T) {
 		blockHash, _ := multihash.Sum(blockData, multihash.SHA2_256, -1)
 		rootCID := cid.NewCidV1(cid.Raw, blockHash)
 
-		shardHash := testutil.RandomMultihash(t)
+		shardHash := testutil.RandomDigest(t)
 		position := blobindex.Range{Start: 0, End: int64(len(blockData)) - 1}
 
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -299,7 +298,7 @@ func TestVerifyDAGRetrieval(t *testing.T) {
 	t.Run("stops on first error", func(t *testing.T) {
 		ctx := t.Context()
 
-		blockHash := testutil.RandomMultihash(t)
+		blockHash := testutil.RandomDigest(t)
 		rootCID := cid.NewCidV1(cid.Raw, blockHash)
 
 		stub := &stubShardFinder{
@@ -348,8 +347,8 @@ func (s *stubShardFinder) FindLocations(ctx context.Context, shard multihash.Mul
 func createTestLocation(t *testing.T, shardHash multihash.Multihash, storageURL url.URL) verification.Location {
 	t.Helper()
 
-	provider := testutil.Must(ed25519.Generate())(t)
-	space := testutil.Must(ed25519.Generate())(t)
+	provider := testutil.RandomIssuer(t)
+	space := testutil.RandomIssuer(t)
 
 	commitment := testutil.Must(assertcmds.Location.Invoke(
 		provider,

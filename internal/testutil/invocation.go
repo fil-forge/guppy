@@ -16,9 +16,9 @@ import (
 // has no libforge equivalent.
 func RandomLocationInvocation(t *testing.T) ucan.Invocation {
 	t.Helper()
-	signer := libtestutil.RandomSigner(t)
+	signer := libtestutil.RandomIssuer(t)
 	space := libtestutil.RandomDID(t)
-	digest := libtestutil.RandomMultihash(t)
+	digest := libtestutil.RandomDigest(t)
 	storageURL := libtestutil.Must(url.Parse("https://storage.example/blob/" + digestutil.Format(digest)))(t)
 	return libtestutil.Must(assertcmds.Location.Invoke(
 		signer,

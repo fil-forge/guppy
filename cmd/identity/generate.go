@@ -5,7 +5,7 @@ import (
 	"os"
 
 	"github.com/fil-forge/libforge/identity"
-	"github.com/fil-forge/ucantone/principal/ed25519"
+	"github.com/fil-forge/ucantone/multikey/ed25519"
 	"github.com/spf13/cobra"
 )
 
@@ -20,17 +20,17 @@ The DID is printed to stderr for convenience.
 `,
 	Example: "guppy identity generate > my-key.pem",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		signer, err := ed25519.Generate()
+		issuer, err := ed25519.GenerateIssuer()
 		if err != nil {
 			return fmt.Errorf("generating ed25519 key: %w", err)
 		}
-		pem, err := identity.EncodeEd25519SignerToPEM(signer)
+		pem, err := identity.EncodeSignerToPEM(issuer)
 		if err != nil {
 			return fmt.Errorf("encoding key to PEM: %w", err)
 		}
 		cmd.SetOut(os.Stdout)
 		cmd.SetErr(os.Stderr)
-		cmd.PrintErrf("# %s\n", signer.DID())
+		cmd.PrintErrf("# %s\n", issuer.DID())
 		cmd.Print(string(pem))
 		return nil
 	},

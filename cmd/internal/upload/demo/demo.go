@@ -15,7 +15,8 @@ import (
 	uploadcmds "github.com/fil-forge/libforge/commands/upload"
 	"github.com/fil-forge/libforge/digestutil"
 	"github.com/fil-forge/ucantone/did"
-	"github.com/fil-forge/ucantone/principal/ed25519"
+	"github.com/fil-forge/ucantone/multikey"
+	"github.com/fil-forge/ucantone/multikey/ed25519"
 	"github.com/ipfs/go-cid"
 	"github.com/multiformats/go-multihash"
 
@@ -200,9 +201,9 @@ func Demo(ctx context.Context, repo *sqlrepo.Repo, spaceName string, alterMetada
 	if err != nil {
 		return fmt.Errorf("creating space key: %w", err)
 	}
-	spaceDID := space.DID()
+	spaceDID := space.KeyDID()
 
-	service, err := ed25519.Generate()
+	service, err := ed25519.GenerateIssuer()
 	if err != nil {
 		return fmt.Errorf("creating service key: %w", err)
 	}
@@ -244,7 +245,7 @@ func Demo(ctx context.Context, repo *sqlrepo.Repo, spaceName string, alterMetada
 // so the demo can exercise the full scan -> DAG -> shard -> upload pipeline
 // without real credentials or a service.
 type demoClient struct {
-	service ed25519.Signer
+	service multikey.Issuer
 }
 
 var _ storacha.Client = (*demoClient)(nil)

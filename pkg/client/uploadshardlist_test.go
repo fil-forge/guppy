@@ -16,7 +16,7 @@ import (
 func TestUploadShardList(t *testing.T) {
 	t.Run("lists shards for an upload", func(t *testing.T) {
 		ctx := t.Context()
-		space := testutil.RandomSigner(t)
+		space := testutil.RandomIssuer(t)
 
 		results := []cid.Cid{testutil.RandomCID(t), testutil.RandomCID(t)}
 

@@ -16,11 +16,11 @@ import (
 func TestBlobList(t *testing.T) {
 	t.Run("lists blobs in a space", func(t *testing.T) {
 		ctx := t.Context()
-		space := testutil.RandomSigner(t)
+		space := testutil.RandomIssuer(t)
 
 		results := []blobcmds.ListBlobItem{
 			{
-				Blob:       blobcmds.Blob{Digest: testutil.RandomMultihash(t), Size: 32},
+				Blob:       blobcmds.Blob{Digest: testutil.RandomDigest(t), Size: 32},
 				InsertedAt: time.Now().Unix(),
 			},
 		}

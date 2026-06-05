@@ -60,10 +60,6 @@ func (ms *MemStore) ProofChain(ctx context.Context, aud did.DID, cmd ucan.Comman
 	return ucanlib.ProofChain(ctx, ms.matchDelegations, aud, cmd, sub)
 }
 
-func (ms *MemStore) ProofAttestations(ctx context.Context, proofs []ucan.Delegation, authority did.DID) ([]ucan.Invocation, error) {
-	return ucanlib.ProofAttestations(ctx, ms.listInvocations, proofs, authority)
-}
-
 func (ms *MemStore) ListDelegations(ctx context.Context, aud did.DID, cmd ucan.Command, sub did.DID) iter.Seq2[ucan.Delegation, error] {
 	return func(yield func(ucan.Delegation, error) bool) {
 		ms.mu.RLock()

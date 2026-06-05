@@ -20,21 +20,21 @@ import (
 	receiptclient "github.com/fil-forge/libforge/receipt"
 	utclient "github.com/fil-forge/ucantone/client"
 	"github.com/fil-forge/ucantone/did"
-	utd25519 "github.com/fil-forge/ucantone/principal/ed25519"
-	utucan "github.com/fil-forge/ucantone/ucan"
+	"github.com/fil-forge/ucantone/multikey"
+	uted25519 "github.com/fil-forge/ucantone/multikey/ed25519"
 	"github.com/fil-forge/ucantone/ucan/container"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 // envSigner returns a signer from the environment variable GUPPY_PRIVATE_KEY,
 // if any.
-func envSigner() (utucan.Signer, error) {
+func envSigner() (multikey.Signer, error) {
 	str := os.Getenv("GUPPY_PRIVATE_KEY") // use env var preferably
 	if str == "" {
 		return nil, nil // no signer in the environment
 	}
 
-	s, err := utd25519.Parse(str)
+	s, err := uted25519.Parse(str)
 	if err != nil {
 		return nil, err
 	}
@@ -63,8 +63,8 @@ func MustGetClientForNetwork(cfg config.Config, flagName string, options ...clie
 	if err != nil {
 		log.Fatalf("reading key file: %s", err)
 	}
-	var agent utucan.Signer
-	agent, err = identity.DecodeEd25519SignerFromPEM(pem)
+	var agentSigner multikey.Signer
+	agentSigner, err = identity.DecodeSignerFromPEM(pem)
 	if err != nil {
 		log.Fatalf("parsing key file: %s", err)
 	}
@@ -73,7 +73,7 @@ func MustGetClientForNetwork(cfg config.Config, flagName string, options ...clie
 	if s, err := envSigner(); err != nil {
 		log.Fatalf("parsing GUPPY_PRIVATE_KEY: %s", err)
 	} else if s != nil {
-		agent = s
+		agentSigner = s
 	}
 
 	store, err := tokenstore.NewFsStore(cfg.Repo.Dir)
@@ -81,6 +81,7 @@ func MustGetClientForNetwork(cfg config.Config, flagName string, options ...clie
 		log.Fatalf("creating token store: %s", err)
 	}
 
+	agent := multikey.KeyIssuer(agentSigner)
 	network := MustGetNetworkConfig(cfg.Network, flagName)
 
 	c, err := client.New(
