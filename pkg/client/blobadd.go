@@ -16,7 +16,6 @@ import (
 	httpcmds "github.com/fil-forge/libforge/commands/http"
 	ucancmds "github.com/fil-forge/libforge/commands/ucan"
 	receipt_client "github.com/fil-forge/libforge/receipt"
-	ucanlib "github.com/fil-forge/libforge/ucan"
 	"github.com/fil-forge/ucantone/did"
 	edm "github.com/fil-forge/ucantone/errors/datamodel"
 	"github.com/fil-forge/ucantone/execution"
@@ -24,8 +23,6 @@ import (
 	"github.com/fil-forge/ucantone/ipld/datamodel"
 	"github.com/fil-forge/ucantone/principal/ed25519"
 	"github.com/fil-forge/ucantone/ucan"
-	"github.com/fil-forge/ucantone/ucan/delegation"
-	"github.com/fil-forge/ucantone/ucan/delegation/policy"
 	"github.com/fil-forge/ucantone/ucan/invocation"
 	"github.com/fil-forge/ucantone/ucan/receipt"
 	"github.com/ipfs/go-cid"
@@ -167,42 +164,6 @@ func (c *Client) BlobAdd(ctx context.Context, content io.Reader, space did.DID, 
 		return AddedBlob{}, fmt.Errorf("fetching proof attestations: %w", err)
 	}
 
-	dlgPolicy, err := policy.Build(
-		policy.Equal(".blob.digest", []byte(contentHash)),
-		policy.Equal(".blob.size", int64(*contentSizePtr)),
-	)
-	if err != nil {
-		return AddedBlob{}, fmt.Errorf("building delegation policy: %w", err)
-	}
-
-	allocDlg, allocProofs, allocAttestations, err := delegateWithProofs(
-		ctx,
-		c.signer,
-		c.serviceID,
-		space,
-		blobcmds.Allocate.Command,
-		dlgPolicy,
-		c,
-		c.serviceID,
-	)
-	if err != nil {
-		return AddedBlob{}, fmt.Errorf("delegating /blob/allocate: %w", err)
-	}
-
-	accDlg, accProofs, accAttestations, err := delegateWithProofs(
-		ctx,
-		c.signer,
-		c.serviceID,
-		space,
-		blobcmds.Accept.Command,
-		dlgPolicy,
-		c,
-		c.serviceID,
-	)
-	if err != nil {
-		return AddedBlob{}, fmt.Errorf("delegating /blob/accept: %w", err)
-	}
-
 	inv, err := blobcmds.Add.Invoke(
 		c.signer,
 		space,
@@ -225,13 +186,6 @@ func (c *Client) BlobAdd(ctx context.Context, content io.Reader, space did.DID, 
 		inv,
 		execution.WithDelegations(proofs...),
 		execution.WithInvocations(attestations...),
-		// add allocate/accept delegations
-		execution.WithDelegations(allocDlg, accDlg),
-		// ...and their proofs and attestations
-		execution.WithDelegations(allocProofs...),
-		execution.WithInvocations(allocAttestations...),
-		execution.WithDelegations(accProofs...),
-		execution.WithInvocations(accAttestations...),
 	)
 	if err != nil {
 		return AddedBlob{}, fmt.Errorf("executing blob add: %w", err)
@@ -295,29 +249,7 @@ func (c *Client) BlobAdd(ctx context.Context, content io.Reader, space did.DID, 
 
 	// invoke `/ucan/conclude` with `/http/put` receipt
 	if !putSuccess {
-		// Re-delegate, since the previous delegation may have expired while we were
-		// performing the HTTP PUT.
-		accDlg, accProofs, accAttestations, err := delegateWithProofs(
-			ctx,
-			c.signer,
-			c.serviceID,
-			space,
-			blobcmds.Accept.Command,
-			dlgPolicy,
-			c,
-			c.serviceID,
-		)
-		if err != nil {
-			return AddedBlob{}, fmt.Errorf("delegating /blob/accept: %w", err)
-		}
-		err = c.sendPutReceipt(
-			ctx,
-			putInv,
-			execution.WithDelegations(accDlg),
-			execution.WithDelegations(accProofs...),
-			execution.WithInvocations(accAttestations...),
-		)
-		if err != nil {
+		if err := c.sendPutReceipt(ctx, putInv); err != nil {
 			return AddedBlob{}, fmt.Errorf("sending put receipt: %w", err)
 		}
 	}
@@ -527,37 +459,6 @@ func (sw *stallWarnReader) Read(p []byte) (int, error) {
 
 func (sw *stallWarnReader) stop() {
 	sw.timer.Stop()
-}
-
-func delegateWithProofs(
-	ctx context.Context,
-	issuer ucan.Signer,
-	audience did.DID,
-	subject did.DID,
-	command ucan.Command,
-	pol ucan.Policy,
-	proofStore ucanlib.ProofStore,
-	attestationAuthority did.DID,
-) (ucan.Delegation, []ucan.Delegation, []ucan.Invocation, error) {
-	dlg, err := delegation.Delegate(
-		issuer,
-		audience,
-		subject,
-		command,
-		delegation.WithPolicy(pol),
-	)
-	if err != nil {
-		return nil, nil, nil, fmt.Errorf("delegating: %w", err)
-	}
-	proofs, _, err := proofStore.ProofChain(ctx, issuer.DID(), command, subject)
-	if err != nil {
-		return nil, nil, nil, fmt.Errorf("building proof chain: %w", err)
-	}
-	attestations, err := proofStore.ProofAttestations(ctx, proofs, attestationAuthority)
-	if err != nil {
-		return nil, nil, nil, fmt.Errorf("fetching proof attestations: %w", err)
-	}
-	return dlg, proofs, attestations, nil
 }
 
 func findInvocation(task cid.Cid, invocations []ucan.Invocation) (ucan.Invocation, error) {
