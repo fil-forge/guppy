@@ -13,17 +13,13 @@ import (
 // SpaceInfo invokes the /space/info capability to get information about a space,
 // including which providers are associated with it.
 func (c *Client) SpaceInfo(ctx context.Context, space did.DID) (*spacecmds.InfoOK, error) {
-	proofs, proofLinks, err := c.ProofChain(ctx, c.signer.DID(), spacecmds.Info.Command, space)
+	proofs, proofLinks, err := c.ProofChain(ctx, c.issuer.DID(), spacecmds.Info.Command, space)
 	if err != nil {
 		return nil, fmt.Errorf("building proof chain: %w", err)
 	}
-	attestations, err := c.ProofAttestations(ctx, proofs, c.serviceID)
-	if err != nil {
-		return nil, fmt.Errorf("fetching proof attestations: %w", err)
-	}
 
 	inv, err := spacecmds.Info.Invoke(
-		c.signer,
+		c.issuer,
 		space,
 		&spacecmds.InfoArguments{},
 		invocation.WithAudience(c.serviceID),
@@ -38,7 +34,6 @@ func (c *Client) SpaceInfo(ctx context.Context, space did.DID) (*spacecmds.InfoO
 		c.ucanClient,
 		inv,
 		execution.WithDelegations(proofs...),
-		execution.WithInvocations(attestations...),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("executing invocation: %w", err)

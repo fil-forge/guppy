@@ -21,7 +21,7 @@ import (
 
 func TestReset(t *testing.T) {
 	ctx := t.Context()
-	agent := testutil.RandomSigner(t)
+	agent := testutil.RandomMultikeyIssuer(t)
 	store := tokenstore.NewMemStore()
 	c := testutil.Must(client.New(
 		agent,

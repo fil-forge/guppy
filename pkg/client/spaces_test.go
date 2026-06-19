@@ -5,7 +5,6 @@ import (
 
 	blobcmds "github.com/fil-forge/libforge/commands/blob"
 	"github.com/fil-forge/libforge/testutil"
-	"github.com/fil-forge/ucantone/principal/ed25519"
 	"github.com/fil-forge/ucantone/ucan"
 	"github.com/fil-forge/ucantone/ucan/command"
 	"github.com/fil-forge/ucantone/ucan/delegation"
@@ -21,7 +20,7 @@ import (
 func newSpacesClient(t *testing.T) *client.Client {
 	t.Helper()
 	return testutil.Must(client.New(
-		testutil.RandomSigner(t),
+		testutil.RandomMultikeyIssuer(t),
 		presets.DefaultNetwork.UploadID,
 		presets.DefaultNetwork.UploadURL,
 		client.WithTokenStore(tokenstore.NewMemStore()),
@@ -30,7 +29,7 @@ func newSpacesClient(t *testing.T) *client.Client {
 
 // spaceGrant builds a delegation from the space to the client's agent (the way a
 // space grants access), optionally with options such as a name or expiry.
-func spaceGrant(t *testing.T, c *client.Client, space ed25519.Signer, opts ...delegation.Option) ucan.Delegation {
+func spaceGrant(t *testing.T, c *client.Client, space ucan.Issuer, opts ...delegation.Option) ucan.Delegation {
 	t.Helper()
 	return testutil.Must(delegation.Delegate(space, c.Issuer().DID(), space.DID(), blobcmds.Add.Command, opts...))(t)
 }
@@ -44,7 +43,7 @@ func TestSpaces(t *testing.T) {
 
 	t.Run("returns the space subject of a grant", func(t *testing.T) {
 		c := newSpacesClient(t)
-		space := testutil.RandomSigner(t)
+		space := testutil.RandomIssuer(t)
 		require.NoError(t, c.AddProofs(t.Context(), spaceGrant(t, c, space)))
 
 		spaces, err := c.Spaces(t.Context())
@@ -55,8 +54,8 @@ func TestSpaces(t *testing.T) {
 
 	t.Run("returns multiple unique spaces", func(t *testing.T) {
 		c := newSpacesClient(t)
-		space1 := testutil.RandomSigner(t)
-		space2 := testutil.RandomSigner(t)
+		space1 := testutil.RandomIssuer(t)
+		space2 := testutil.RandomIssuer(t)
 		require.NoError(t, c.AddProofs(t.Context(), spaceGrant(t, c, space1), spaceGrant(t, c, space2)))
 
 		spaces, err := c.Spaces(t.Context())
@@ -70,11 +69,11 @@ func TestSpaces(t *testing.T) {
 
 	t.Run("deduplicates a space from multiple grants", func(t *testing.T) {
 		c := newSpacesClient(t)
-		space := testutil.RandomSigner(t)
+		space := testutil.RandomIssuer(t)
 		// Two distinct grants (different issuers => different CIDs) for one space.
 		require.NoError(t, c.AddProofs(t.Context(),
 			spaceGrant(t, c, space),
-			testutil.Must(delegation.Delegate(testutil.RandomSigner(t), c.Issuer().DID(), space.DID(), blobcmds.Add.Command))(t),
+			testutil.Must(delegation.Delegate(testutil.RandomIssuer(t), c.Issuer().DID(), space.DID(), blobcmds.Add.Command))(t),
 		))
 
 		spaces, err := c.Spaces(t.Context())
@@ -86,8 +85,8 @@ func TestSpaces(t *testing.T) {
 
 	t.Run("skips ucan/attest delegations", func(t *testing.T) {
 		c := newSpacesClient(t)
-		space := testutil.RandomSigner(t)
-		attestSpace := testutil.RandomSigner(t)
+		space := testutil.RandomIssuer(t)
+		attestSpace := testutil.RandomIssuer(t)
 		require.NoError(t, c.AddProofs(t.Context(),
 			spaceGrant(t, c, space),
 			testutil.Must(delegation.Delegate(attestSpace, c.Issuer().DID(), attestSpace.DID(), command.MustParse("/ucan/attest")))(t),
@@ -101,8 +100,8 @@ func TestSpaces(t *testing.T) {
 
 	t.Run("excludes expired and not-yet-valid delegations", func(t *testing.T) {
 		c := newSpacesClient(t)
-		expiredSpace := testutil.RandomSigner(t)
-		futureSpace := testutil.RandomSigner(t)
+		expiredSpace := testutil.RandomIssuer(t)
+		futureSpace := testutil.RandomIssuer(t)
 		require.NoError(t, c.AddProofs(t.Context(),
 			spaceGrant(t, c, expiredSpace, delegation.WithExpiration(ucan.Now()-100)),
 			spaceGrant(t, c, futureSpace, delegation.WithNotBefore(ucan.Now()+100)),
@@ -117,7 +116,7 @@ func TestSpaces(t *testing.T) {
 func TestSpace(t *testing.T) {
 	t.Run("Names returns names from grant metadata", func(t *testing.T) {
 		c := newSpacesClient(t)
-		space := testutil.RandomSigner(t)
+		space := testutil.RandomIssuer(t)
 		require.NoError(t, c.AddProofs(t.Context(),
 			spaceGrant(t, c, space, delegation.WithMetadata(client.SpaceNameMetadata("my cool space"))),
 		))
@@ -130,7 +129,7 @@ func TestSpace(t *testing.T) {
 
 	t.Run("Names is empty when no name metadata is present", func(t *testing.T) {
 		c := newSpacesClient(t)
-		space := testutil.RandomSigner(t)
+		space := testutil.RandomIssuer(t)
 		require.NoError(t, c.AddProofs(t.Context(), spaceGrant(t, c, space)))
 
 		spaces, err := c.Spaces(t.Context())
@@ -141,7 +140,7 @@ func TestSpace(t *testing.T) {
 
 	t.Run("AccessProofs returns the grants for a space", func(t *testing.T) {
 		c := newSpacesClient(t)
-		space := testutil.RandomSigner(t)
+		space := testutil.RandomIssuer(t)
 		grant := spaceGrant(t, c, space)
 		require.NoError(t, c.AddProofs(t.Context(), grant))
 
@@ -157,7 +156,7 @@ func TestSpace(t *testing.T) {
 func TestSpaceNamed(t *testing.T) {
 	t.Run("returns SpaceNotFoundError when no space has the name", func(t *testing.T) {
 		c := newSpacesClient(t)
-		space := testutil.RandomSigner(t)
+		space := testutil.RandomIssuer(t)
 		require.NoError(t, c.AddProofs(t.Context(), spaceGrant(t, c, space, delegation.WithMetadata(client.SpaceNameMetadata("some name")))))
 
 		_, err := c.SpaceNamed(t.Context(), "different name")
@@ -168,7 +167,7 @@ func TestSpaceNamed(t *testing.T) {
 
 	t.Run("returns the space with the matching name", func(t *testing.T) {
 		c := newSpacesClient(t)
-		space := testutil.RandomSigner(t)
+		space := testutil.RandomIssuer(t)
 		require.NoError(t, c.AddProofs(t.Context(), spaceGrant(t, c, space, delegation.WithMetadata(client.SpaceNameMetadata("my space")))))
 
 		result, err := c.SpaceNamed(t.Context(), "my space")
@@ -178,8 +177,8 @@ func TestSpaceNamed(t *testing.T) {
 
 	t.Run("returns MultipleSpacesFoundError when the name is ambiguous", func(t *testing.T) {
 		c := newSpacesClient(t)
-		space1 := testutil.RandomSigner(t)
-		space2 := testutil.RandomSigner(t)
+		space1 := testutil.RandomIssuer(t)
+		space2 := testutil.RandomIssuer(t)
 		require.NoError(t, c.AddProofs(t.Context(),
 			spaceGrant(t, c, space1, delegation.WithMetadata(client.SpaceNameMetadata("shared"))),
 			spaceGrant(t, c, space2, delegation.WithMetadata(client.SpaceNameMetadata("shared"))),

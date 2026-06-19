@@ -17,7 +17,7 @@ import (
 
 func (c *Client) IndexAdd(ctx context.Context, indexCID cid.Cid, space did.DID) error {
 	retrievalAuth, err := contentcmds.Retrieve.Delegate(
-		c.signer,
+		c.issuer,
 		c.serviceID,
 		space,
 		delegation.WithPolicyBuilder(
@@ -27,25 +27,16 @@ func (c *Client) IndexAdd(ctx context.Context, indexCID cid.Cid, space did.DID) 
 	if err != nil {
 		return fmt.Errorf("creating retrieval auth delegation: %w", err)
 	}
-	retrievalProofs, retrievalProofLinks, err := c.ProofChain(ctx, c.signer.DID(), contentcmds.Retrieve.Command, space)
+	retrievalProofs, retrievalProofLinks, err := c.ProofChain(ctx, c.issuer.DID(), contentcmds.Retrieve.Command, space)
 	if err != nil {
 		return fmt.Errorf("building proof chain: %w", err)
 	}
-	retrievalAttestations, err := c.ProofAttestations(ctx, retrievalProofs, c.serviceID)
-	if err != nil {
-		return fmt.Errorf("fetching proof attestations: %w", err)
-	}
-
-	proofs, proofLinks, err := c.ProofChain(ctx, c.signer.DID(), indexcmds.Add.Command, space)
+	proofs, proofLinks, err := c.ProofChain(ctx, c.issuer.DID(), indexcmds.Add.Command, space)
 	if err != nil {
 		return fmt.Errorf("building proof chain: %w", err)
-	}
-	attestations, err := c.ProofAttestations(ctx, proofs, c.serviceID)
-	if err != nil {
-		return fmt.Errorf("fetching proof attestations: %w", err)
 	}
 	inv, err := indexcmds.Add.Invoke(
-		c.signer,
+		c.issuer,
 		space,
 		&indexcmds.AddArguments{Index: indexCID},
 		invocation.WithAudience(c.serviceID),
@@ -63,7 +54,6 @@ func (c *Client) IndexAdd(ctx context.Context, indexCID cid.Cid, space did.DID) 
 		c.ucanClient,
 		inv,
 		execution.WithDelegations(proofs...),
-		execution.WithInvocations(attestations...),
 		execution.WithDelegations(retrievalProofs...),
 		// The leaf delegation (guppy → upload) granting /content/retrieve
 		// on this space must travel with the request — metadata.retrievalAuth
@@ -71,7 +61,6 @@ func (c *Client) IndexAdd(ctx context.Context, indexCID cid.Cid, space did.DID) 
 		// can't reassemble the chain that sprue's PublishIndexClaim needs to
 		// re-delegate to the indexer.
 		execution.WithDelegations(retrievalAuth),
-		execution.WithInvocations(retrievalAttestations...),
 	)
 	if err != nil {
 		return fmt.Errorf("executing invocation: %w", err)

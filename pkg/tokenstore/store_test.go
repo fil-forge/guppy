@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/fil-forge/guppy/pkg/tokenstore"
-	"github.com/fil-forge/ucantone/principal/ed25519"
 	"github.com/fil-forge/ucantone/testutil"
 	"github.com/fil-forge/ucantone/ucan"
 	"github.com/fil-forge/ucantone/ucan/command"
@@ -63,15 +62,15 @@ func testDelegations(t *testing.T, newStore func(t *testing.T) tokenstore.Store)
 
 	t.Run("empty initially", func(t *testing.T) {
 		s := newStore(t)
-		signer := testutil.RandomSigner(t)
-		result := collectDelegations(t, s.ListDelegations(t.Context(), signer.DID(), cmd1, signer.DID()))
+		issuer := testutil.RandomIssuer(t)
+		result := collectDelegations(t, s.ListDelegations(t.Context(), issuer.DID(), cmd1, issuer.DID()))
 		require.Empty(t, result)
 	})
 
 	t.Run("add one delegation", func(t *testing.T) {
 		s := newStore(t)
-		issuer := testutil.RandomSigner(t)
-		aud := testutil.RandomSigner(t)
+		issuer := testutil.RandomIssuer(t)
+		aud := testutil.RandomPrincipal(t)
 
 		dlg, err := delegation.Delegate(issuer, aud.DID(), issuer.DID(), cmd1)
 		require.NoError(t, err)
@@ -85,8 +84,8 @@ func testDelegations(t *testing.T, newStore func(t *testing.T) tokenstore.Store)
 
 	t.Run("add multiple delegations", func(t *testing.T) {
 		s := newStore(t)
-		issuer := testutil.RandomSigner(t)
-		aud := testutil.RandomSigner(t)
+		issuer := testutil.RandomIssuer(t)
+		aud := testutil.RandomPrincipal(t)
 
 		dlg1, err := delegation.Delegate(issuer, aud.DID(), issuer.DID(), cmd1)
 		require.NoError(t, err)
@@ -107,8 +106,8 @@ func testInvocations(t *testing.T, newStore func(t *testing.T) tokenstore.Store)
 
 	t.Run("add invocation does not error", func(t *testing.T) {
 		s := newStore(t)
-		issuer := testutil.RandomSigner(t)
-		sub := testutil.RandomSigner(t)
+		issuer := testutil.RandomIssuer(t)
+		sub := testutil.RandomPrincipal(t)
 
 		inv, err := invocation.Invoke(issuer, sub.DID(), cmd1, testutil.RandomArgs(t))
 		require.NoError(t, err)
@@ -118,8 +117,8 @@ func testInvocations(t *testing.T, newStore func(t *testing.T) tokenstore.Store)
 
 	t.Run("add multiple invocations does not error", func(t *testing.T) {
 		s := newStore(t)
-		issuer := testutil.RandomSigner(t)
-		sub := testutil.RandomSigner(t)
+		issuer := testutil.RandomIssuer(t)
+		sub := testutil.RandomPrincipal(t)
 
 		inv1, err := invocation.Invoke(issuer, sub.DID(), cmd1, testutil.RandomArgs(t))
 		require.NoError(t, err)
@@ -133,7 +132,7 @@ func testInvocations(t *testing.T, newStore func(t *testing.T) tokenstore.Store)
 func testReceipts(t *testing.T, newStore func(t *testing.T) tokenstore.Store) {
 	t.Run("add receipt does not error", func(t *testing.T) {
 		s := newStore(t)
-		executor := testutil.RandomSigner(t)
+		executor := testutil.RandomIssuer(t)
 		ran := testutil.RandomCID(t)
 
 		rcpt, err := receipt.IssueOK(executor, ran, testutil.RandomArgs(t))
@@ -144,7 +143,7 @@ func testReceipts(t *testing.T, newStore func(t *testing.T) tokenstore.Store) {
 
 	t.Run("add multiple receipts does not error", func(t *testing.T) {
 		s := newStore(t)
-		executor := testutil.RandomSigner(t)
+		executor := testutil.RandomIssuer(t)
 
 		rcpt1, err := receipt.IssueOK(executor, testutil.RandomCID(t), testutil.RandomArgs(t))
 		require.NoError(t, err)
@@ -163,9 +162,9 @@ func testListDelegations(t *testing.T, newStore func(t *testing.T) tokenstore.St
 
 	t.Run("filters by audience", func(t *testing.T) {
 		s := newStore(t)
-		issuer := testutil.RandomSigner(t)
-		aud1 := testutil.RandomSigner(t)
-		aud2 := testutil.RandomSigner(t)
+		issuer := testutil.RandomIssuer(t)
+		aud1 := testutil.RandomPrincipal(t)
+		aud2 := testutil.RandomPrincipal(t)
 
 		dlg1, err := delegation.Delegate(issuer, aud1.DID(), issuer.DID(), cmd1)
 		require.NoError(t, err)
@@ -181,8 +180,8 @@ func testListDelegations(t *testing.T, newStore func(t *testing.T) tokenstore.St
 
 	t.Run("filters by command", func(t *testing.T) {
 		s := newStore(t)
-		issuer := testutil.RandomSigner(t)
-		aud := testutil.RandomSigner(t)
+		issuer := testutil.RandomIssuer(t)
+		aud := testutil.RandomPrincipal(t)
 
 		dlg1, err := delegation.Delegate(issuer, aud.DID(), issuer.DID(), cmd1)
 		require.NoError(t, err)
@@ -198,9 +197,9 @@ func testListDelegations(t *testing.T, newStore func(t *testing.T) tokenstore.St
 
 	t.Run("filters by subject", func(t *testing.T) {
 		s := newStore(t)
-		issuer := testutil.RandomSigner(t)
-		aud := testutil.RandomSigner(t)
-		sub2 := testutil.RandomSigner(t)
+		issuer := testutil.RandomIssuer(t)
+		aud := testutil.RandomPrincipal(t)
+		sub2 := testutil.RandomPrincipal(t)
 
 		dlg1, err := delegation.Delegate(issuer, aud.DID(), issuer.DID(), cmd1)
 		require.NoError(t, err)
@@ -227,8 +226,8 @@ func testReset(t *testing.T, newStore func(t *testing.T) tokenstore.Store) {
 
 	t.Run("clears all delegations", func(t *testing.T) {
 		s := newStore(t)
-		issuer := testutil.RandomSigner(t)
-		aud := testutil.RandomSigner(t)
+		issuer := testutil.RandomIssuer(t)
+		aud := testutil.RandomPrincipal(t)
 
 		dlg, err := delegation.Delegate(issuer, aud.DID(), issuer.DID(), cmd1)
 		require.NoError(t, err)
@@ -250,10 +249,8 @@ func TestFsStorePersistence(t *testing.T) {
 
 	dir := t.TempDir()
 
-	issuer, err := ed25519.Generate()
-	require.NoError(t, err)
-	aud, err := ed25519.Generate()
-	require.NoError(t, err)
+	issuer := testutil.RandomIssuer(t)
+	aud := testutil.RandomPrincipal(t)
 
 	dlg, err := delegation.Delegate(issuer, aud.DID(), issuer.DID(), cmd1)
 	require.NoError(t, err)

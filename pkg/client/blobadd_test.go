@@ -16,7 +16,7 @@ import (
 func TestBlobAdd(t *testing.T) {
 	t.Run("adds and PUTs the blob", func(t *testing.T) {
 		ctx := t.Context()
-		space := testutil.RandomSigner(t)
+		space := testutil.RandomIssuer(t)
 		putClient := ctestutil.NewPutClient()
 
 		c := testutil.Must(ctestutil.Client(t, ctestutil.WithBlobAdd(t)))(t)
@@ -39,7 +39,7 @@ func TestBlobAdd(t *testing.T) {
 
 	t.Run("with a pre-existing http/put success receipt, does not PUT", func(t *testing.T) {
 		ctx := t.Context()
-		space := testutil.RandomSigner(t)
+		space := testutil.RandomIssuer(t)
 		putClient := ctestutil.NewPutClient()
 
 		c := testutil.Must(ctestutil.Client(t, ctestutil.WithBlobAddPutReceipt(t)))(t)

@@ -25,8 +25,8 @@ func TestRetrieve(t *testing.T) {
 		dataHash, err := multihash.Sum(testData, multihash.SHA2_256, -1)
 		require.NoError(t, err)
 
-		space := testutil.RandomSigner(t)
-		storageProvider := testutil.RandomSigner(t)
+		space := testutil.RandomIssuer(t)
+		storageProvider := testutil.RandomIssuer(t)
 
 		// In-process retrieval server that serves testData.
 		httpClient := ctestutil.NewRetrievalClient(t, storageProvider, testData)
@@ -63,8 +63,8 @@ func TestRetrieve(t *testing.T) {
 		dataHash, err := multihash.Sum(testData, multihash.SHA2_256, -1)
 		require.NoError(t, err)
 
-		space := testutil.RandomSigner(t)
-		storageProvider := testutil.RandomSigner(t)
+		space := testutil.RandomIssuer(t)
+		storageProvider := testutil.RandomPrincipal(t)
 
 		// A URL that will fail to connect (default HTTP client, no in-process server).
 		badURL := testutil.Must(url.Parse("http://localhost:99999"))(t)

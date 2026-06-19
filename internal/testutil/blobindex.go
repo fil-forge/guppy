@@ -19,8 +19,8 @@ func RandomShardedDagIndexView(t *testing.T, size int) (mh.Multihash, blobindex.
 	index := blobindex.NewShardedDagIndex(size)
 	var lastSlice mh.Multihash
 	for range size {
-		shard := libtestutil.RandomMultihash(t)
-		slice := libtestutil.RandomMultihash(t)
+		shard := libtestutil.RandomDigest(t)
+		slice := libtestutil.RandomDigest(t)
 		index.SetSlice(shard, slice, blobindex.Range{Start: 0, End: 99})
 		lastSlice = slice
 	}

@@ -15,7 +15,6 @@ import (
 	"github.com/fil-forge/libforge/digestutil"
 	libtestutil "github.com/fil-forge/libforge/testutil"
 	"github.com/fil-forge/ucantone/did"
-	"github.com/fil-forge/ucantone/principal/ed25519"
 	"github.com/fil-forge/ucantone/ucan"
 	"github.com/fil-forge/ucantone/ucan/invocation"
 	"github.com/ipfs/go-cid"
@@ -43,7 +42,7 @@ func cborURLs(t *testing.T, strs ...string) []commands.CborURL {
 
 // locationClaim builds an assert/location commitment invocation, as the indexer
 // would return it.
-func locationClaim(t *testing.T, provider ed25519.Signer, space did.DID, content mh.Multihash, urls ...string) ucan.Invocation {
+func locationClaim(t *testing.T, provider ucan.Issuer, space did.DID, content mh.Multihash, urls ...string) ucan.Invocation {
 	t.Helper()
 	return libtestutil.Must(assertcmds.Location.Invoke(
 		provider,
@@ -60,7 +59,7 @@ func locationClaim(t *testing.T, provider ed25519.Signer, space did.DID, content
 // retrieval authorization handed to the indexer.
 func randomDelegation(t *testing.T) ucan.Delegation {
 	t.Helper()
-	s := libtestutil.RandomSigner(t)
+	s := libtestutil.RandomIssuer(t)
 	return libtestutil.Must(uploadcmds.Add.Delegate(s, s.DID(), s.DID()))(t)
 }
 
@@ -77,12 +76,12 @@ func archiveIndex(t *testing.T, index blobindex.ShardedDagIndex) types.Block {
 
 func TestLocator(t *testing.T) {
 	t.Run("locates block from indexer", func(t *testing.T) {
-		blockHash := libtestutil.RandomMultihash(t)
-		shardHash := libtestutil.RandomMultihash(t)
+		blockHash := libtestutil.RandomDigest(t)
+		shardHash := libtestutil.RandomDigest(t)
 
-		space := libtestutil.RandomSigner(t)
-		provider1 := libtestutil.RandomSigner(t)
-		provider2 := libtestutil.RandomSigner(t)
+		space := libtestutil.RandomPrincipal(t)
+		provider1 := libtestutil.RandomIssuer(t)
+		provider2 := libtestutil.RandomIssuer(t)
 
 		claim1 := locationClaim(t, provider1, space.DID(), shardHash,
 			"https://storage1.example.com/block/abc123",
@@ -132,12 +131,12 @@ func TestLocator(t *testing.T) {
 	})
 
 	t.Run("caches unrequested blocks", func(t *testing.T) {
-		block1Hash := libtestutil.RandomMultihash(t)
-		block2Hash := libtestutil.RandomMultihash(t)
-		shardHash := libtestutil.RandomMultihash(t)
+		block1Hash := libtestutil.RandomDigest(t)
+		block2Hash := libtestutil.RandomDigest(t)
+		shardHash := libtestutil.RandomDigest(t)
 
-		space := libtestutil.RandomSigner(t)
-		provider := libtestutil.RandomSigner(t)
+		space := libtestutil.RandomPrincipal(t)
+		provider := libtestutil.RandomIssuer(t)
 
 		claim := locationClaim(t, provider, space.DID(), shardHash, "https://storage.example.com/shard/xyz")
 
@@ -170,13 +169,13 @@ func TestLocator(t *testing.T) {
 	})
 
 	t.Run("location-only query for block in cached index", func(t *testing.T) {
-		block1Hash := libtestutil.RandomMultihash(t)
-		block2Hash := libtestutil.RandomMultihash(t)
-		shard1Hash := libtestutil.RandomMultihash(t)
-		shard2Hash := libtestutil.RandomMultihash(t)
+		block1Hash := libtestutil.RandomDigest(t)
+		block2Hash := libtestutil.RandomDigest(t)
+		shard1Hash := libtestutil.RandomDigest(t)
+		shard2Hash := libtestutil.RandomDigest(t)
 
-		space := libtestutil.RandomSigner(t)
-		provider := libtestutil.RandomSigner(t)
+		space := libtestutil.RandomPrincipal(t)
+		provider := libtestutil.RandomIssuer(t)
 
 		claim1 := locationClaim(t, provider, space.DID(), shard1Hash, "https://storage.example.com/shard1")
 
@@ -210,12 +209,12 @@ func TestLocator(t *testing.T) {
 	})
 
 	t.Run("cache is space-scoped", func(t *testing.T) {
-		blockHash := libtestutil.RandomMultihash(t)
-		shardHash := libtestutil.RandomMultihash(t)
+		blockHash := libtestutil.RandomDigest(t)
+		shardHash := libtestutil.RandomDigest(t)
 
-		space1 := libtestutil.RandomSigner(t)
-		space2 := libtestutil.RandomSigner(t)
-		provider := libtestutil.RandomSigner(t)
+		space1 := libtestutil.RandomPrincipal(t)
+		space2 := libtestutil.RandomPrincipal(t)
+		provider := libtestutil.RandomIssuer(t)
 
 		claim1 := locationClaim(t, provider, space1.DID(), shardHash, "https://storage1.example.com/space1/block")
 		claim2 := locationClaim(t, provider, space2.DID(), shardHash, "https://storage2.example.com/space2/block")
@@ -243,15 +242,15 @@ func TestLocator(t *testing.T) {
 	})
 
 	t.Run("supports multi space locating", func(t *testing.T) {
-		blockDigest1 := libtestutil.RandomMultihash(t)
-		blockDigest2 := libtestutil.RandomMultihash(t)
-		shardDigest1 := libtestutil.RandomMultihash(t)
-		shardDigest2 := libtestutil.RandomMultihash(t)
+		blockDigest1 := libtestutil.RandomDigest(t)
+		blockDigest2 := libtestutil.RandomDigest(t)
+		shardDigest1 := libtestutil.RandomDigest(t)
+		shardDigest2 := libtestutil.RandomDigest(t)
 
-		space1 := libtestutil.RandomSigner(t)
-		space2 := libtestutil.RandomSigner(t)
-		provider1 := libtestutil.RandomSigner(t)
-		provider2 := libtestutil.RandomSigner(t)
+		space1 := libtestutil.RandomPrincipal(t)
+		space2 := libtestutil.RandomPrincipal(t)
+		provider1 := libtestutil.RandomIssuer(t)
+		provider2 := libtestutil.RandomIssuer(t)
 
 		claim1 := locationClaim(t, provider1, space1.DID(), shardDigest1,
 			"https://storage1.example.com/block/abc123",
@@ -310,14 +309,14 @@ func TestLocator(t *testing.T) {
 
 func TestLocateMany(t *testing.T) {
 	t.Run("locates multiple digests at once across two shards", func(t *testing.T) {
-		block1Hash := libtestutil.RandomMultihash(t)
-		block2Hash := libtestutil.RandomMultihash(t)
-		block3Hash := libtestutil.RandomMultihash(t)
-		shard1Hash := libtestutil.RandomMultihash(t)
-		shard2Hash := libtestutil.RandomMultihash(t)
+		block1Hash := libtestutil.RandomDigest(t)
+		block2Hash := libtestutil.RandomDigest(t)
+		block3Hash := libtestutil.RandomDigest(t)
+		shard1Hash := libtestutil.RandomDigest(t)
+		shard2Hash := libtestutil.RandomDigest(t)
 
-		space := libtestutil.RandomSigner(t)
-		provider := libtestutil.RandomSigner(t)
+		space := libtestutil.RandomPrincipal(t)
+		provider := libtestutil.RandomIssuer(t)
 
 		claim1 := locationClaim(t, provider, space.DID(), shard1Hash, "https://storage.example.com/shard1/abc")
 		claim2 := locationClaim(t, provider, space.DID(), shard2Hash, "https://storage.example.com/shard2/def")
@@ -363,12 +362,12 @@ func TestLocateMany(t *testing.T) {
 	})
 
 	t.Run("returns partial results when some blocks not found", func(t *testing.T) {
-		block1Hash := libtestutil.RandomMultihash(t)
-		block2Hash := libtestutil.RandomMultihash(t)
-		shardHash := libtestutil.RandomMultihash(t)
+		block1Hash := libtestutil.RandomDigest(t)
+		block2Hash := libtestutil.RandomDigest(t)
+		shardHash := libtestutil.RandomDigest(t)
 
-		space := libtestutil.RandomSigner(t)
-		provider := libtestutil.RandomSigner(t)
+		space := libtestutil.RandomPrincipal(t)
+		provider := libtestutil.RandomIssuer(t)
 
 		claim := locationClaim(t, provider, space.DID(), shardHash, "https://storage.example.com/shard/abc")
 
@@ -396,14 +395,14 @@ func TestLocateMany(t *testing.T) {
 	})
 
 	t.Run("batches queries for uncached blocks only", func(t *testing.T) {
-		block1Hash := libtestutil.RandomMultihash(t)
-		block2Hash := libtestutil.RandomMultihash(t)
-		block3Hash := libtestutil.RandomMultihash(t)
-		shard1Hash := libtestutil.RandomMultihash(t)
-		shard2Hash := libtestutil.RandomMultihash(t)
+		block1Hash := libtestutil.RandomDigest(t)
+		block2Hash := libtestutil.RandomDigest(t)
+		block3Hash := libtestutil.RandomDigest(t)
+		shard1Hash := libtestutil.RandomDigest(t)
+		shard2Hash := libtestutil.RandomDigest(t)
 
-		space := libtestutil.RandomSigner(t)
-		provider := libtestutil.RandomSigner(t)
+		space := libtestutil.RandomPrincipal(t)
+		provider := libtestutil.RandomIssuer(t)
 
 		claim1 := locationClaim(t, provider, space.DID(), shard1Hash, "https://storage.example.com/shard1/abc")
 		claim2 := locationClaim(t, provider, space.DID(), shard2Hash, "https://storage.example.com/shard2/def")

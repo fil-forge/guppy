@@ -24,8 +24,7 @@ import (
 	"github.com/fil-forge/ucantone/binding"
 	"github.com/fil-forge/ucantone/did"
 	"github.com/fil-forge/ucantone/ipld/datamodel"
-	"github.com/fil-forge/ucantone/principal"
-	"github.com/fil-forge/ucantone/principal/ed25519"
+	"github.com/fil-forge/ucantone/multikey"
 	"github.com/fil-forge/ucantone/server"
 	"github.com/fil-forge/ucantone/transport"
 	"github.com/fil-forge/ucantone/ucan"
@@ -44,7 +43,7 @@ func executeAllocate(
 	t *testing.T,
 	allocateArgs *blobcmds.AllocateArguments,
 	allocateInv ucan.Invocation,
-	storageProvider ucan.Signer,
+	storageProvider ucan.Issuer,
 	blobSize uint64,
 ) ucan.Receipt {
 	putBlobURL := testutil.Must(url.Parse(storageURLPrefix + digestutil.Format(allocateArgs.Blob.Digest)))(t)
@@ -62,7 +61,7 @@ func executeAllocate(
 
 func invokePut(
 	t *testing.T,
-	blobProvider principal.Signer,
+	blobProvider multikey.Issuer,
 	blobDigest multihash.Multihash,
 	blobSize uint64,
 	allocateTask cid.Cid,
@@ -93,8 +92,8 @@ func invokePut(
 
 func invokeAccept(
 	t *testing.T,
-	serviceID ucan.Signer,
-	storageProvider ucan.Signer,
+	serviceID ucan.Issuer,
+	storageProvider ucan.Principal,
 	space did.DID,
 	blobDigest multihash.Multihash,
 	blobSize uint64,
@@ -118,8 +117,7 @@ func invokeAccept(
 
 func invokePDPAccept(
 	t *testing.T,
-	service ucan.Signer,
-	storageProvider ucan.Signer,
+	storageProvider ucan.Issuer,
 	blobDigest multihash.Multihash,
 ) ucan.Invocation {
 	return testutil.Must(
@@ -137,7 +135,7 @@ func invokePDPAccept(
 func executeAccept(
 	t *testing.T,
 	acceptInv ucan.Invocation,
-	storageProvider ucan.Signer,
+	storageProvider ucan.Issuer,
 	space did.DID,
 	blobDigest multihash.Multihash,
 	pdpAcceptTask cid.Cid,
@@ -173,7 +171,7 @@ func executeAccept(
 func executePDPAccept(
 	t *testing.T,
 	pdpAcceptInv ucan.Invocation,
-	storageProvider ucan.Signer,
+	storageProvider ucan.Issuer,
 	blobDigest multihash.Multihash,
 ) ucan.Receipt {
 	// Create mock piece links and inclusion proof for testing
@@ -221,16 +219,15 @@ func executePDPAccept(
 // embedded in the response (simulating a blob that was already uploaded).
 func BlobAddHandler(
 	t *testing.T,
-	serviceID ucan.Signer,
+	serviceID ucan.Issuer,
 	rcptIssued func(task cid.Cid, ct ucan.Container),
 	includePutReceipt bool,
 ) server.Route {
-	storageProvider := testutil.Must(ed25519.Generate())(t)
+	storageProvider := testutil.RandomIssuer(t)
 
 	// TK: why?
 	// random signer rather than the proper derived one
-	//blobProvider, err := ed25519signer.FromSeed([]byte(blobDigest)[len(blobDigest)-32:])
-	blobProvider := testutil.Must(ed25519.Generate())(t)
+	blobProvider := testutil.RandomMultikeyIssuer(t)
 
 	return blobcmds.Add.Route(
 		func(req *binding.Request[*blobcmds.AddArguments], res *binding.Response[*blobcmds.AddOK]) error {
@@ -274,7 +271,6 @@ func BlobAddHandler(
 
 			pdpAcceptInv := invokePDPAccept(
 				t,
-				serviceID,
 				storageProvider,
 				blobDigest,
 			)

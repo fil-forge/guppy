@@ -12,6 +12,7 @@ import (
 	"github.com/fil-forge/guppy/cmd/blob"
 	"github.com/fil-forge/guppy/cmd/unixfs"
 	"github.com/fil-forge/guppy/pkg/presets"
+	"github.com/fil-forge/ucantone/multikey/ed25519"
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -26,7 +27,6 @@ import (
 	"github.com/fil-forge/guppy/cmd/space"
 	"github.com/fil-forge/guppy/cmd/upload"
 	libid "github.com/fil-forge/libforge/identity"
-	"github.com/fil-forge/ucantone/principal/ed25519"
 )
 
 var (
@@ -151,7 +151,7 @@ func initConfig() {
 					if err != nil {
 						log.Fatalf("failed to generate identity: %v", err)
 					}
-					pem, err := libid.EncodeEd25519SignerToPEM(signer)
+					pem, err := libid.EncodeSignerToPEM(signer)
 					if err != nil {
 						log.Fatalf("failed to encode identity to PEM: %v", err)
 					}

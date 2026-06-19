@@ -102,7 +102,7 @@ func SpaceNameMetadata(name string) datamodel.Map {
 // delegation addressed to this agent is a space.
 func (c *Client) Spaces(ctx context.Context) ([]Space, error) {
 	// Get direct delegations to the agent
-	dlgs, err := delegationsForAudience(ctx, c.tokenStore, c.signer.DID())
+	dlgs, err := delegationsForAudience(ctx, c.tokenStore, c.issuer.DID())
 	if err != nil {
 		return nil, fmt.Errorf("getting delegations for agent: %w", err)
 	}

@@ -12,7 +12,7 @@ import (
 	"github.com/fil-forge/libforge/testutil"
 	uclient "github.com/fil-forge/ucantone/client"
 	"github.com/fil-forge/ucantone/did"
-	"github.com/fil-forge/ucantone/principal/ed25519"
+	"github.com/fil-forge/ucantone/multikey/ed25519"
 	"github.com/fil-forge/ucantone/server"
 	"github.com/fil-forge/ucantone/ucan"
 )
@@ -24,7 +24,7 @@ type clientServerConfig struct {
 }
 
 type RouteDeps struct {
-	ServiceID ucan.Signer
+	ServiceID ucan.Issuer
 }
 
 type RouteBuilderFunc func(RouteDeps) server.Route
@@ -59,10 +59,10 @@ func Client(t *testing.T, options ...Option) (*client.Client, error) {
 		opt(config)
 	}
 
-	signer := testutil.Must(ed25519.Generate())(t)
+	issuer := testutil.Must(ed25519.GenerateIssuer())(t)
 
 	serviceID, srv := NewTestServer(t, config.serverOptions...)
-	deps := RouteDeps{ServiceID: signer}
+	deps := RouteDeps{ServiceID: issuer}
 	for _, routeBuilder := range config.serverRoutes {
 		route := routeBuilder(deps)
 		srv.Handle(route.Command, route.Handler)
@@ -76,7 +76,7 @@ func Client(t *testing.T, options ...Option) (*client.Client, error) {
 			uclient.WithHTTPClient(&http.Client{Transport: srv}),
 		),
 	)
-	return client.New(signer, serviceID, *serviceURL, config.clientOptions...)
+	return client.New(issuer, serviceID, *serviceURL, config.clientOptions...)
 }
 
 // ComposeOptions combines multiple options into one. It's written generically

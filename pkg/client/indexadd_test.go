@@ -23,7 +23,7 @@ import (
 func TestIndexAdd(t *testing.T) {
 	t.Run("invokes index/add for the given index", func(t *testing.T) {
 		ctx := t.Context()
-		space := testutil.RandomSigner(t)
+		space := testutil.RandomIssuer(t)
 
 		var capturedIndex cid.Cid
 		var capturedSubject did.DID

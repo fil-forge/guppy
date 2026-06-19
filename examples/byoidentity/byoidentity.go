@@ -10,14 +10,16 @@ import (
 	"github.com/fil-forge/guppy/pkg/tokenstore"
 	uploadcmds "github.com/fil-forge/libforge/commands/upload"
 	"github.com/fil-forge/ucantone/did"
-	"github.com/fil-forge/ucantone/principal/ed25519"
+	"github.com/fil-forge/ucantone/multikey"
+	"github.com/fil-forge/ucantone/multikey/ed25519"
 	"github.com/fil-forge/ucantone/ucan/container"
 )
 
 func main() {
 	// private key to sign invocation UCAN with
 	keybytes, _ := os.ReadFile("path/to/private.key")
-	agent, _ := ed25519.FromRaw(keybytes)
+	agentSigner, _ := ed25519.FromRaw(keybytes)
+	agent := multikey.KeyIssuer(agentSigner)
 
 	// UCAN proof that signer can list uploads in this space (a delegation chain)
 	prfContainerBytes, _ := os.ReadFile("path/to/proof.ucan")

@@ -17,16 +17,12 @@ import (
 // The `space` is the resource the invocation applies to. It is typically the
 // DID of a space.
 func (c *Client) UploadShardList(ctx context.Context, space did.DID, args shardcmds.ListArguments) (*shardcmds.ListOK, error) {
-	proofs, proofLinks, err := c.ProofChain(ctx, c.signer.DID(), shardcmds.List.Command, space)
+	proofs, proofLinks, err := c.ProofChain(ctx, c.issuer.DID(), shardcmds.List.Command, space)
 	if err != nil {
 		return nil, fmt.Errorf("building proof chain: %w", err)
 	}
-	attestations, err := c.ProofAttestations(ctx, proofs, c.serviceID)
-	if err != nil {
-		return nil, fmt.Errorf("fetching proof attestations: %w", err)
-	}
 	inv, err := shardcmds.List.Invoke(
-		c.signer,
+		c.issuer,
 		space,
 		&args,
 		invocation.WithAudience(c.serviceID),
@@ -41,7 +37,6 @@ func (c *Client) UploadShardList(ctx context.Context, space did.DID, args shardc
 		c.ucanClient,
 		inv,
 		execution.WithDelegations(proofs...),
-		execution.WithInvocations(attestations...),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("executing invocation: %w", err)

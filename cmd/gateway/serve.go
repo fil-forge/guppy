@@ -15,7 +15,7 @@ import (
 
 	contentcmds "github.com/fil-forge/libforge/commands/content"
 	"github.com/fil-forge/ucantone/did"
-	uted25519 "github.com/fil-forge/ucantone/principal/ed25519"
+	uted25519 "github.com/fil-forge/ucantone/multikey/ed25519"
 	"github.com/fil-forge/ucantone/ucan"
 	"github.com/ipfs/boxo/blockservice"
 	"github.com/ipfs/boxo/blockstore"
@@ -101,7 +101,6 @@ var serveCmd = &cobra.Command{
 			"Spaces can be specified by DID or by name.",
 		80),
 	RunE: func(cmd *cobra.Command, args []string) error {
-
 		cfg, err := config.Load[config.Config]()
 		if err != nil {
 			return fmt.Errorf("loading config: %w", err)
@@ -115,11 +114,10 @@ var serveCmd = &cobra.Command{
 
 		c := cmdutil.MustGetClient(cfg)
 
-		edSigner, ok := c.Issuer().(uted25519.Signer)
-		if !ok {
-			return fmt.Errorf("agent key is not ed25519")
+		if c.Issuer().Code() != uted25519.Code {
+			return fmt.Errorf("agent key is not ed25519 (got %s)", c.Issuer().Code())
 		}
-		goKey := ed25519.NewKeyFromSeed(edSigner.Raw())
+		goKey := ed25519.NewKeyFromSeed(c.Issuer().Raw())
 		pub, err := crypto.UnmarshalEd25519PublicKey(goKey.Public().(ed25519.PublicKey))
 		cobra.CheckErr(err)
 		peerID, err := peer.IDFromPublicKey(pub)

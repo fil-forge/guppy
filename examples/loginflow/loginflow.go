@@ -8,7 +8,7 @@ import (
 	"github.com/fil-forge/guppy/pkg/presets"
 	uploadcmds "github.com/fil-forge/libforge/commands/upload"
 	"github.com/fil-forge/ucantone/did"
-	"github.com/fil-forge/ucantone/principal/ed25519"
+	"github.com/fil-forge/ucantone/multikey/ed25519"
 )
 
 // Error handling omitted for brevity.
@@ -16,7 +16,7 @@ import (
 func main() {
 	ctx := context.Background()
 
-	agent, _ := ed25519.Generate()
+	agent, _ := ed25519.GenerateIssuer()
 
 	// space to list uploads from
 	space, _ := did.Parse("did:key:z6MkwDuRThQcyWjqNsK54yKAmzfsiH6BTkASyiucThMtHt1y")

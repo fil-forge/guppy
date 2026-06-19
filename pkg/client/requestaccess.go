@@ -18,8 +18,8 @@ import (
 // The [account] is the Account the Agent would like to act as.
 func (c *Client) RequestAccess(ctx context.Context, account did.DID) (*access.RequestOK, error) {
 	inv, err := access.Request.Invoke(
-		c.signer,
-		c.signer.DID(),
+		c.issuer,
+		c.issuer.DID(),
 		&access.RequestArguments{
 			Issuer: account,
 			Attenuations: []access.CapabilityRequest{

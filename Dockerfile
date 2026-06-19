@@ -1,5 +1,5 @@
 # Build stage — native platform for fast cross-compilation
-FROM --platform=$BUILDPLATFORM golang:1.25-bookworm AS build
+FROM --platform=$BUILDPLATFORM golang:1.26-bookworm AS build
 
 ARG TARGETARCH
 ARG TARGETOS=linux

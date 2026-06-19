@@ -11,7 +11,7 @@ import (
 	"github.com/fil-forge/libforge/digestutil"
 	"github.com/fil-forge/libforge/ucan/retrieval"
 	"github.com/fil-forge/ucantone/binding"
-	"github.com/fil-forge/ucantone/principal"
+	"github.com/fil-forge/ucantone/ucan"
 	"github.com/fil-forge/ucantone/ucan/container"
 	"github.com/multiformats/go-multihash"
 	"github.com/stretchr/testify/assert"
@@ -38,7 +38,7 @@ func WithoutHashValidation() RetrievalClientOption {
 // By default it validates that the capability digest (and the URL path hash, when
 // present) match the actual data hash before serving. Use WithoutHashValidation()
 // to disable that for testing client-side validation.
-func NewRetrievalClient(t *testing.T, service principal.Signer, testData []byte, opts ...RetrievalClientOption) *http.Client {
+func NewRetrievalClient(t *testing.T, service ucan.Issuer, testData []byte, opts ...RetrievalClientOption) *http.Client {
 	cfg := retrievalClientConfig{}
 	for _, opt := range opts {
 		opt(&cfg)
