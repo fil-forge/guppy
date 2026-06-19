@@ -1,22 +1,20 @@
 package space
 
 import (
-	"encoding/json"
 	"fmt"
+	"io"
 
 	"github.com/mitchellh/go-wordwrap"
 	"github.com/spf13/cobra"
 
 	"github.com/fil-forge/guppy/internal/cmdutil"
+	"github.com/fil-forge/guppy/internal/output"
 	"github.com/fil-forge/guppy/pkg/config"
 )
 
-var infoFlags struct {
-	jsonOutput bool
-}
-
-func init() {
-	infoCmd.Flags().BoolVar(&infoFlags.jsonOutput, "json", false, "Output in JSON format")
+type spaceInfoResult struct {
+	Space     string   `json:"space"`
+	Providers []string `json:"providers"`
 }
 
 var infoCmd = &cobra.Command{
@@ -44,24 +42,21 @@ var infoCmd = &cobra.Command{
 			return fmt.Errorf("getting space info: %w", err)
 		}
 
-		if infoFlags.jsonOutput {
-			jsonBytes, err := json.Marshal(result)
-			if err != nil {
-				return fmt.Errorf("marshaling output: %w", err)
-			}
-			fmt.Println(string(jsonBytes))
-		} else {
-			fmt.Printf("Space: %s\n", spaceDID)
-			if len(result.Providers) > 0 {
-				fmt.Printf("Providers:\n")
-				for _, provider := range result.Providers {
-					fmt.Printf("  - %s\n", provider)
-				}
-			} else {
-				fmt.Printf("No providers (space not provisioned)\n")
-			}
+		providers := make([]string, 0, len(result.Providers))
+		for _, provider := range result.Providers {
+			providers = append(providers, provider.String())
 		}
 
-		return nil
+		return output.Emit(cmd, spaceInfoResult{Space: spaceDID.String(), Providers: providers}, func(w io.Writer) {
+			fmt.Fprintf(w, "Space: %s\n", spaceDID)
+			if len(providers) > 0 {
+				fmt.Fprintf(w, "Providers:\n")
+				for _, provider := range providers {
+					fmt.Fprintf(w, "  - %s\n", provider)
+				}
+			} else {
+				fmt.Fprintf(w, "No providers (space not provisioned)\n")
+			}
+		})
 	},
 }

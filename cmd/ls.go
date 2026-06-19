@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"io"
 
 	uploadcmds "github.com/fil-forge/libforge/commands/upload"
 	shardcmds "github.com/fil-forge/libforge/commands/upload/shard"
@@ -9,10 +10,16 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/fil-forge/guppy/internal/cmdutil"
+	"github.com/fil-forge/guppy/internal/output"
 	"github.com/fil-forge/guppy/pkg/config"
 )
 
 var shardsPerPage uint64 = 1000
+
+type uploadListItem struct {
+	Root   string   `json:"root"`
+	Shards []string `json:"shards,omitempty"`
+}
 
 var lsFlags struct {
 	proofsPath string
@@ -53,6 +60,7 @@ var lsCmd = &cobra.Command{
 			return err
 		}
 
+		var items []uploadListItem
 		var cursor *string
 		for {
 			listOk, err := c.UploadList(cmd.Context(), spaceDID, uploadcmds.ListArguments{Cursor: cursor})
@@ -61,7 +69,7 @@ var lsCmd = &cobra.Command{
 			}
 
 			for _, r := range listOk.Results {
-				fmt.Printf("%s\n", r.Root)
+				item := uploadListItem{Root: r.Root.String()}
 				if lsFlags.showShards {
 					var shardCursor *string
 					for {
@@ -74,7 +82,7 @@ var lsCmd = &cobra.Command{
 							return fmt.Errorf("listing shards: %w", err)
 						}
 						for _, s := range shardListOk.Results {
-							fmt.Printf("\t%s\n", s)
+							item.Shards = append(item.Shards, s.String())
 						}
 						shardCursor = shardListOk.Cursor
 						if shardCursor == nil {
@@ -82,6 +90,7 @@ var lsCmd = &cobra.Command{
 						}
 					}
 				}
+				items = append(items, item)
 			}
 
 			if listOk.Cursor == nil {
@@ -89,6 +98,14 @@ var lsCmd = &cobra.Command{
 			}
 			cursor = listOk.Cursor
 		}
-		return nil
+
+		return output.Emit(cmd, items, func(w io.Writer) {
+			for _, item := range items {
+				fmt.Fprintf(w, "%s\n", item.Root)
+				for _, s := range item.Shards {
+					fmt.Fprintf(w, "\t%s\n", s)
+				}
+			}
+		})
 	},
 }

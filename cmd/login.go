@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"time"
 
 	"github.com/briandowns/spinner"
@@ -11,9 +12,17 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/fil-forge/guppy/internal/cmdutil"
+	"github.com/fil-forge/guppy/internal/output"
 	"github.com/fil-forge/guppy/pkg/config"
 	"github.com/fil-forge/guppy/pkg/didmailto"
 )
+
+type loginResult struct {
+	Account            string `json:"account"`
+	LoggedIn           bool   `json:"logged_in"`
+	AlreadyLoggedIn    bool   `json:"already_logged_in"`
+	ClaimedDelegations int    `json:"claimed_delegations"`
+}
 
 var loginCmd = &cobra.Command{
 	Use:   "login <account>",
@@ -53,23 +62,29 @@ var loginCmd = &cobra.Command{
 			return fmt.Errorf("requesting access: %w", err)
 		}
 
-		s := spinner.New(spinner.CharSets[14], 100*time.Millisecond) // Spinner: ⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏
-		s.Suffix = fmt.Sprintf(" 🔗 please click the link sent to %s to authorize this agent", email)
-		s.Start()
-		defer s.Stop()
+		// The spinner draws to stdout; in JSON mode stdout is reserved for the
+		// result document, so emit the prompt to stderr and skip the spinner.
+		if output.IsJSON(cmd) {
+			cmd.PrintErrf("🔗 please click the link sent to %s to authorize this agent\n", email)
+		} else {
+			s := spinner.New(spinner.CharSets[14], 100*time.Millisecond) // Spinner: ⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏
+			s.Suffix = fmt.Sprintf(" 🔗 please click the link sent to %s to authorize this agent", email)
+			s.Start()
+			defer s.Stop()
+		}
 
 		resultChan := c.PollClaim(ctx, authOk)
 		res := <-resultChan
 		claim, err := res.Unpack()
 		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) || ctx.Err() != nil {
-			cmd.Println("\nlogin canceled")
-			return nil
+			return output.Emit(cmd, loginResult{Account: accountDid.String()}, func(w io.Writer) {
+				fmt.Fprintln(w, "\nlogin canceled")
+			})
 		}
 		if err != nil {
 			return fmt.Errorf("claiming access: %w", err)
 		}
 
-		fmt.Printf("\nSuccessfully logged in as %s!\n", email)
 		if err := c.AddProofs(ctx, claim.Delegations...); err != nil {
 			return fmt.Errorf("adding proofs: %w", err)
 		}
@@ -91,6 +106,12 @@ var loginCmd = &cobra.Command{
 			}
 		}
 
-		return nil
+		return output.Emit(cmd, loginResult{
+			Account:            accountDid.String(),
+			LoggedIn:           true,
+			ClaimedDelegations: len(accountDelegations),
+		}, func(w io.Writer) {
+			fmt.Fprintf(w, "\nSuccessfully logged in as %s!\n", email)
+		})
 	},
 }

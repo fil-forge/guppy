@@ -2,13 +2,21 @@ package source
 
 import (
 	"fmt"
+	"io"
 
 	"github.com/spf13/cobra"
 
 	"github.com/fil-forge/guppy/internal/cmdutil"
+	"github.com/fil-forge/guppy/internal/output"
 	"github.com/fil-forge/guppy/pkg/config"
 	"github.com/fil-forge/guppy/pkg/preparation"
 )
+
+type sourceItem struct {
+	SourceID string `json:"source_id"`
+	Name     string `json:"name"`
+	Path     string `json:"path"`
+}
 
 var ListCmd = &cobra.Command{
 	Use:     "list <space>",
@@ -46,22 +54,31 @@ var ListCmd = &cobra.Command{
 			return err
 		}
 
-		fmt.Printf("Sources for space %s:\n", spaceDID)
+		items := make([]sourceItem, 0, len(sourceIDs))
 		for _, sourceID := range sourceIDs {
 			source, err := repo.GetSourceByID(ctx, sourceID)
 			if err != nil {
 				return fmt.Errorf("failed to get source by ID %s: %w", sourceID, err)
 			}
-			if source.Name() != source.Path() {
-				fmt.Printf("- %s: %s\n", source.Name(), source.Path())
-			} else {
-				fmt.Printf("- %s\n", source.Path())
-			}
-		}
-		if len(sourceIDs) == 0 {
-			fmt.Printf("No sources found for space %s. Add a source first with:\n\n$ %s %s <path>\n\n", spaceDID, AddCmd.CommandPath(), spaceDID)
+			items = append(items, sourceItem{
+				SourceID: source.ID().String(),
+				Name:     source.Name(),
+				Path:     source.Path(),
+			})
 		}
 
-		return nil
+		return output.Emit(cmd, items, func(w io.Writer) {
+			fmt.Fprintf(w, "Sources for space %s:\n", spaceDID)
+			for _, item := range items {
+				if item.Name != item.Path {
+					fmt.Fprintf(w, "- %s: %s\n", item.Name, item.Path)
+				} else {
+					fmt.Fprintf(w, "- %s\n", item.Path)
+				}
+			}
+			if len(items) == 0 {
+				fmt.Fprintf(w, "No sources found for space %s. Add a source first with:\n\n$ %s %s <path>\n\n", spaceDID, AddCmd.CommandPath(), spaceDID)
+			}
+		})
 	},
 }

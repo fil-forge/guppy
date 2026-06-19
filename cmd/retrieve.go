@@ -17,11 +17,21 @@ import (
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/fil-forge/guppy/internal/cmdutil"
+	"github.com/fil-forge/guppy/internal/output"
 	"github.com/fil-forge/guppy/pkg/client/dagservice"
 	"github.com/fil-forge/guppy/pkg/client/locator"
 	"github.com/fil-forge/guppy/pkg/config"
 	"github.com/fil-forge/guppy/pkg/dagfs"
 )
+
+type retrieveResult struct {
+	OK         bool   `json:"ok"`
+	Space      string `json:"space"`
+	CID        string `json:"cid"`
+	Subpath    string `json:"subpath,omitempty"`
+	OutputPath string `json:"output_path"`
+	Directory  bool   `json:"directory"`
+}
 
 var retrieveCmd = &cobra.Command{
 	Use:     "retrieve <space> <content-path> <output-path>",
@@ -101,7 +111,9 @@ var retrieveCmd = &cobra.Command{
 		defer file.Close()
 
 		// If it's a directory, copy the whole directory. If it's a file, copy the file.
+		var isDir bool
 		if _, ok := file.(fs.ReadDirFile); ok {
+			isDir = true
 			span.SetAttributes(attribute.Bool("retrieval.directory", true))
 			pathedFs, err := fs.Sub(retrievedFs, subpath)
 			if err != nil {
@@ -122,6 +134,14 @@ var retrieveCmd = &cobra.Command{
 			}
 		}
 
-		return nil
+		// Silent on success in text mode (unchanged); a JSON result in json mode.
+		return output.Emit(cmd, retrieveResult{
+			OK:         true,
+			Space:      space.String(),
+			CID:        pathCID.String(),
+			Subpath:    subpath,
+			OutputPath: outputPath,
+			Directory:  isDir,
+		}, nil)
 	},
 }

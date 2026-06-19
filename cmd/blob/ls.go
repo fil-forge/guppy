@@ -1,6 +1,9 @@
 package blob
 
 import (
+	"fmt"
+	"io"
+
 	"github.com/dustin/go-humanize"
 	blobcmds "github.com/fil-forge/libforge/commands/blob"
 	"github.com/fil-forge/libforge/digestutil"
@@ -8,22 +11,26 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/fil-forge/guppy/internal/cmdutil"
+	"github.com/fil-forge/guppy/internal/output"
 	"github.com/fil-forge/guppy/pkg/config"
 )
 
 const pageSize = 1000
 
+type blobItem struct {
+	Digest string `json:"digest"`
+	Size   uint64 `json:"size"`
+}
+
 var lsFlags struct {
 	proofsPath string
 	long       bool
 	human      bool
-	json       bool
 }
 
 func init() {
 	lsCmd.Flags().StringVar(&lsFlags.proofsPath, "proof", "", "Path to a UCAN proof container with proofs for this operation.")
 	lsCmd.Flags().BoolVarP(&lsFlags.long, "long", "l", false, "Display detailed information about blobs.")
-	lsCmd.Flags().BoolVar(&lsFlags.json, "json", false, "Output as newline delimited JSON.")
 	lsCmd.Flags().BoolVarP(&lsFlags.human, "human", "H", false, "Display blob sizes in human-readable format (only applicable with --long).")
 }
 
@@ -54,6 +61,7 @@ var lsCmd = &cobra.Command{
 			return err
 		}
 
+		var items []blobItem
 		var cursor *string
 		size := uint64(pageSize)
 		for {
@@ -63,20 +71,7 @@ var lsCmd = &cobra.Command{
 			}
 
 			for _, r := range listOK.Results {
-				switch {
-				case lsFlags.json:
-					err := r.MarshalDagJSON(cmd.OutOrStdout())
-					if err != nil {
-						return err
-					}
-					cmd.Println("")
-				case lsFlags.long && lsFlags.human:
-					cmd.Printf("%s\t%s\n", digestutil.Format(r.Blob.Digest), humanize.IBytes(r.Blob.Size))
-				case lsFlags.long:
-					cmd.Printf("%s\t%d\n", digestutil.Format(r.Blob.Digest), r.Blob.Size)
-				default:
-					cmd.Println(digestutil.Format(r.Blob.Digest))
-				}
+				items = append(items, blobItem{Digest: digestutil.Format(r.Blob.Digest), Size: r.Blob.Size})
 			}
 
 			if listOK.Cursor == nil {
@@ -84,6 +79,18 @@ var lsCmd = &cobra.Command{
 			}
 			cursor = listOK.Cursor
 		}
-		return nil
+
+		return output.Emit(cmd, items, func(w io.Writer) {
+			for _, item := range items {
+				switch {
+				case lsFlags.long && lsFlags.human:
+					fmt.Fprintf(w, "%s\t%s\n", item.Digest, humanize.IBytes(item.Size))
+				case lsFlags.long:
+					fmt.Fprintf(w, "%s\t%d\n", item.Digest, item.Size)
+				default:
+					fmt.Fprintln(w, item.Digest)
+				}
+			}
+		})
 	},
 }
