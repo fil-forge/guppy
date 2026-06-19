@@ -88,20 +88,6 @@ func (ms *MemStore) matchDelegations(ctx context.Context, aud did.DID, cmd ucan.
 	return ucanlib.NewDelegationMatcher(ms.ListDelegations)(ctx, aud, cmd, sub)
 }
 
-func (ms *MemStore) listInvocations(ctx context.Context, aud did.DID, cmd ucan.Command, sub did.DID) iter.Seq2[ucan.Invocation, error] {
-	return func(yield func(ucan.Invocation, error) bool) {
-		ms.mu.RLock()
-		defer ms.mu.RUnlock()
-		for _, d := range ms.invs {
-			if d.Audience() == aud && d.Command() == cmd && d.Subject() == sub {
-				if !yield(d, nil) {
-					return
-				}
-			}
-		}
-	}
-}
-
 func (ms *MemStore) Reset(ctx context.Context) error {
 	ms.mu.Lock()
 	defer ms.mu.Unlock()
