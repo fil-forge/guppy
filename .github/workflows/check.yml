@@ -10,12 +10,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v7
         with:
           fetch-depth: 1
 
       - name: Set up Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v7
         with:
           go-version-file: "./go.mod"
 
@@ -28,7 +28,7 @@ jobs:
 
       - name: Run staticcheck
         if: success() || failure()
-        uses: dominikh/staticcheck-action@v1.4.0
+        uses: dominikh/staticcheck-action@v1.4.1
         with:
           install-go: false
 
