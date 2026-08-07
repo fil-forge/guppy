@@ -16,7 +16,7 @@ require (
 	github.com/fil-forge/ucantone v0.0.0-20260619013642-7985ec010b88
 	github.com/filecoin-project/go-data-segment v0.0.1
 	github.com/filecoin-project/go-fil-commcid v0.3.1
-	github.com/filecoin-project/go-fil-commp-hashhash v0.2.0
+	github.com/filecoin-project/go-fil-commp-hashhash v0.4.0
 	github.com/go-playground/validator/v10 v10.30.1
 	github.com/google/uuid v1.6.0
 	github.com/grafana/otel-profiling-go v0.6.0
