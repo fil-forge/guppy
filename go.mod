@@ -20,7 +20,7 @@ require (
 	github.com/go-playground/validator/v10 v10.30.1
 	github.com/google/uuid v1.6.0
 	github.com/grafana/otel-profiling-go v0.6.0
-	github.com/grafana/pyroscope-go v1.2.7
+	github.com/grafana/pyroscope-go v1.4.1
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/ipfs/boxo v0.42.1
 	github.com/ipfs/go-block-format v0.2.4
@@ -174,7 +174,7 @@ require (
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/google/pprof v0.0.0-20250820193118-f64d9cf942d6 // indirect
-	github.com/grafana/pyroscope-go/godeltaprof v0.1.9 // indirect
+	github.com/grafana/pyroscope-go/godeltaprof v0.1.11 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.29.0 // indirect
 	github.com/hannahhoward/cbor-gen-for v0.0.0-20230214144701-5d17c9d5243c // indirect
 	github.com/hashicorp/golang-lru v1.0.2 // indirect
