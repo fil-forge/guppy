@@ -12,8 +12,8 @@ require (
 	github.com/dgraph-io/badger v1.6.2
 	github.com/dustin/go-humanize v1.0.1
 	github.com/fil-forge/indexing-service v1.13.5-0.20260619142411-efe3f5fab717
-	github.com/fil-forge/libforge v0.0.0-20260630210927-2b55dbcf944f
-	github.com/fil-forge/ucantone v0.0.0-20260619013642-7985ec010b88
+	github.com/fil-forge/libforge v0.0.0-20260807225550-3e6895b41be5
+	github.com/fil-forge/ucantone v0.0.0-20260817170631-3a20cd59fabc
 	github.com/filecoin-project/go-data-segment v0.0.1
 	github.com/filecoin-project/go-fil-commcid v0.3.1
 	github.com/filecoin-project/go-fil-commp-hashhash v0.4.0
@@ -64,7 +64,7 @@ require (
 	github.com/ClickHouse/ch-go v0.73.0 // indirect
 	github.com/ClickHouse/clickhouse-go/v2 v2.47.0 // indirect
 	github.com/Jorropo/jsync v1.0.1 // indirect
-	github.com/alanshaw/dag-json-gen v0.0.6 // indirect
+	github.com/alanshaw/dag-json-gen v0.0.8 // indirect
 	github.com/andybalholm/brotli v1.2.2 // indirect
 	github.com/antlr4-go/antlr/v4 v4.13.1 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
@@ -153,7 +153,7 @@ require (
 	golang.org/x/time v0.15.0 // indirect
 	gonum.org/v1/gonum v0.17.0 // indirect
 	howett.net/plist v1.0.1 // indirect
-	pitr.ca/jsontokenizer v0.3.0 // indirect
+	pitr.ca/jsontokenizer v0.3.2 // indirect
 )
 
 require (
