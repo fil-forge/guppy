@@ -367,7 +367,7 @@ func (c *Client) sendPutReceipt(ctx context.Context, putInv ucan.Invocation, opt
 		c.issuer,
 		c.issuer.DID(),
 		&ucancmds.ConcludeArguments{
-			Receipt: putRcpt.Link(),
+			Receipts: []cid.Cid{putRcpt.Link()},
 		},
 		invocation.WithAudience(c.serviceID),
 	)
