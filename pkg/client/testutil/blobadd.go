@@ -366,6 +366,30 @@ func WithBlobAddPutReceipt(t *testing.T) Option {
 	return withBlobAdd(t, true)
 }
 
+// checkConcludedReceipts verifies a /ucan/conclude invocation delivered at
+// least one receipt and that every link it names is actually carried in the
+// request container, as the conclusion capability requires.
+func checkConcludedReceipts(links []cid.Cid, ct ucan.Container) error {
+	if len(links) == 0 {
+		return fmt.Errorf("conclude delivered no receipts")
+	}
+	for _, link := range links {
+		found := false
+		if ct != nil {
+			for _, rcpt := range ct.Receipts() {
+				if rcpt.Link() == link {
+					found = true
+					break
+				}
+			}
+		}
+		if !found {
+			return fmt.Errorf("conclude names receipt %s, which is not in the request container", link)
+		}
+	}
+	return nil
+}
+
 func withBlobAdd(t *testing.T, includePutReceipt bool) Option {
 	receiptsTrans := receiptsTransport{
 		receipts: map[cid.Cid]ucan.Container{},
@@ -388,6 +412,14 @@ func withBlobAdd(t *testing.T, includePutReceipt bool) Option {
 			func(_ RouteDeps) server.Route {
 				return ucancmds.Conclude.Route(
 					func(req *binding.Request[*ucancmds.ConcludeArguments], res *binding.Response[*ucancmds.ConcludeOK]) error {
+						// Check what was delivered, not just that something
+						// was: a handler that ignored these arguments would
+						// stay green if the client sent an empty or wrong
+						// receipts list, which is exactly what the wire
+						// format needs protecting against.
+						if err := checkConcludedReceipts(req.Task().Arguments().Receipts, req.Metadata()); err != nil {
+							return err
+						}
 						return res.SetSuccess(&ucancmds.ConcludeOK{})
 					},
 				)

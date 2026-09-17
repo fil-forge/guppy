@@ -1,6 +1,6 @@
 # Guppy — Agent Guide
 
-Go client library and CLI for the Storacha network, built for enterprise-scale, resumable uploads with parallel processing. Module: `github.com/fil-forge/guppy` (Go 1.26). Compare with the JS `@storacha/cli`: guppy targets large, long-running, restartable uploads backed by a local database rather than one-shot web workflows.
+Go client library and CLI for the Storacha network, built for enterprise-scale, resumable uploads with parallel processing. Module: `github.com/fil-forge/guppy` (Go 1.27). Compare with the JS `@storacha/cli`: guppy targets large, long-running, restartable uploads backed by a local database rather than one-shot web workflows.
 
 ## Quick Reference
 
