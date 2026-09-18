@@ -62,7 +62,7 @@ require (
 	go.opentelemetry.io/otel/trace v1.46.0
 	go.uber.org/zap v1.28.0
 	golang.org/x/sync v0.23.0
-	modernc.org/sqlite v1.58.0
+	modernc.org/sqlite v1.59.0
 )
 
 require (
@@ -237,7 +237,7 @@ require (
 	google.golang.org/protobuf v1.36.12 // indirect
 	howett.net/plist v1.0.1 // indirect
 	lukechampine.com/blake3 v1.4.1 // indirect
-	modernc.org/libc v1.75.6 // indirect
+	modernc.org/libc v1.75.7 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.12.1 // indirect
 	pitr.ca/jsontokenizer v0.3.2 // indirect
