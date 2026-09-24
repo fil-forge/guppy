@@ -12,8 +12,8 @@ require (
 	github.com/dgraph-io/badger v1.6.2
 	github.com/dustin/go-humanize v1.0.1
 	github.com/fil-forge/indexing-service v1.13.5-0.20260619142411-efe3f5fab717
-	github.com/fil-forge/libforge v0.0.0-20260917175304-96b4969f0476
-	github.com/fil-forge/ucantone v0.0.0-20260827134420-25cf8340b9a1
+	github.com/fil-forge/libforge v0.0.0-20260924165456-6d072ddc75f7
+	github.com/fil-forge/ucantone v0.0.0-20260924160040-c31dec73d9b3
 	github.com/filecoin-project/go-data-segment v0.0.1
 	github.com/filecoin-project/go-fil-commcid v0.3.1
 	github.com/filecoin-project/go-fil-commp-hashhash v0.4.0
