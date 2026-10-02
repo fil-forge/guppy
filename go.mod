@@ -35,7 +35,7 @@ require (
 	github.com/ipld/go-codec-dagpb v1.7.0
 	github.com/ipld/go-ipld-prime v0.24.0
 	github.com/jmoiron/sqlx v1.4.0
-	github.com/labstack/echo/v4 v4.15.4
+	github.com/labstack/echo/v4 v4.16.0
 	github.com/lib/pq v1.12.3
 	github.com/libp2p/go-libp2p v0.49.0
 	github.com/mattn/go-isatty v0.0.24
@@ -62,7 +62,7 @@ require (
 	go.opentelemetry.io/otel/trace v1.46.0
 	go.uber.org/zap v1.28.0
 	golang.org/x/sync v0.23.0
-	modernc.org/sqlite v1.59.0
+	modernc.org/sqlite v1.60.1
 )
 
 require (
@@ -237,7 +237,7 @@ require (
 	google.golang.org/protobuf v1.36.12 // indirect
 	howett.net/plist v1.0.1 // indirect
 	lukechampine.com/blake3 v1.4.1 // indirect
-	modernc.org/libc v1.75.7 // indirect
+	modernc.org/libc v1.77.1 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.12.1 // indirect
 	pitr.ca/jsontokenizer v0.3.2 // indirect
