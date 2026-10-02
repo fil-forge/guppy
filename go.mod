@@ -35,7 +35,7 @@ require (
 	github.com/ipld/go-codec-dagpb v1.7.0
 	github.com/ipld/go-ipld-prime v0.24.0
 	github.com/jmoiron/sqlx v1.4.0
-	github.com/labstack/echo/v4 v4.15.4
+	github.com/labstack/echo/v4 v4.16.0
 	github.com/lib/pq v1.12.3
 	github.com/libp2p/go-libp2p v0.49.0
 	github.com/mattn/go-isatty v0.0.24
