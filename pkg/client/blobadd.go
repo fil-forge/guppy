@@ -165,10 +165,7 @@ func (c *Client) BlobAdd(ctx context.Context, content io.Reader, space did.DID, 
 		c.issuer,
 		space,
 		&blobcmds.AddArguments{
-			Blob: blobcmds.Blob{
-				Digest: contentHash,
-				Size:   *contentSizePtr,
-			},
+			Blob: blobcmds.SpecFromDigest(contentHash, *contentSizePtr),
 		},
 		invocation.WithAudience(c.serviceID),
 		invocation.WithProofs(proofLinks...),

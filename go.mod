@@ -12,7 +12,7 @@ require (
 	github.com/dgraph-io/badger v1.6.2
 	github.com/dustin/go-humanize v1.1.0
 	github.com/fil-forge/indexing-service v1.13.5-0.20260619142411-efe3f5fab717
-	github.com/fil-forge/libforge v0.0.0-20260924165456-6d072ddc75f7
+	github.com/fil-forge/libforge v0.0.0-20261001200856-b2db386b1f96
 	github.com/fil-forge/ucantone v0.0.0-20260924160040-c31dec73d9b3
 	github.com/filecoin-project/go-data-segment v0.0.1
 	github.com/filecoin-project/go-fil-commcid v0.3.1
@@ -75,7 +75,7 @@ require (
 	github.com/ClickHouse/ch-go v0.74.0 // indirect
 	github.com/ClickHouse/clickhouse-go/v2 v2.48.0 // indirect
 	github.com/Jorropo/jsync v1.0.1 // indirect
-	github.com/alanshaw/dag-json-gen v0.0.9 // indirect
+	github.com/alanshaw/dag-json-gen v0.0.10 // indirect
 	github.com/andybalholm/brotli v1.2.3 // indirect
 	github.com/antlr4-go/antlr/v4 v4.13.1 // indirect
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect

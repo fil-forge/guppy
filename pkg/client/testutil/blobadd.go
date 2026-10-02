@@ -46,7 +46,8 @@ func executeAllocate(
 	storageProvider ucan.Issuer,
 	blobSize uint64,
 ) ucan.Receipt {
-	putBlobURL := testutil.Must(url.Parse(storageURLPrefix + digestutil.Format(allocateArgs.Blob.Digest)))(t)
+	digest, _ := allocateArgs.Blob.Digest()
+	putBlobURL := testutil.Must(url.Parse(storageURLPrefix + digestutil.Format(digest)))(t)
 	return testutil.Must(
 		receipt.IssueOK(storageProvider, allocateInv.Task().Link(), &blobcmds.AllocateOK{
 			Size: blobSize,
@@ -70,10 +71,7 @@ func invokePut(
 		blobProvider,
 		blobProvider.DID(),
 		&httpcmds.PutArguments{
-			Body: blobcmds.Blob{
-				Digest: blobDigest,
-				Size:   blobSize,
-			},
+			Body:        blobcmds.SpecFromDigest(blobDigest, blobSize),
 			Destination: promise.AwaitOK{Task: allocateTask},
 		},
 		invocation.WithAudience(blobProvider.DID()),
@@ -104,11 +102,8 @@ func invokeAccept(
 			serviceID,
 			space,
 			&blobcmds.AcceptArguments{
-				Blob: blobcmds.Blob{
-					Digest: blobDigest,
-					Size:   blobSize,
-				},
-				Put: promise.AwaitOK{Task: httpPutTask},
+				Blob: blobcmds.SpecFromDigest(blobDigest, blobSize),
+				Put:  promise.AwaitOK{Task: httpPutTask},
 			},
 			invocation.WithAudience(storageProvider.DID()),
 		),
@@ -234,11 +229,15 @@ func BlobAddHandler(
 			args := req.Task().Arguments()
 			inv := req.Invocation()
 			space := req.Invocation().Subject()
-			blobDigest := args.Blob.Digest
-			blobSize := args.Blob.Size
+			// The fake adds blobs by digest only, as guppy does.
+			blobDigest, ok := args.Blob.Digest()
+			if !ok {
+				return res.SetFailure(blobcmds.ErrUnsupportedDigestCode)
+			}
+			blobSize := args.Blob.Size()
 
 			allocateArgs := blobcmds.AllocateArguments{
-				Blob:  blobcmds.Blob{Digest: blobDigest, Size: blobSize},
+				Blob:  args.Blob,
 				Cause: inv.Task().Link(),
 			}
 			allocateInv := testutil.Must(blobcmds.Allocate.Invoke(
