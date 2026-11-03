@@ -65,7 +65,7 @@ func Client(t *testing.T, options ...Option) (*client.Client, error) {
 	deps := RouteDeps{ServiceID: issuer}
 	for _, routeBuilder := range config.serverRoutes {
 		route := routeBuilder(deps)
-		srv.Handle(route.Command, route.Handler)
+		srv.HandleRoute(route)
 	}
 	// placeholder - client is attached directly via HTTP transport
 	serviceURL := testutil.Must(url.Parse("http://localhost"))(t)

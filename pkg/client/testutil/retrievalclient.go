@@ -98,7 +98,7 @@ func NewRetrievalClient(t *testing.T, service ucan.Issuer, testData []byte, opts
 			return res.SetSuccess(&contentcmds.RetrieveOK{})
 		},
 	)
-	srv.Handle(route.Command, route.Handler)
+	srv.HandleRoute(route)
 
 	// The retrieval server is itself an http.RoundTripper, so an http.Client
 	// using it as transport talks to it in-process.
