@@ -151,8 +151,8 @@ github.com/fil-forge/indexing-service v1.13.5-0.20260619142411-efe3f5fab717 h1:W
 github.com/fil-forge/indexing-service v1.13.5-0.20260619142411-efe3f5fab717/go.mod h1:wFcakLohOqpMRkJzWRdGFGHRFpGB+PpEMCm9wkt2cqU=
 github.com/fil-forge/libforge v0.0.0-20261001200856-b2db386b1f96 h1:aeRNL0QKMNHa+LWX445Fn5PTScYciR4fDVvTb/cPBjU=
 github.com/fil-forge/libforge v0.0.0-20261001200856-b2db386b1f96/go.mod h1:sKml7ScjN2ov8F7jTuBIv823EgyWGTJG6cvA8ronPk4=
-github.com/fil-forge/ucantone v0.0.0-20261103133028-6757b7886577 h1:Ibju2Px8HT3P1f2amacgTuAIzFUVQOHyH2HfJV9q8K0=
-github.com/fil-forge/ucantone v0.0.0-20261103133028-6757b7886577/go.mod h1:430/+X2LtJhgc4yMsoRhMImJ4fdWDpaaubS3v55F6kA=
+github.com/fil-forge/ucantone v0.0.0-20261103134646-342e8488c56a h1:RmV9ClZWftnSW5jDMC6Xtb55wNkdz2j07+pR6eiaQbg=
+github.com/fil-forge/ucantone v0.0.0-20261103134646-342e8488c56a/go.mod h1:430/+X2LtJhgc4yMsoRhMImJ4fdWDpaaubS3v55F6kA=
 github.com/filecoin-project/go-clock v0.1.0 h1:SFbYIM75M8NnFm1yMHhN9Ahy3W5bEZV9gd6MPfXbKVU=
 github.com/filecoin-project/go-clock v0.1.0/go.mod h1:4uB/O4PvOjlx1VCMdZ9MyDZXRm//gkj1ELEbxfI1AZs=
 github.com/filecoin-project/go-data-segment v0.0.1 h1:1wmDxOG4ubWQm3ZC1XI5nCon5qgSq7Ra3Rb6Dbu10Gs=

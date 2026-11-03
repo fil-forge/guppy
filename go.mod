@@ -13,7 +13,7 @@ require (
 	github.com/dustin/go-humanize v1.1.0
 	github.com/fil-forge/indexing-service v1.13.5-0.20260619142411-efe3f5fab717
 	github.com/fil-forge/libforge v0.0.0-20261001200856-b2db386b1f96
-	github.com/fil-forge/ucantone v0.0.0-20261103133028-6757b7886577
+	github.com/fil-forge/ucantone v0.0.0-20261103134646-342e8488c56a
 	github.com/filecoin-project/go-data-segment v0.0.1
 	github.com/filecoin-project/go-fil-commcid v0.3.1
 	github.com/filecoin-project/go-fil-commp-hashhash v0.4.0
