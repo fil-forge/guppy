@@ -151,8 +151,8 @@ github.com/fil-forge/indexing-service v1.13.5-0.20260619142411-efe3f5fab717 h1:W
 github.com/fil-forge/indexing-service v1.13.5-0.20260619142411-efe3f5fab717/go.mod h1:wFcakLohOqpMRkJzWRdGFGHRFpGB+PpEMCm9wkt2cqU=
 github.com/fil-forge/libforge v0.0.0-20261001200856-b2db386b1f96 h1:aeRNL0QKMNHa+LWX445Fn5PTScYciR4fDVvTb/cPBjU=
 github.com/fil-forge/libforge v0.0.0-20261001200856-b2db386b1f96/go.mod h1:sKml7ScjN2ov8F7jTuBIv823EgyWGTJG6cvA8ronPk4=
-github.com/fil-forge/ucantone v0.0.0-20261103134646-342e8488c56a h1:RmV9ClZWftnSW5jDMC6Xtb55wNkdz2j07+pR6eiaQbg=
-github.com/fil-forge/ucantone v0.0.0-20261103134646-342e8488c56a/go.mod h1:430/+X2LtJhgc4yMsoRhMImJ4fdWDpaaubS3v55F6kA=
+github.com/fil-forge/ucantone v0.0.0-20261120104359-4253712d41e4 h1:2hQIpdhNOu0QKY1rpdsYnJRtNG/0MklyETPraR/ms+Y=
+github.com/fil-forge/ucantone v0.0.0-20261120104359-4253712d41e4/go.mod h1:PJe9Lcv+QWawlM29ItA9y5JzFIs37gZ3jODxYKXbQkM=
 github.com/filecoin-project/go-clock v0.1.0 h1:SFbYIM75M8NnFm1yMHhN9Ahy3W5bEZV9gd6MPfXbKVU=
 github.com/filecoin-project/go-clock v0.1.0/go.mod h1:4uB/O4PvOjlx1VCMdZ9MyDZXRm//gkj1ELEbxfI1AZs=
 github.com/filecoin-project/go-data-segment v0.0.1 h1:1wmDxOG4ubWQm3ZC1XI5nCon5qgSq7Ra3Rb6Dbu10Gs=
@@ -200,8 +200,8 @@ github.com/go-sql-driver/mysql v1.10.1/go.mod h1:M+cqaI7+xxXGG9swrdeUIoPG3Y3KCkF
 github.com/go-task/slim-sprig v0.0.0-20210107165309-348f09dbbbc0/go.mod h1:fyg7847qk6SyHyPtNmDHnmrv/HOrqktSC+C9fM+CJOE=
 github.com/go-viper/mapstructure/v2 v2.5.0 h1:vM5IJoUAy3d7zRSVtIwQgBj7BiWtMPfmPEgAXnvj1Ro=
 github.com/go-viper/mapstructure/v2 v2.5.0/go.mod h1:oJDH3BJKyqBA2TXFhDsKDGDTlndYOZ6rGS0BRZIxGhM=
-github.com/gobwas/glob v0.2.3 h1:A4xDbljILXROh+kObIiy5kIaPYD8e96x1tgBhUI5J+Y=
-github.com/gobwas/glob v0.2.3/go.mod h1:d3Ez4x06l9bZtSvzIay5+Yzi0fmZzPgnTbPcKjJAkT8=
+github.com/gobwas/glob v1.1.0 h1:CS8tIr7+5fu50N+tKsQy3osOU5jmhjHv0/ildcKAn2Q=
+github.com/gobwas/glob v1.1.0/go.mod h1:5OYLTTNYHcww+D/XwWAjGpmIE8sD41kWneKyzWkK7/k=
 github.com/golang-jwt/jwt/v4 v4.5.2 h1:YtQM7lnr8iZ+j5q71MGKkNw9Mn7AjHM68uc9g5fXeUI=
 github.com/golang-jwt/jwt/v4 v4.5.2/go.mod h1:m21LjoU+eqJr34lmDMbreY2eSTRJ1cv77w39/MY0Ch0=
 github.com/golang-jwt/jwt/v5 v5.3.1 h1:kYf81DTWFe7t+1VvL7eS+jKFVWaUnK9cB1qbwn63YCY=
