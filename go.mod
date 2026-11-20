@@ -13,7 +13,7 @@ require (
 	github.com/dustin/go-humanize v1.1.0
 	github.com/fil-forge/indexing-service v1.13.5-0.20260619142411-efe3f5fab717
 	github.com/fil-forge/libforge v0.0.0-20261001200856-b2db386b1f96
-	github.com/fil-forge/ucantone v0.0.0-20261103134646-342e8488c56a
+	github.com/fil-forge/ucantone v0.0.0-20261120104359-4253712d41e4
 	github.com/filecoin-project/go-data-segment v0.0.1
 	github.com/filecoin-project/go-fil-commcid v0.3.1
 	github.com/filecoin-project/go-fil-commp-hashhash v0.4.0
@@ -110,7 +110,7 @@ require (
 	github.com/go-playground/universal-translator v0.18.2 // indirect
 	github.com/go-sql-driver/mysql v1.10.1 // indirect
 	github.com/go-viper/mapstructure/v2 v2.5.0 // indirect
-	github.com/gobwas/glob v0.2.3 // indirect
+	github.com/gobwas/glob v1.1.0 // indirect
 	github.com/golang-jwt/jwt/v4 v4.5.2 // indirect
 	github.com/golang-jwt/jwt/v5 v5.3.1 // indirect
 	github.com/golang-sql/civil v0.0.0-20220223132316-b832511892a9 // indirect
