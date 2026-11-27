@@ -62,7 +62,7 @@ require (
 	go.opentelemetry.io/otel/trace v1.47.0
 	go.uber.org/zap v1.28.0
 	golang.org/x/sync v0.25.0
-	modernc.org/sqlite v1.62.0
+	modernc.org/sqlite v1.63.0
 )
 
 require (
